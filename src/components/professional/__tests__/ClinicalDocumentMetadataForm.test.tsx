@@ -38,7 +38,16 @@ const file = {
   fileSize: 120,
 };
 
-test("signed treatment consent stays distinct from HERA authorization and its metadata links to the selected history entry", async () => {
+test("treatment upload opens the single consent section instead of ordinary document upload", async () => {
+  jest.mocked(searchDocuments).mockResolvedValue({ items: [], pageInfo: { limit: 10, total: 0, hasMore: false, nextCursor: null }, filters: { authors: [], tags: [] } });
+  const onConsent = jest.fn();
+  render(<ClinicalDocumentsWorkspace clientId="patient" token="clinical-token" writable uploadRequest={{ id: 2, classification: "TREATMENT_CONSENT" }} onUploadConsumed={jest.fn()} onChanged={jest.fn()} onError={jest.fn()} onParent={jest.fn()} onConsent={onConsent} />);
+  expect(onConsent).toHaveBeenCalledTimes(1);
+  expect(screen.queryByText("Seleccionar archivos")).toBeNull();
+  await screen.findByText("No hay documentos que coincidan con estos filtros.");
+});
+
+test("ordinary report metadata links to the selected history entry", async () => {
   jest.mocked(searchDocuments).mockResolvedValue({
     items: [],
     pageInfo: { limit: 10, total: 0, hasMore: false, nextCursor: null },
@@ -52,7 +61,7 @@ test("signed treatment consent stays distinct from HERA authorization and its me
     sizeBytes: 120,
     uploadedAt: "2026-10-24T10:00:00.000Z",
     category: "GENERAL",
-    classification: "TREATMENT_CONSENT",
+    classification: "REPORT",
     historyEntryId: "history-entry",
   });
   render(
@@ -63,7 +72,7 @@ test("signed treatment consent stays distinct from HERA authorization and its me
       uploadRequest={{
         id: 1,
         historyEntryId: "history-entry",
-        classification: "TREATMENT_CONSENT",
+        classification: "REPORT",
       }}
       onUploadConsumed={jest.fn()}
       onChanged={jest.fn()}
@@ -71,11 +80,9 @@ test("signed treatment consent stays distinct from HERA authorization and its me
       onParent={jest.fn()}
     />,
   );
+
   expect(
-    screen.getByText(/no concede la autorización clínica HERA/),
-  ).toBeTruthy();
-  expect(
-    screen.getByText(/PDF firmado · Hasta 15 MB por archivo/),
+    screen.getByText(/PDF, DOCX e imágenes · Hasta 15 MB por archivo/),
   ).toBeTruthy();
   expect(screen.getByText("Descripción · Opcional")).toBeTruthy();
   await screen.findByText("No hay documentos que coincidan con estos filtros.");
@@ -96,7 +103,7 @@ test("signed treatment consent stays distinct from HERA authorization and its me
       undefined,
       {
         historyEntryId: "history-entry",
-        classification: "TREATMENT_CONSENT",
+        classification: "REPORT",
         description: "Documento firmado registrado por el profesional",
       },
     ),

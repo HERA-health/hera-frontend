@@ -30,7 +30,6 @@ export function PatientGeneralPanel({
   onRefresh,
   onEditBilling,
   onConsent,
-  onOpenDocument,
   onSession,
   onPayments,
   editRequest,
@@ -46,7 +45,6 @@ export function PatientGeneralPanel({
   onRefresh: () => Promise<void>;
   onEditBilling: () => void;
   onConsent: () => void;
-  onOpenDocument: (id: string) => void;
   onSession: (id: string) => void;
   onPayments: () => void;
   editRequest?: number;
@@ -224,56 +222,16 @@ export function PatientGeneralPanel({
                     : "En seguimiento"}
               </Badge>
             </Field>
-            <Field label="Autorización clínica HERA">
-              <Badge
-                tone={
-                  summary?.authorizationStatus === "GRANTED"
-                    ? "success"
-                    : "warning"
-                }
-              >
-                {summary
-                  ? {
-                      GRANTED: "Concedida",
-                      PENDING: "Pendiente",
-                      REVOKED: "Retirada",
-                    }[summary.authorizationStatus]
-                  : "Consultando…"}
+            <Field label="Consentimiento informado">
+              <Badge tone={summary?.informedConsent?.status === 'SIGNED' ? 'success' : 'warning'}>
+                {summary?.informedConsent ? { PENDING: 'Pendiente', SENT: 'Enviado', SIGNED: 'Firmado', WITHDRAWN: 'Retirado' }[summary.informedConsent.status] : 'No disponible'}
               </Badge>
             </Field>
-            <Button size="small" variant="ghost" onPress={onConsent}>
-              Gestionar autorización HERA
-            </Button>
-            <Field
-              label="Consentimiento del tratamiento"
-              value={
-                summary?.treatmentConsent
-                  ? `Documento firmado registrado · ${patientDate(summary.treatmentConsent.uploadedAt)}`
-                  : summary
-                    ? "Sin documento registrado"
-                    : "No disponible"
-              }
-            />
-            <Button
-              size="small"
-              variant="outline"
-              disabled={
-                !summary ||
-                Boolean(
-                  !summary.treatmentConsent &&
-                  (summary.closedAt || client.archivedAt),
-                )
-              }
-              onPress={() =>
-                summary?.treatmentConsent
-                  ? onOpenDocument(summary.treatmentConsent.id)
-                  : onOpenDocument("")
-              }
-            >
-              {summary?.treatmentConsent
-                ? "Ver documento protegido"
-                : "Registrar PDF firmado"}
-            </Button>
+            {summary?.informedConsent?.recordedAt ? <Field
+              label={summary.informedConsent.method === 'UPLOADED_PDF' ? 'PDF aportado por el profesional' : 'Aceptación digital'}
+              value={`Registrado el ${patientDate(summary.informedConsent.recordedAt)}`}
+            /> : null}
+            <Button size="small" variant="outline" onPress={onConsent}>Gestionar consentimiento informado</Button>
             <Field
               label="Procedencia / Origen"
               value={

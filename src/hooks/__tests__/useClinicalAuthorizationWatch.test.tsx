@@ -6,16 +6,16 @@ jest.mock('@react-navigation/native', () => ({ useFocusEffect: (effect: () => vo
 jest.mock('../../services/clinicalService', () => ({ getClinicalAuthorization: jest.fn() }));
 beforeEach(() => { jest.useFakeTimers(); jest.clearAllMocks(); });
 afterEach(() => jest.useRealTimers());
-const options = () => ({ clientId: 'patient', token: 'access', status: 'GRANTED' as const, closedAt: null, requestPending: false, onRefresh: jest.fn(async () => undefined), onAccessLost: jest.fn() });
+const options = () => ({ clientId: 'patient', token: 'access', treatmentEventId: null, closedAt: null, requestPending: false, onRefresh: jest.fn(async () => undefined), onAccessLost: jest.fn() });
 
-test('unchanged authorization does not reset the workspace; withdrawal cancels downloads before refresh', async () => {
+test('unchanged authorization does not reset the workspace; withdrawal refreshes permissions while retained downloads remain available', async () => {
   const props = options();
-  jest.mocked(getClinicalAuthorization).mockResolvedValueOnce({ consentStatus: 'GRANTED', closedAt: null }).mockResolvedValueOnce({ consentStatus: 'REVOKED', closedAt: null });
+  jest.mocked(getClinicalAuthorization).mockResolvedValueOnce({ treatmentConsentStatus: 'PENDING', treatmentConsentEventId: null, closedAt: null }).mockResolvedValueOnce({ treatmentConsentStatus: 'REVOKED', treatmentConsentEventId: 'withdrawal', closedAt: null });
   renderHook(() => useClinicalAuthorizationWatch(props));
   await act(async () => { jest.advanceTimersByTime(15000); });
   expect(props.onRefresh).not.toHaveBeenCalled();
   const download = beginClinicalDownload('access');
-  props.onRefresh.mockImplementation(async () => { expect(download.isActive()).toBe(false); });
+  props.onRefresh.mockImplementation(async () => { expect(download.isActive()).toBe(true); });
   await act(async () => { jest.advanceTimersByTime(15000); });
   expect(props.onRefresh).toHaveBeenCalledTimes(1);
   download.release();
@@ -27,10 +27,10 @@ test('an unverifiable authorization fails closed and leaving the screen ignores 
   const { unmount } = renderHook(() => useClinicalAuthorizationWatch(props));
   await act(async () => { jest.advanceTimersByTime(15000); });
   expect(props.onAccessLost).toHaveBeenCalledWith('Offline');
-  let resolve!: (value: { consentStatus: 'REVOKED'; closedAt: null }) => void;
+  let resolve!: (value: { treatmentConsentStatus: 'REVOKED'; treatmentConsentEventId: string; closedAt: null }) => void;
   jest.mocked(getClinicalAuthorization).mockReturnValueOnce(new Promise(done => { resolve = done; }));
   await act(async () => { jest.advanceTimersByTime(15000); });
   unmount();
-  await act(async () => { resolve({ consentStatus: 'REVOKED', closedAt: null }); });
+  await act(async () => { resolve({ treatmentConsentStatus: 'REVOKED', treatmentConsentEventId: 'withdrawal', closedAt: null }); });
   expect(props.onRefresh).not.toHaveBeenCalled();
 });

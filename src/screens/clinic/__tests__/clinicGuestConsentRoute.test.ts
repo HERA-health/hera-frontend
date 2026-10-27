@@ -52,7 +52,7 @@ describe('clinic guest-consent public entry', () => {
     expect(screen).toContain("window.history.replaceState(");
     expect(screen).toContain("label={busy ? 'Comprobando…' : 'Continuar y recibir código por email'}");
     expect(adapter).toContain('Revisa la autorización de tu clínica');
-    expect(adapter).toContain('Revisa la autorización de tu especialista');
+    expect(adapter).toContain('Revisa el documento de tu especialista');
     expect(screen).toContain('El código está en camino a');
     expect(screen).toContain('Tu decisión se ha guardado correctamente');
     expect(screen.indexOf('const continueFlow')).toBeLessThan(screen.lastIndexOf('adapter.bootstrap('));

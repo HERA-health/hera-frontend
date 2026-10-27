@@ -89,24 +89,24 @@ const formatDate = (date?: string | Date | null, options?: Intl.DateTimeFormatOp
 };
 
 const getConsentLabel = (client: professionalService.Client): string => {
-  if (client.consentOnFile) {
-    return 'Autorización vigente';
+  if (client.treatmentConsentStatus === 'GRANTED') {
+    return 'Consentimiento firmado';
   }
 
-  return 'Autorización pendiente';
+  return client.treatmentConsentStatus === 'REVOKED' ? 'Consentimiento retirado' : 'Consentimiento pendiente';
 };
 
 const getConsentTone = (
   client: professionalService.Client,
   theme: Theme
 ): { backgroundColor: string; borderColor: string; color: string; iconName: IoniconName } => {
-  const status = client.consentOnFile ? theme.status.confirmed : theme.status.pending;
+  const status = (client.treatmentConsentStatus === 'GRANTED') ? theme.status.confirmed : theme.status.pending;
 
   return {
     backgroundColor: status.bg,
     borderColor: status.border,
     color: status.text,
-    iconName: client.consentOnFile ? 'shield-checkmark-outline' : 'time-outline',
+    iconName: (client.treatmentConsentStatus === 'GRANTED') ? 'shield-checkmark-outline' : 'time-outline',
   };
 };
 
@@ -350,7 +350,7 @@ export function ProfessionalClientsScreen() {
       setFormErrors((current) => ({
         ...current,
         consentCaptureMode:
-          'Configura el PIN clínico desde el área clínica antes de adjuntar la autorización en el alta.',
+          'Configura el PIN clínico desde el área clínica antes de adjuntar el consentimiento en el alta.',
       }));
       return;
     }
@@ -407,7 +407,7 @@ export function ProfessionalClientsScreen() {
     setClinicalAccessStatus(status);
 
     if (!status.hasPin) {
-      throw new Error('Configura tu PIN clínico antes de adjuntar la autorización en el alta.');
+      throw new Error('Configura tu PIN clínico antes de adjuntar el consentimiento en el alta.');
     }
 
     if (!CLINICAL_PIN_REGEX.test(pin)) {
@@ -543,7 +543,7 @@ export function ProfessionalClientsScreen() {
           setFormErrors((current) => ({
             ...current,
             consentCaptureMode:
-              'Configura el PIN clínico desde el área clínica antes de adjuntar la autorización en el alta.',
+              'Configura el PIN clínico desde el área clínica antes de adjuntar el consentimiento en el alta.',
           }));
           return;
         }
@@ -571,14 +571,14 @@ export function ProfessionalClientsScreen() {
           billingPostalCode: parsed.billingPostalCode,
           billingCity: parsed.billingCity,
           billingCountry: parsed.billingCountry,
-          consentVersion: 'v1',
+
         },
         consentDocument:
           parsed.consentCaptureMode === 'UPLOAD_NOW'
             ? parsed.consentDocument
             : null,
         clinicalAccessToken: initialConsentAccessToken,
-        consentVersion: 'v1',
+
       });
 
       setClients((current) => [
@@ -593,7 +593,7 @@ export function ProfessionalClientsScreen() {
         showAppAlert(
           appAlert,
           'Paciente creado',
-          `La ficha se creó, pero no se pudo registrar la autorización firmada: ${getErrorMessage(
+          `La ficha se creó, pero no se pudo confirmar el registro del consentimiento informado. Revísalo en la ficha antes de reintentarlo: ${getErrorMessage(
             result.consentError,
             'podrás completarlo desde el área clínica.'
           )}`
@@ -604,8 +604,8 @@ export function ProfessionalClientsScreen() {
       if (result.consentCompleted) {
         showAppAlert(
           appAlert,
-          'Autorización registrada',
-          'Paciente creado y autorización firmada registrada como vigente.'
+          'Consentimiento registrado',
+          'Paciente creado y consentimiento informado firmado registrado.'
         );
       }
     } catch (createError: unknown) {
@@ -954,7 +954,7 @@ export function ProfessionalClientsScreen() {
                 <View style={stylesForTheme.modalHeaderCopy}>
                   <Text style={[stylesForTheme.modalTitle, { color: theme.textPrimary }]}>Nuevo paciente</Text>
                   <Text style={[stylesForTheme.modalSubtitle, { color: theme.textSecondary }]}>
-                    Crea la ficha y decide si registras la autorización firmada ahora o la dejas pendiente para completarla más adelante.
+                    Crea la ficha y decide si registras el consentimiento informado firmado ahora o la dejas pendiente para completarla más adelante.
                   </Text>
                 </View>
                 <AnimatedPressable
@@ -1117,10 +1117,10 @@ export function ProfessionalClientsScreen() {
               <View style={stylesForTheme.consentSection}>
                 <View style={stylesForTheme.consentSectionHeader}>
                   <Text style={[stylesForTheme.consentPanelTitle, { color: theme.textPrimary }]}>
-                    Autorización del expediente clínico
+                    Consentimiento informado
                   </Text>
                   <Text style={[stylesForTheme.consentPanelText, { color: theme.textSecondary }]}>
-                    Si adjuntas el documento firmado ahora, quedará guardado como evidencia clínica y la autorización pasará a vigente.
+                    Si adjuntas el documento firmado ahora, quedará guardado como evidencia clínica y el consentimiento constará como firmado.
                   </Text>
                 </View>
 
@@ -1194,7 +1194,7 @@ export function ProfessionalClientsScreen() {
                         Añadir después
                       </Text>
                       <Text style={[stylesForTheme.consentOptionText, { color: theme.textSecondary }]}>
-                        La ficha se crea con la autorización pendiente.
+                        La ficha se crea con el consentimiento pendiente.
                       </Text>
                     </View>
                     {form.consentCaptureMode === 'UPLOAD_LATER' ? (
@@ -1205,7 +1205,7 @@ export function ProfessionalClientsScreen() {
 
                 {!canAttachInitialConsent ? (
                   <Text style={[stylesForTheme.fieldHint, { color: theme.textMuted }]}>
-                    Para adjuntar la autorización en el alta, configura primero tu PIN clínico desde el área clínica.
+                    Para adjuntar el consentimiento en el alta, configura primero tu PIN clínico desde el área clínica.
                   </Text>
                 ) : null}
 
@@ -1305,7 +1305,7 @@ export function ProfessionalClientsScreen() {
                   ]}>
                     <Ionicons name="time-outline" size={17} color={theme.status.pending.text} />
                     <Text style={[stylesForTheme.clinicalAccessNoticeText, { color: theme.status.pending.text }]}>
-                      La autorización aparecerá como pendiente hasta adjuntar el documento firmado.
+                      El consentimiento aparecerá como pendiente hasta adjuntar el documento firmado.
                     </Text>
                   </View>
                 )}

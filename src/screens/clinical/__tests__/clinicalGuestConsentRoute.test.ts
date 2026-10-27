@@ -19,7 +19,7 @@ describe('specialist guest clinical-consent entry', () => {
     const app = fs.readFileSync(path.join(root, 'App.tsx'), 'utf8');
     const service = fs.readFileSync(path.join(root, 'src', 'services', 'clinicalGuestConsentPublicService.ts'), 'utf8');
     const transport = fs.readFileSync(path.join(root, 'src', 'services', 'guestConsentHttpClient.ts'), 'utf8');
-    const panel = fs.readFileSync(path.join(root, 'src', 'components', 'professional', 'ClinicalConsentPanel.tsx'), 'utf8');
+    const panel = fs.readFileSync(path.join(root, 'src', 'components', 'professional', 'TreatmentConsentPanel.tsx'), 'utf8');
     const vercel = JSON.parse(fs.readFileSync(path.join(root, 'vercel.json'), 'utf8')) as {
       headers: Array<{ source: string; headers: Array<{ key: string; value: string }> }>;
     };
@@ -27,11 +27,8 @@ describe('specialist guest clinical-consent entry', () => {
     expect(transport).toContain("credentials: 'include'");
     expect(transport).toContain("cache: 'no-store'");
     expect(`${service}\n${transport}`).not.toMatch(/AsyncStorage|localStorage|sessionStorage|Authorization/);
-    expect(panel).toContain('Enviar autorización por email');
-    expect(panel).toContain('mayor de edad, actúa en su propio nombre');
-    expect(panel).toContain('Enviar enlace nuevo por email');
-    expect(panel).toContain('Cancelar solicitud');
-    expect(panel).toContain('Enviar retirada por email');
+    expect(panel).not.toContain('Enviar autorización por email');
+    expect(panel).not.toContain('Consultar autorización HERA');
     const headers = vercel.headers.find(({ source }) => source === '/clinical-consent/guest/(.*)');
     expect(headers?.headers).toEqual(expect.arrayContaining([
       expect.objectContaining({ key: 'Cache-Control', value: 'private, no-store, max-age=0' }),

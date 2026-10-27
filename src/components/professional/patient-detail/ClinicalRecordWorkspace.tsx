@@ -4,7 +4,7 @@ import { TourTarget } from "../../onboarding/TourTarget";
 import type { ProfessionalTourTargetId } from "../../onboarding/professionalTourTypes";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { ScrollView, View, Text, useWindowDimensions } from "react-native";
-import type { ClinicalPatientWorkspace } from "../ClinicalPatientWorkspace";
+import type { ClinicalPatientWorkspaceProps } from "../clinicalPatientTypes";
 import { Button, AnimatedPressable } from "../../common";
 import { useTheme } from "../../../contexts/ThemeContext";
 import * as clinical from "../../../services/clinicalService";
@@ -28,6 +28,7 @@ import {
   type ClinicalUploadRequest,
 } from "./ClinicalDocumentsWorkspace";
 import { ClinicalExercisesWorkspace } from "./ClinicalExercisesWorkspace";
+import { ClinicalProcessArchive } from "./ClinicalProcessArchive";
 import {
   HistoryEntryEditor,
   historyTypes as currentHistoryTypes,
@@ -53,7 +54,7 @@ import {
 } from "../clinicalEntryTypes";
 
 type Props = Omit<
-  React.ComponentProps<typeof ClinicalPatientWorkspace>,
+  ClinicalPatientWorkspaceProps,
   "sessionPanel"
 > & {
   focusDocumentId?: string;
@@ -81,8 +82,9 @@ export function ClinicalRecordWorkspace({
 }: Props) {
   const { theme } = useTheme();
   const compact = useWindowDimensions().width < 1180;
-  const writable = record.consentStatus === "GRANTED" && !record.closedAt;
-  const granted = record.consentStatus === "GRANTED";
+  const [closedLocally, setClosedLocally] = useState(false);
+  const writable = record.access?.canWriteClinicalContent === true && !closedLocally;
+  const granted = record.access?.canReadClinicalContent === true;
   const [tab, setTab] = useState<Tab>(
     focusDocumentId || section === "documents"
       ? "documents"
@@ -121,6 +123,18 @@ export function ClinicalRecordWorkspace({
   >(undefined);
   const [busy, setBusy] = useState(false);
   const [consent, setConsent] = useState(false);
+  const [confirmClose, setConfirmClose] = useState(false);
+  const [closing, setClosing] = useState(false);
+  const [closeError, setCloseError] = useState("");
+  const closeContext = useRef({ busy: false });
+  useEffect(() => {
+    closeContext.current = { busy: false };
+    setClosedLocally(false);
+    setConfirmClose(false);
+    setClosing(false);
+    setCloseError("");
+    return () => { closeContext.current = { busy: false }; };
+  }, [client.id, token]);
   const [uploadRequest, setUploadRequest] = useState<ClinicalUploadRequest>();
   const handled = useRef<number | undefined>(undefined);
   const consumeUpload = useCallback(() => setUploadRequest(undefined), []);
@@ -163,6 +177,30 @@ export function ClinicalRecordWorkspace({
     void onRefresh().catch(report);
     void onRequestRefreshClient?.().catch(report);
   }, [onRefresh, onRequestRefreshClient, report]);
+  const closeProcess = async () => {
+    const context = closeContext.current;
+    if (context.busy || record.closedAt || closedLocally || !granted) return;
+    context.busy = true;
+    setClosing(true);
+    setCloseError("");
+    try {
+      await clinical.closeClinicalProcess(client.id, token);
+      if (context !== closeContext.current) return;
+      // Keep this view read-only even if the following refresh fails.
+      setClosedLocally(true);
+      setConfirmClose(false);
+      changed();
+    } catch (e) {
+      if (context !== closeContext.current) return;
+      setCloseError(getErrorMessage(e, "No se pudo cerrar el proceso asistencial."));
+      onError(e);
+    } finally {
+      if (context === closeContext.current) {
+        context.busy = false;
+        setClosing(false);
+      }
+    }
+  };
   useEffect(() => {
     if (!action || handled.current === action.id) return;
     handled.current = action.id;
@@ -351,28 +389,38 @@ export function ClinicalRecordWorkspace({
               variant="outline"
               onPress={() => setConsent(true)}
             >
-              Gestionar autorización
+              Consentimiento informado
             </Button>
+            {granted && !record.closedAt && !closedLocally ? (
+              <Button size="small" variant="outline" disabled={busy} onPress={() => {
+                setCloseError("");
+                setConfirmClose(true);
+              }}>
+                Cerrar proceso asistencial
+              </Button>
+            ) : null}
             <Button size="small" variant="outline" onPress={onLock}>
               Bloquear área
             </Button>
           </View>
         </View>
       </TourTarget>
-      {record.closedAt ? (
+      {record.closedAt || closedLocally ? (
         <Badge tone="warning">Proceso cerrado · Consulta disponible</Badge>
       ) : null}
+      {record.informedConsent ? <Badge tone={record.informedConsent.status === "WITHDRAWN" ? "warning" : undefined}>Consentimiento informado · {{ PENDING: "Pendiente", SENT: "Enviado", SIGNED: "Firmado", WITHDRAWN: "Retirado" }[record.informedConsent.status]}</Badge> : null}
+      {!record.closedAt && !closedLocally && (record.informedConsent?.status === 'PENDING' || record.informedConsent?.status === 'SENT') ? <Copy muted>El consentimiento está pendiente de registro. Puedes continuar trabajando; el profesional debe informar al paciente sobre su privacidad.</Copy> : null}
+      {!record.closedAt && !closedLocally && record.informedConsent?.status === 'WITHDRAWN' ? <Copy muted>El consentimiento está retirado. Puedes consultar la documentación conservada; para nuevas actuaciones, registra una nueva evidencia de consentimiento.</Copy> : null}
       {!granted ? (
         <Panel
-          title="Autorización clínica HERA"
+          title="Acceso clínico no disponible"
           icon="shield-checkmark-outline"
         >
           <Copy muted>
-            Gestiona la autorización del paciente para consultar o incorporar
-            información clínica en HERA.
+            Actualiza la ficha para comprobar los permisos de acceso clínico.
           </Copy>
-          <Button size="small" onPress={() => setConsent(true)}>
-            Gestionar autorización
+          <Button size="small" onPress={() => void onRefresh()}>
+            Actualizar ficha
           </Button>
         </Panel>
       ) : (
@@ -411,6 +459,7 @@ export function ClinicalRecordWorkspace({
                 onUploadConsumed={consumeUpload}
                 onError={report}
                 onChanged={changed}
+                onConsent={() => setConsent(true)}
                 onParent={(kind, id) => {
                   if (kind === "NOTE") {
                     setNoteTarget(id);
@@ -818,11 +867,25 @@ export function ClinicalRecordWorkspace({
         </>
       )}
       <DetailDialog
-        title="Autorización clínica HERA"
+        title="Cerrar el proceso asistencial"
+        visible={confirmClose}
+        busy={closing}
+        onClose={() => setConfirmClose(false)}
+        footer={<>
+          <Button variant="outline" disabled={closing} onPress={() => setConfirmClose(false)}>Cancelar</Button>
+          <Button loading={closing} disabled={closing} onPress={() => void closeProcess()}>Confirmar cierre</Button>
+        </>}
+      >
+        <Copy>El expediente quedará disponible para consulta, sin permitir nuevas actuaciones clínicas. Se cancelarán las solicitudes de consentimiento pendientes y se conservará la documentación existente.</Copy>
+        {closeError ? <Text accessibilityRole="alert" style={{ color: theme.error }}>{closeError}</Text> : null}
+      </DetailDialog>
+      <DetailDialog
+        title="Consentimiento informado"
         visible={consent}
         onClose={() => setConsent(false)}
       >
         {consentPanel}
+        {granted ? <ClinicalProcessArchive clientId={client.id} token={token} record={record} onError={onError} /> : null}
       </DetailDialog>
 
       {draft ? (

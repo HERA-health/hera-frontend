@@ -110,7 +110,7 @@ export function ReferralComposer({ clientId, access, initial, previousId, agreem
         <ReferralField label="Necesidades de atención (opcional)" placeholder="Población, apoyo necesario, horarios preferidos u otras necesidades del paciente…" multiline style={{ minHeight: 88 }} maxLength={2000} editable={!busy} value={content.needs} onChangeText={value => changeContent('needs', value)} />
         <View style={[composer.divider, { borderColor: theme.border }]} />
         <ReferralField label="Resumen para compartir (opcional)" placeholder="Incluye solo la información necesaria para valorar el caso." multiline style={{ minHeight: 88 }} maxLength={8000} editable={!busy} value={content.summary} onChangeText={value => changeContent('summary', value)} />
-        <Hint>La información clínica requiere autorización del expediente. Puedes proponer perfiles sin compartir historia.</Hint>
+        <Hint>El paciente decide si autoriza compartir la información incluida con el profesional elegido. Un consentimiento informado retirado impide nuevas actuaciones clínicas.</Hint>
         <ReferralField label="Transición y próximas citas (opcional)" placeholder="Cómo acompañarás la transición y qué se ha acordado sobre las próximas citas." multiline style={{ minHeight: 88 }} maxLength={2000} editable={!busy} value={content.transition} onChangeText={value => changeContent('transition', value)} />
         <Hint>La aceptación no cerrará tu atención ni cancelará citas automáticamente.</Hint>
       </ReferralCard>

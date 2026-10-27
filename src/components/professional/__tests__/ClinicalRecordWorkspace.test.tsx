@@ -10,6 +10,7 @@ import {
 import { ClinicalRecordWorkspace } from "../patient-detail/ClinicalRecordWorkspace";
 import * as entries from "../../../services/clinicalEntriesService";
 import type { ClinicalRecord } from "../../../services/clinicalService";
+import * as clinical from "../../../services/clinicalService";
 import type { Client } from "../../../services/professionalService";
 import { lightTheme as mockTheme } from "../../../constants/theme";
 jest.mock("../../../contexts/ThemeContext", () => ({
@@ -25,6 +26,11 @@ jest.mock("../../common/AnimatedPressable", () => ({
   },
 }));
 jest.mock("../../../services/api", () => ({ api: {} }));
+jest.mock("../../../services/clinicalService", () => ({
+  ...jest.requireActual("../../../services/clinicalService"),
+  closeClinicalProcess: jest.fn(),
+  listClinicalConsentEvents: jest.fn(),
+}));
 jest.mock("../../../services/clinicalEntriesService", () => ({
   searchNotes: jest.fn(),
   searchHistory: jest.fn(),
@@ -67,6 +73,7 @@ const client: Client = {
 const page = { limit: 10, total: 1, hasMore: false, nextCursor: null };
 const record: ClinicalRecord = {
   id: "record",
+  access: { canReadClinicalContent: true, canWriteClinicalContent: true },
   consentStatus: "GRANTED",
   consentGivenAt: null,
   consentRequestedAt: null,
@@ -107,7 +114,7 @@ const props = () => ({
   record,
   token: "clinical-token",
   section: "notes" as const,
-  consentPanel: <Text>Autorización HERA</Text>,
+  consentPanel: <Text>Consentimiento informado</Text>,
   onError: jest.fn(),
   onRefresh: jest.fn(async () => undefined),
   onLock: jest.fn(),
@@ -115,6 +122,7 @@ const props = () => ({
 });
 beforeEach(() => {
   jest.clearAllMocks();
+  jest.mocked(clinical.closeClinicalProcess).mockReset().mockResolvedValue({ closedAt: "2026-10-27T10:00:00Z" });
   jest.mocked(entries.getNoteTags).mockResolvedValue(["Etiqueta antigua"]);
   jest.mocked(entries.searchNotes).mockResolvedValue({
     items: [note],
@@ -223,17 +231,126 @@ test("changing the target session ignores a late response from the previous sess
   expect(screen.getByText("Nota de la nueva cita")).toBeTruthy();
 });
 
-test("pending authorization exposes no note content and offers the existing consent flow", () => {
+test("pending treatment is advisory even when historical HERA authorization was revoked", async () => {
   render(
     <ClinicalRecordWorkspace
       {...props()}
-      record={{ ...record, consentStatus: "PENDING" }}
+      record={{ ...record, consentStatus: "REVOKED" }}
     />,
   );
-  expect(screen.queryByText("Contenido confidencial")).toBeNull();
-  expect(entries.searchNotes).not.toHaveBeenCalled();
+  await screen.findAllByText("Nota protegida");
+  expect(entries.searchNotes).toHaveBeenCalled();
   fireEvent.press(
-    screen.getAllByRole("button", { name: "Gestionar autorización" })[1],
+    screen.getByRole("button", { name: "Consentimiento informado" }),
   );
-  expect(screen.getByText("Autorización HERA")).toBeTruthy();
+  expect(screen.queryByText("Autorización HERA")).toBeNull();
+});
+
+test('withdrawn treatment retains notes and removes clinical write actions', async () => {
+  render(<ClinicalRecordWorkspace {...props()} record={{ ...record, access: { canReadClinicalContent: true, canWriteClinicalContent: false } }} />);
+  await screen.findAllByText('Nota protegida');
+  expect(screen.queryByRole('button', { name: 'Nueva nota' })).toBeNull();
+});
+
+test('closing remains reachable without HERA authorization and requires confirmation', async () => {
+  const current = props();
+  const onRequestRefreshClient = jest.fn(async () => undefined);
+  render(<ClinicalRecordWorkspace {...current} onRequestRefreshClient={onRequestRefreshClient} record={{ ...record, consentStatus: 'REVOKED' }} />);
+  await screen.findAllByText('Nota protegida');
+  fireEvent.press(screen.getByRole('button', { name: 'Cerrar proceso asistencial' }));
+  expect(clinical.closeClinicalProcess).not.toHaveBeenCalled();
+  fireEvent.press(screen.getByRole('button', { name: 'Cancelar' }));
+  expect(clinical.closeClinicalProcess).not.toHaveBeenCalled();
+  fireEvent.press(screen.getByRole('button', { name: 'Cerrar proceso asistencial' }));
+  fireEvent.press(screen.getByRole('button', { name: 'Confirmar cierre' }));
+  await screen.findByText('Proceso cerrado · Consulta disponible');
+  expect(clinical.closeClinicalProcess).toHaveBeenCalledWith('patient', 'clinical-token');
+  expect(current.onRefresh).toHaveBeenCalledTimes(1);
+  expect(onRequestRefreshClient).toHaveBeenCalledTimes(1);
+  expect(screen.queryByRole('button', { name: 'Nueva nota' })).toBeNull();
+  expect(screen.queryByRole('button', { name: 'Cerrar proceso asistencial' })).toBeNull();
+});
+
+test('closing prevents duplicate submissions and permits retry after failure', async () => {
+  let rejectClose!: (reason: Error) => void;
+  jest.mocked(clinical.closeClinicalProcess).mockImplementationOnce(() => new Promise((_resolve, reject) => { rejectClose = reject; }));
+  const current = props();
+  render(<ClinicalRecordWorkspace {...current} />);
+  fireEvent.press(screen.getByRole('button', { name: 'Cerrar proceso asistencial' }));
+  const confirm = screen.getByRole('button', { name: 'Confirmar cierre' });
+  fireEvent.press(confirm);
+  fireEvent.press(confirm);
+  expect(clinical.closeClinicalProcess).toHaveBeenCalledTimes(1);
+  await act(async () => rejectClose(new Error('No se pudo cerrar el proceso.')));
+  await screen.findByText('No se pudo cerrar el proceso.');
+  expect(current.onRefresh).not.toHaveBeenCalled();
+  fireEvent.press(screen.getByRole('button', { name: 'Confirmar cierre' }));
+  await screen.findByText('Proceso cerrado · Consulta disponible');
+  expect(clinical.closeClinicalProcess).toHaveBeenCalledTimes(2);
+});
+
+test('a successful closure remains read-only when reloading the record fails', async () => {
+  const current = props();
+  current.onRefresh.mockRejectedValueOnce(new Error('No se pudo actualizar la ficha'));
+  render(<ClinicalRecordWorkspace {...current} />);
+  await screen.findAllByText('Nota protegida');
+  fireEvent.press(screen.getByRole('button', { name: 'Cerrar proceso asistencial' }));
+  fireEvent.press(screen.getByRole('button', { name: 'Confirmar cierre' }));
+  await screen.findByText('Proceso cerrado · Consulta disponible');
+  await waitFor(() => expect(current.onError).toHaveBeenCalled());
+  expect(screen.queryByRole('button', { name: 'Nueva nota' })).toBeNull();
+  expect(screen.queryByRole('button', { name: 'Cerrar proceso asistencial' })).toBeNull();
+});
+
+test('late closure responses cannot close another patient or refresh its data', async () => {
+  let finishClose!: (value: unknown) => void;
+  jest.mocked(clinical.closeClinicalProcess).mockImplementationOnce(() => new Promise((resolve) => { finishClose = resolve; }));
+  const current = props();
+  const view = render(<ClinicalRecordWorkspace {...current} />);
+  fireEvent.press(screen.getByRole('button', { name: 'Cerrar proceso asistencial' }));
+  fireEvent.press(screen.getByRole('button', { name: 'Confirmar cierre' }));
+  view.rerender(<ClinicalRecordWorkspace {...current} client={{ ...client, id: 'other-patient' }} />);
+  await act(async () => finishClose({ closedAt: '2026-10-27T10:00:00Z' }));
+  expect(current.onRefresh).not.toHaveBeenCalled();
+  expect(screen.queryByText('Proceso cerrado · Consulta disponible')).toBeNull();
+});
+
+test('withdrawn consent permits process closure but a closed record cannot be closed again', async () => {
+  const current = props();
+  const view = render(<ClinicalRecordWorkspace {...current} record={{ ...record, access: { canReadClinicalContent: true, canWriteClinicalContent: false } }} />);
+  expect(screen.getByRole('button', { name: 'Cerrar proceso asistencial' })).toBeTruthy();
+  view.rerender(<ClinicalRecordWorkspace {...current} record={{ ...record, closedAt: '2026-10-27T10:00:00Z', access: { canReadClinicalContent: true, canWriteClinicalContent: false } }} />);
+  expect(screen.queryByRole('button', { name: 'Cerrar proceso asistencial' })).toBeNull();
+});
+
+test('retains a read-only paginated history of previous authorizations and retention dates', async () => {
+  const event: clinical.ClinicalConsentEvent = { id: 'old-event', status: 'GRANTED', method: 'DIGITAL_SIGNATURE', version: 'hera-v1', eventType: 'ACCEPTED', requestKind: 'GRANT', channel: 'HERA_ACCOUNT_EMAIL', createdAt: '2026-01-01T10:00:00Z' };
+  jest.mocked(clinical.listClinicalConsentEvents).mockRejectedValueOnce(new Error('Error de historial')).mockResolvedValueOnce({ items: [{ ...event, id: 'older-event', eventType: 'REQUESTED' }], pageInfo: { ...page, hasMore: false, nextCursor: null } });
+  render(<ClinicalRecordWorkspace {...props()} record={{ ...record, retentionUntil: '2031-01-01T10:00:00Z', consentEvents: [event], pagination: { ...record.pagination, consentEvents: { ...page, total: 2, hasMore: true, nextCursor: event.id } } }} />);
+  fireEvent.press(screen.getByRole('button', { name: 'Consentimiento informado' }));
+  expect(screen.getByText('Conservación mínima hasta')).toBeTruthy();
+  fireEvent.press(screen.getByRole('button', { name: 'Consultar autorizaciones anteriores' }));
+  expect(screen.getByText(/Autorización aceptada/)).toBeTruthy();
+  fireEvent.press(screen.getByRole('button', { name: 'Ver más autorizaciones anteriores' }));
+  await screen.findByText('Error de historial');
+  fireEvent.press(screen.getByRole('button', { name: 'Ver más autorizaciones anteriores' }));
+  await screen.findByText(/Autorización solicitada/);
+  expect(clinical.listClinicalConsentEvents).toHaveBeenLastCalledWith('patient', 'clinical-token', { cursor: 'old-event' });
+  expect(screen.queryByRole('button', { name: 'Ver más autorizaciones anteriores' })).toBeNull();
+});
+
+test('late history pages never appear in another patient record', async () => {
+  const event: clinical.ClinicalConsentEvent = { id: 'old-event', status: 'GRANTED', method: 'SPECIALIST_ATTESTATION', version: 'hera-v1', eventType: 'CONSENT_RECORDED', requestKind: null, channel: null, createdAt: '2026-01-01T10:00:00Z' };
+  let finishPage!: (value: Awaited<ReturnType<typeof clinical.listClinicalConsentEvents>>) => void;
+  jest.mocked(clinical.listClinicalConsentEvents).mockImplementationOnce(() => new Promise((resolve) => { finishPage = resolve; }));
+  const current = props();
+  const view = render(<ClinicalRecordWorkspace {...current} record={{ ...record, consentEvents: [event], pagination: { ...record.pagination, consentEvents: { ...page, total: 2, hasMore: true, nextCursor: event.id } } }} />);
+  fireEvent.press(screen.getByRole('button', { name: 'Consentimiento informado' }));
+  fireEvent.press(screen.getByRole('button', { name: 'Consultar autorizaciones anteriores' }));
+  expect(screen.getByText(/Registro del profesional/)).toBeTruthy();
+  fireEvent.press(screen.getByRole('button', { name: 'Ver más autorizaciones anteriores' }));
+  view.rerender(<ClinicalRecordWorkspace {...current} client={{ ...client, id: 'other-patient' }} record={{ ...record, id: 'other-record', pagination: { ...record.pagination, consentEvents: { ...page, total: 0 } } }} />);
+  await act(async () => finishPage({ items: [{ ...event, id: 'late-event' }], pageInfo: { ...page, total: 2 } }));
+  expect(screen.queryByText(/Autorización registrada/)).toBeNull();
+  expect(screen.queryByRole('button', { name: 'Consultar autorizaciones anteriores' })).toBeNull();
 });

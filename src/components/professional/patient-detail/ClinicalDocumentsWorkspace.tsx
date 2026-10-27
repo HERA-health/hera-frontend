@@ -56,6 +56,7 @@ export function ClinicalDocumentsWorkspace({
   onError,
   onChanged,
   onParent,
+  onConsent,
 }: {
   clientId: string;
   token: string;
@@ -66,6 +67,7 @@ export function ClinicalDocumentsWorkspace({
   onError: (e: unknown) => void;
   onChanged: () => void;
   onParent: (kind: "NOTE" | "HISTORY" | "EXERCISE", id: string) => void;
+  onConsent?: () => void;
 }) {
   const { theme } = useTheme();
   const compact = useWindowDimensions().width < 1180;
@@ -120,6 +122,12 @@ export function ClinicalDocumentsWorkspace({
     if (uploadRequest && handled.current !== uploadRequest.id) {
       handled.current = uploadRequest.id;
       const { id, classification, ...parent } = uploadRequest;
+      if (classification === "TREATMENT_CONSENT") {
+        onUploadConsumed();
+        if (onConsent) onConsent();
+        else report(new Error("Registra este documento desde Consentimiento informado."));
+        return;
+      }
       setTarget(parent);
       setMetadata({
         classification: classification || "OTHER",
@@ -128,7 +136,7 @@ export function ClinicalDocumentsWorkspace({
       setUpload(true);
       onUploadConsumed();
     }
-  }, [uploadRequest, onUploadConsumed]);
+  }, [uploadRequest, onUploadConsumed, onConsent, report]);
   useEffect(() => {
     let current = true;
     setPage(null);
@@ -423,7 +431,7 @@ export function ClinicalDocumentsWorkspace({
             <Panel
               title={selected.fileName}
               action={
-                writable && selected.category !== "CONSENT_EVIDENCE" ? (
+                writable && selected.category !== "CONSENT_EVIDENCE" && selected.classification !== "TREATMENT_CONSENT" ? (
                   <Button
                     size="small"
                     variant="outline"
@@ -444,7 +452,7 @@ export function ClinicalDocumentsWorkspace({
             >
               <Badge>
                 {selected.category === "CONSENT_EVIDENCE"
-                  ? "Autorización HERA"
+                  ? "Autorización HERA histórica"
                   : classifications.find(
                       (row) => row.value === selected.classification,
                     )?.label || "Documento clínico"}
@@ -522,7 +530,8 @@ export function ClinicalDocumentsWorkspace({
                   Abrir ejercicio vinculado
                 </Button>
               ) : null}
-              {writable && selected.category !== "CONSENT_EVIDENCE" ? (
+              {selected.classification === "TREATMENT_CONSENT" && onConsent ? <Button variant="outline" onPress={onConsent}>Gestionar evidencia de consentimiento</Button> : null}
+              {writable && selected.category !== "CONSENT_EVIDENCE" && selected.classification !== "TREATMENT_CONSENT" ? (
                 <Button
                   size="small"
                   variant="outline"
@@ -637,7 +646,7 @@ export function ClinicalDocumentsWorkspace({
                             : "OTHER",
               }));
           }}
-          options={classifications}
+          options={classifications.filter(item => item.value !== "TREATMENT_CONSENT")}
         />
         <Copy>Descripción · Opcional</Copy>
         <Input
@@ -651,12 +660,6 @@ export function ClinicalDocumentsWorkspace({
             setMetadata((current) => ({ ...current, description }))
           }
         />
-        {metadata.classification === "TREATMENT_CONSENT" ? (
-          <Copy>
-            Sube un PDF ya firmado por el paciente. Este registro no concede la
-            autorización clínica HERA.
-          </Copy>
-        ) : null}
         {!editing ? (
           <>
             <Copy muted>

@@ -1,3 +1,4 @@
+import { treatmentSummarySchema } from './treatmentConsentService';
 import { z } from "zod";
 import { api } from "./api";
 import type { ProfessionalSessionDetail } from "./professionalService";
@@ -65,6 +66,7 @@ const summarySchema = z.object({
   authorizationStatus: z.enum(["PENDING", "GRANTED", "REVOKED"]),
   authorizationGrantedAt: text,
   closedAt: text,
+  informedConsent: treatmentSummarySchema.optional(),
   treatmentConsent: z
     .object({ id: z.string(), uploadedAt: z.string().datetime() })
     .nullable(),

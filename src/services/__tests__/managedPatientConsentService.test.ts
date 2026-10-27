@@ -1,195 +1,49 @@
-jest.mock('../clinicalService', () => ({
-  uploadClinicalDocument: jest.fn(),
-  attestClinicalConsent: jest.fn(),
-}));
-
-jest.mock('../professionalService', () => ({
-  createManagedClient: jest.fn(),
-  getProfessionalClientDetail: jest.fn(),
-}));
-
+jest.mock('../treatmentConsentService', () => ({ uploadTreatmentPdf: jest.fn() }));
+jest.mock('../professionalService', () => ({ createManagedClient: jest.fn(), getProfessionalClientDetail: jest.fn() }));
+jest.mock('../../utils/secureRandom', () => ({ createSecureRandomUuid: () => 'operation-key' }));
 import { createManagedPatientWithInitialConsent } from '../managedPatientConsentService';
-import * as clinicalService from '../clinicalService';
-import * as professionalService from '../professionalService';
-import type { UploadAsset } from '../../utils/multipartUpload';
-
-const mockedCreateManagedClient =
-  professionalService.createManagedClient as jest.MockedFunction<typeof professionalService.createManagedClient>;
-const mockedGetProfessionalClientDetail =
-  professionalService.getProfessionalClientDetail as jest.MockedFunction<typeof professionalService.getProfessionalClientDetail>;
-const mockedUploadClinicalDocument =
-  clinicalService.uploadClinicalDocument as jest.MockedFunction<typeof clinicalService.uploadClinicalDocument>;
-const mockedAttestClinicalConsent =
-  clinicalService.attestClinicalConsent as jest.MockedFunction<typeof clinicalService.attestClinicalConsent>;
-
-const clientInput: professionalService.CreateManagedClientInput = {
-  firstName: 'Lucia',
-  lastName: 'Gomez',
-  consentVersion: 'v1',
-};
-
-const createdClient = {
-  id: 'client-1',
-  source: 'MANAGED',
-  userId: null,
-  consentOnFile: false,
-  user: {
-    id: null,
-    email: '',
-    name: 'Lucia Gomez',
-    userType: 'CLIENT',
-  },
-} satisfies professionalService.Client;
-
-const grantedClient = {
-  ...createdClient,
-  consentOnFile: true,
-  consentDate: '2026-06-02T10:00:00.000Z',
-};
-
-const consentDocument: UploadAsset = {
-  uri: 'file:///consentimiento.pdf',
-  name: 'consentimiento.pdf',
-  fileName: 'consentimiento.pdf',
-  mimeType: 'application/pdf',
-};
-
-describe('createManagedPatientWithInitialConsent', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-  });
-
-  it('creates the managed patient without clinical writes when no document is attached', async () => {
-    mockedCreateManagedClient.mockResolvedValueOnce(createdClient);
-
-    const result = await createManagedPatientWithInitialConsent({
-      client: clientInput,
-      consentDocument: null,
-    });
-
-    expect(result).toEqual({
-      client: createdClient,
-      consentCompleted: false,
-    });
-    expect(mockedCreateManagedClient).toHaveBeenCalledWith(clientInput);
-    expect(mockedUploadClinicalDocument).not.toHaveBeenCalled();
-    expect(mockedAttestClinicalConsent).not.toHaveBeenCalled();
-  });
-
-  it('uploads consent evidence and marks consent as granted when a document and token are provided', async () => {
-    mockedCreateManagedClient.mockResolvedValueOnce(createdClient);
-    mockedUploadClinicalDocument.mockResolvedValueOnce({
-      id: 'document-1',
-      category: 'CONSENT_EVIDENCE',
-      fileName: 'consentimiento.pdf',
-      mimeType: 'application/pdf',
-      uploadedAt: '2026-06-02T10:00:00.000Z',
-      sizeBytes: 1200,
-    });
-    mockedAttestClinicalConsent.mockResolvedValueOnce({
-      success: true,
-      clinicalRecordId: 'clinical-record-1',
-      consentStatus: 'GRANTED',
-      consentGivenAt: '2026-06-02T10:00:00.000Z',
-    });
-    mockedGetProfessionalClientDetail.mockResolvedValueOnce(grantedClient);
-
-    const result = await createManagedPatientWithInitialConsent({
-      client: clientInput,
-      consentDocument,
-      clinicalAccessToken: 'clinical-token',
-      consentVersion: 'v1',
-    });
-
-    expect(result).toEqual({
-      client: grantedClient,
-      consentCompleted: true,
-    });
-    expect(mockedUploadClinicalDocument).toHaveBeenCalledWith(
-      'client-1',
-      consentDocument,
-      'clinical-token',
-      'CONSENT_EVIDENCE'
-    );
-    expect(mockedAttestClinicalConsent).toHaveBeenCalledWith(
-      'client-1',
-      'clinical-token',
-      'v1',
-      'document-1'
-    );
-  });
-
-  it('keeps consent completed when only the detail refresh fails after attestation', async () => {
-    mockedCreateManagedClient.mockResolvedValueOnce(createdClient);
-    mockedUploadClinicalDocument.mockResolvedValueOnce({
-      id: 'document-1',
-      category: 'CONSENT_EVIDENCE',
-      fileName: 'consentimiento.pdf',
-      mimeType: 'application/pdf',
-      uploadedAt: '2026-06-02T10:00:00.000Z',
-      sizeBytes: 1200,
-    });
-    mockedAttestClinicalConsent.mockResolvedValueOnce({
-      success: true,
-      clinicalRecordId: 'clinical-record-1',
-      consentStatus: 'GRANTED',
-      consentGivenAt: '2026-06-02T10:00:00.000Z',
-    });
-    mockedGetProfessionalClientDetail.mockRejectedValueOnce(new Error('network refresh failed'));
-
-    const result = await createManagedPatientWithInitialConsent({
-      client: clientInput,
-      consentDocument,
-      clinicalAccessToken: 'clinical-token',
-      consentVersion: 'v1',
-    });
-
-    expect(result).toEqual({
-      client: {
-        ...createdClient,
-        consentOnFile: true,
-        consentDate: '2026-06-02T10:00:00.000Z',
-        consentVersion: 'v1',
-      },
-      consentCompleted: true,
-    });
-    expect(result).not.toHaveProperty('consentError');
-  });
-
-  it('returns a consent error only when upload or attestation fails', async () => {
-    const consentFailure = new Error('attestation failed');
-    mockedCreateManagedClient.mockResolvedValueOnce(createdClient);
-    mockedUploadClinicalDocument.mockResolvedValueOnce({
-      id: 'document-1',
-      category: 'CONSENT_EVIDENCE',
-      fileName: 'consentimiento.pdf',
-      mimeType: 'application/pdf',
-      uploadedAt: '2026-06-02T10:00:00.000Z',
-      sizeBytes: 1200,
-    });
-    mockedAttestClinicalConsent.mockRejectedValueOnce(consentFailure);
-    mockedGetProfessionalClientDetail.mockResolvedValueOnce(createdClient);
-
-    const result = await createManagedPatientWithInitialConsent({
-      client: clientInput,
-      consentDocument,
-      clinicalAccessToken: 'clinical-token',
-      consentVersion: 'v1',
-    });
-
-    expect(result).toEqual({
-      client: createdClient,
-      consentCompleted: false,
-      consentError: consentFailure,
-    });
-  });
-
-  it('requires clinical access before creating a patient with initial consent evidence', async () => {
-    await expect(createManagedPatientWithInitialConsent({
-      client: clientInput,
-      consentDocument,
-    })).rejects.toThrow('Debes desbloquear el área clínica');
-
-    expect(mockedCreateManagedClient).not.toHaveBeenCalled();
-  });
+import { uploadTreatmentPdf, type TreatmentConsent } from '../treatmentConsentService';
+import * as professional from '../professionalService';
+const client: professional.Client = { id: 'patient', userId: null, source: 'MANAGED', consentOnFile: false, user: { id: null, name: 'Synthetic Patient', email: '', userType: 'CLIENT' } };
+const input = { firstName: 'Synthetic', lastName: 'Patient' };
+const file = { uri: 'file:///synthetic.pdf', name: 'synthetic.pdf', mimeType: 'application/pdf' };
+const signed: TreatmentConsent = { status: 'SIGNED', method: 'UPLOADED_PDF', eventId: 'event', recordedAt: '2026-10-27', signedAt: null, evidenceDocumentId: 'document', evidenceRequestId: null, activeRequest: null, capabilities: { canUpload: true, canPrepare: false, canSend: false, digitalUnavailableReason: null, legacyAuthorizationRequired: false } };
+beforeEach(() => { jest.resetAllMocks(); jest.mocked(professional.createManagedClient).mockResolvedValue(client); });
+test('creation without a PDF does not perform clinical writes', async () => {
+  expect(await createManagedPatientWithInitialConsent({ client: input })).toEqual({ client, consentCompleted: false });
+  expect(uploadTreatmentPdf).not.toHaveBeenCalled();
+});
+test('creation uploads one treatment PDF and never grants historical HERA authorization', async () => {
+  jest.mocked(uploadTreatmentPdf).mockResolvedValue(signed);
+  jest.mocked(professional.getProfessionalClientDetail).mockResolvedValue({ ...client, treatmentConsentStatus: 'GRANTED' });
+  const result = await createManagedPatientWithInitialConsent({ client: input, consentDocument: file, clinicalAccessToken: 'unlock' });
+  expect(uploadTreatmentPdf).toHaveBeenCalledWith('patient', 'unlock', file, 'operation-key');
+  expect(result.consentCompleted).toBe(true);
+  expect(result.client.consentOnFile).toBe(false);
+  expect(result.client.treatmentConsentStatus).toBe('GRANTED');
+});
+test('detail refresh failure preserves confirmed treatment upload', async () => {
+  jest.mocked(uploadTreatmentPdf).mockResolvedValue(signed);
+  jest.mocked(professional.getProfessionalClientDetail).mockRejectedValue(new Error('Offline'));
+  const result = await createManagedPatientWithInitialConsent({ client: input, consentDocument: file, clinicalAccessToken: 'unlock' });
+  expect(result).toEqual({ client: { ...client, treatmentConsentStatus: 'GRANTED' }, consentCompleted: true });
+});
+test('uncertain upload preserves the created patient and reports that consent must be checked in the record', async () => {
+  const error = new Error('Timeout');
+  jest.mocked(uploadTreatmentPdf).mockRejectedValue(error);
+  jest.mocked(professional.getProfessionalClientDetail).mockResolvedValue(client);
+  const result = await createManagedPatientWithInitialConsent({ client: input, consentDocument: file, clinicalAccessToken: 'unlock' });
+  expect(result).toEqual({ client, consentCompleted: false, consentError: error });
+  expect(professional.createManagedClient).toHaveBeenCalledTimes(1);
+});
+test('PIN is required before creating a patient with a PDF', async () => {
+  await expect(createManagedPatientWithInitialConsent({ client: input, consentDocument: file })).rejects.toThrow('Debes desbloquear');
+  expect(professional.createManagedClient).not.toHaveBeenCalled();
+});
+test('a concurrent withdrawal returned by the server is not reported as signed', async () => {
+  jest.mocked(uploadTreatmentPdf).mockResolvedValue({ ...signed, status: 'WITHDRAWN' });
+  jest.mocked(professional.getProfessionalClientDetail).mockRejectedValue(new Error('Offline'));
+  const result = await createManagedPatientWithInitialConsent({ client: input, consentDocument: file, clinicalAccessToken: 'unlock' });
+  expect(result.consentCompleted).toBe(false);
+  expect(result.client.treatmentConsentStatus).toBe('REVOKED');
 });

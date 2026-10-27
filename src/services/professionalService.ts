@@ -172,6 +172,7 @@ export interface Client {
   questionnaireAvailability?: QuestionnaireAvailability;
   questionnaireAnswers?: unknown;
   consentOnFile?: boolean;
+  treatmentConsentStatus?: 'PENDING' | 'GRANTED' | 'REVOKED';
   consentDate?: string | null;
   consentVersion?: string | null;
   archivedAt?: string | null;

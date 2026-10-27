@@ -2,7 +2,7 @@ import React, { useCallback, useState } from 'react';
 import { Pressable, Text } from 'react-native';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import { ClinicalTab } from '../ClinicalTab';
-import type { ClinicalPatientAction } from '../ClinicalPatientWorkspace';
+import type { ClinicalPatientAction } from '../clinicalPatientTypes';
 import { useClinicalAccessController } from '../../../hooks/useClinicalAccessController';
 import * as clinical from '../../../services/clinicalService';
 import type { Client } from '../../../services/professionalService';
@@ -30,14 +30,14 @@ jest.mock('../../onboarding/TourTarget', () => ({ TourTarget: ({ children }: { c
 jest.mock('../../onboarding/professionalTourContext', () => ({
   useProfessionalTourAutoStart: jest.fn(), useProfessionalTourRoutePreference: jest.fn(), useProfessionalTourStepPreparation: jest.fn(),
 }));
-jest.mock('../ClinicalGeneralWorkspace', () => ({ ClinicalGeneralWorkspace: () => null }));
-jest.mock('../ClinicalSessionsWorkspace', () => ({ ClinicalSessionsWorkspace: () => null }));
+jest.mock('../TreatmentConsentPanel', () => ({ TreatmentConsentPanel: () => null }));
 jest.mock('../ClinicalQuestionnairePanel', () => ({ ClinicalQuestionnairePanel: () => null }));
 jest.mock('../ClinicalPinManager', () => ({ ClinicalPinManager: () => null }));
 
 const client: Client = { id: 'patient', source: 'MANAGED', userId: null, user: { id: null, name: 'Paciente', userType: 'CLIENT', email: 'patient@example.test' } };
 const page = { limit: 6, total: 0, hasMore: false, nextCursor: null };
 const record: clinical.ClinicalRecord = {
+  access: { canReadClinicalContent: true, canWriteClinicalContent: true },
   id: 'record', consentStatus: 'GRANTED', consentGivenAt: null, consentRequestedAt: null, consentVersion: null, consentMethod: null,
   closedAt: null, retentionUntil: null, eligibleForManualReview: false, activeConsentRequest: null, guestConsentActionsEnabled: false,
   client: { ...client, questionnaireAnswers: null }, notes: [], documents: [], consentEvents: [], sessionFolders: [],

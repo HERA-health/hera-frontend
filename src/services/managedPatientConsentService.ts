@@ -1,12 +1,12 @@
 import type { UploadAsset } from '../utils/multipartUpload';
-import * as clinicalService from './clinicalService';
+import { uploadTreatmentPdf, type TreatmentConsent } from './treatmentConsentService';
+import { createSecureRandomUuid } from '../utils/secureRandom';
 import * as professionalService from './professionalService';
 
 export interface CreateManagedPatientWithConsentInput {
   client: professionalService.CreateManagedClientInput;
   consentDocument?: UploadAsset | null;
   clinicalAccessToken?: string | null;
-  consentVersion?: string;
 }
 
 export interface CreateManagedPatientWithConsentResult {
@@ -19,7 +19,6 @@ export const createManagedPatientWithInitialConsent = async ({
   client,
   consentDocument,
   clinicalAccessToken,
-  consentVersion = 'v1',
 }: CreateManagedPatientWithConsentInput): Promise<CreateManagedPatientWithConsentResult> => {
   const activeClinicalAccessToken = clinicalAccessToken ?? null;
 
@@ -41,24 +40,15 @@ export const createManagedPatientWithInitialConsent = async ({
   }
 
   const uploadClinicalAccessToken = activeClinicalAccessToken;
-
-  let consentGivenAt: string | null = null;
+  let treatment: TreatmentConsent;
 
   try {
-    const document = await clinicalService.uploadClinicalDocument(
+    treatment = await uploadTreatmentPdf(
       createdClient.id,
+      uploadClinicalAccessToken,
       consentDocument,
-      uploadClinicalAccessToken,
-      'CONSENT_EVIDENCE'
+      createSecureRandomUuid(),
     );
-    const attestation = await clinicalService.attestClinicalConsent(
-      createdClient.id,
-      uploadClinicalAccessToken,
-      consentVersion,
-      document.id
-    );
-
-    consentGivenAt = attestation.consentGivenAt;
   } catch (consentError: unknown) {
     const refreshedClient = await professionalService
       .getProfessionalClientDetail(createdClient.id)
@@ -73,9 +63,7 @@ export const createManagedPatientWithInitialConsent = async ({
 
   const grantedFallbackClient: professionalService.Client = {
     ...createdClient,
-    consentOnFile: true,
-    consentDate: consentGivenAt,
-    consentVersion,
+    treatmentConsentStatus: treatment.status === 'SIGNED' ? 'GRANTED' : treatment.status === 'WITHDRAWN' ? 'REVOKED' : 'PENDING',
   };
   const refreshedClient = await professionalService
     .getProfessionalClientDetail(createdClient.id)
@@ -83,6 +71,6 @@ export const createManagedPatientWithInitialConsent = async ({
 
   return {
     client: refreshedClient ?? grantedFallbackClient,
-    consentCompleted: true,
+    consentCompleted: (refreshedClient ?? grantedFallbackClient).treatmentConsentStatus === 'GRANTED',
   };
 };

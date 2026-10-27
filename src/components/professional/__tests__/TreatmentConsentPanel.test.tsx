@@ -1,0 +1,192 @@
+import React from 'react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { TreatmentConsentPanel } from '../TreatmentConsentPanel';
+import * as consent from '../../../services/treatmentConsentService';
+import { pickClinicalFiles } from '../../../services/clinicalFilePicker';
+import { releaseClinicalAssets } from '../../../services/clinicalFileCache';
+import { ClinicalRequestError } from '../../../services/clinicalService';
+import { createSecureRandomUuid } from '../../../utils/secureRandom';
+import { lightTheme as mockTheme } from '../../../constants/theme';
+
+jest.mock('../../../contexts/ThemeContext', () => ({ useTheme: () => ({ theme: mockTheme }) }));
+jest.mock('../../../services/treatmentConsentService', () => ({
+  getTreatmentConsent: jest.fn(),
+  uploadTreatmentPdf: jest.fn(),
+  prepareTreatmentConsent: jest.fn(),
+  sendTreatmentConsent: jest.fn(),
+}));
+jest.mock('../../../services/clinicalFilePicker', () => ({ pickClinicalFiles: jest.fn() }));
+jest.mock('../../../services/clinicalFileCache', () => ({ releaseClinicalAssets: jest.fn() }));
+jest.mock('../../../services/api', () => ({ api: {}, default: {} }));
+jest.mock('../../../services/clinicalService', () => ({
+  ...jest.requireActual('../../../services/clinicalService'),
+  openClinicalDocument: jest.fn(),
+}));
+jest.mock('../../../utils/secureRandom', () => ({
+  createSecureRandomUuid: jest.fn(() => '00000000-0000-4000-8000-000000000001'),
+}));
+jest.mock('../TreatmentConsentDocument', () => ({
+  TreatmentConsentDocument: ({ html }: { html: string }) => {
+    const { Text } = require('react-native');
+    return <Text>{html}</Text>;
+  },
+}));
+const pending: consent.TreatmentConsent = {
+  status: 'PENDING',
+  method: null,
+  eventId: null,
+  recordedAt: null,
+  signedAt: null,
+  evidenceDocumentId: null,
+  evidenceRequestId: null,
+  activeRequest: null,
+  capabilities: {
+    canUpload: true,
+    canPrepare: true,
+    canSend: false,
+    digitalUnavailableReason: 'Pendiente de validación jurídica.',
+    legacyAuthorizationRequired: false,
+  },
+};
+beforeEach(() => {
+  jest.clearAllMocks();
+  jest.mocked(consent.getTreatmentConsent).mockResolvedValue(pending);
+});
+const show = () =>
+  render(
+    <TreatmentConsentPanel
+      clientId="patient"
+      token="unlock"
+      onChanged={jest.fn(async () => undefined)}
+    />,
+  );
+
+test('one PDF selection registers consent without a second confirmation and legal gate remains visible', async () => {
+  jest
+    .mocked(pickClinicalFiles)
+    .mockResolvedValue([
+      { uri: 'file:///synthetic.pdf', name: 'consent.pdf', mimeType: 'application/pdf' },
+    ]);
+  jest
+    .mocked(consent.uploadTreatmentPdf)
+    .mockResolvedValue({
+      ...pending,
+      status: 'SIGNED',
+      method: 'UPLOADED_PDF',
+      recordedAt: '2026-10-26',
+      eventId: 'event',
+    });
+  show();
+  await screen.findByText('Pendiente');
+  expect(screen.getByRole('button', { name: 'Enviar para firma' })).toBeDisabled();
+  fireEvent.press(screen.getByText('Subir PDF firmado'));
+  await screen.findByText('Firmado');
+  expect(consent.uploadTreatmentPdf).toHaveBeenCalledTimes(1);
+  expect(screen.queryByText('Acreditar consentimiento')).toBeNull();
+  expect(screen.getByText(/PDF aportado por el profesional/)).toBeTruthy();
+});
+
+test.each([undefined, 408, 503])('uncertain PDF response (%s) retains file and operation key for retry', async (status) => {
+  jest
+    .mocked(pickClinicalFiles)
+    .mockResolvedValue([
+      { uri: 'file:///synthetic.pdf', name: 'consent.pdf', mimeType: 'application/pdf' },
+    ]);
+  jest
+    .mocked(consent.uploadTreatmentPdf)
+    .mockRejectedValueOnce(status === undefined ? new Error('Respuesta desconocida') : new ClinicalRequestError({
+      isAxiosError: true, response: { status, data: { error: 'Respuesta desconocida' } },
+    }, 'Respuesta desconocida'))
+    .mockResolvedValue(pending);
+  show();
+  await screen.findByText('Pendiente');
+  fireEvent.press(screen.getByText('Subir PDF firmado'));
+  await screen.findByText('Respuesta desconocida');
+  fireEvent.press(screen.getByText('Reintentar subida'));
+  await waitFor(() => expect(consent.uploadTreatmentPdf).toHaveBeenCalledTimes(2));
+  expect(pickClinicalFiles).toHaveBeenCalledTimes(1);
+  expect(jest.mocked(consent.uploadTreatmentPdf).mock.calls[0]).toEqual(
+    jest.mocked(consent.uploadTreatmentPdf).mock.calls[1],
+  );
+});
+
+test.each([400, 409, 413, 415])('a definitive PDF rejection (%s) allows a new selection and operation key', async (status) => {
+  const invalid = { uri: 'file:///invalid.pdf', name: 'invalid.pdf', mimeType: 'application/pdf' };
+  const corrected = { uri: 'file:///corrected.pdf', name: 'corrected.pdf', mimeType: 'application/pdf' };
+  jest.mocked(pickClinicalFiles).mockResolvedValueOnce([invalid]).mockResolvedValueOnce([corrected]);
+  jest.mocked(createSecureRandomUuid).mockReturnValueOnce('operation-1').mockReturnValueOnce('operation-2');
+  const rejection = new ClinicalRequestError({
+    isAxiosError: true, response: { status, data: { error: 'El PDF no es válido.' } },
+  }, 'El PDF no es válido.');
+  jest.mocked(consent.uploadTreatmentPdf).mockRejectedValueOnce(rejection).mockResolvedValue(pending);
+  show();
+  await screen.findByText('Pendiente');
+  fireEvent.press(screen.getByText('Subir PDF firmado'));
+  await screen.findByText('El PDF no es válido.');
+  expect(releaseClinicalAssets).toHaveBeenCalledWith([invalid]);
+  fireEvent.press(screen.getByText('Subir PDF firmado'));
+  await waitFor(() => expect(consent.uploadTreatmentPdf).toHaveBeenCalledTimes(2));
+  expect(pickClinicalFiles).toHaveBeenCalledTimes(2);
+  expect(consent.uploadTreatmentPdf).toHaveBeenNthCalledWith(2, 'patient', 'unlock', corrected, 'operation-2');
+});
+
+test('review sends the exact prepared snapshot hash and preserves signed state while a renewal is pending', async () => {
+  const prepared = {
+    requestId: 'request',
+    version: 'specialist-treatment-consent-v2',
+    sha256: 'a'.repeat(64),
+    html: 'Documento personalizado inmutable',
+    canSend: true,
+    pendingLegalReview: false,
+  };
+  const signed: consent.TreatmentConsent = {
+    ...pending,
+    status: 'SIGNED',
+    method: 'DIGITAL_ACCEPTANCE',
+    capabilities: { ...pending.capabilities, canSend: true },
+    activeRequest: {
+      id: 'request',
+      stage: 'PREPARED',
+      requestKind: 'GRANT',
+      deliveryStatus: null,
+      expiresAt: '2026-11-01',
+      version: prepared.version,
+      sha256: prepared.sha256,
+    },
+  };
+  jest.mocked(consent.getTreatmentConsent).mockResolvedValue(signed);
+  jest.mocked(consent.prepareTreatmentConsent).mockResolvedValue(prepared);
+  jest.mocked(consent.sendTreatmentConsent).mockResolvedValue(signed);
+  show();
+  await screen.findByText('Firmado');
+  fireEvent.press(screen.getByText('Enviar para firma'));
+  fireEvent.press(screen.getByText('Revisar documento'));
+  await screen.findByText('Documento personalizado inmutable');
+  fireEvent.press(screen.getByText('Enviar documento revisado'));
+  await waitFor(() =>
+    expect(consent.sendTreatmentConsent).toHaveBeenCalledWith(
+      'patient',
+      'unlock',
+      'request',
+      prepared.sha256,
+      expect.any(String),
+    ),
+  );
+  expect(screen.getByText('Firmado')).toBeTruthy();
+});
+
+test('an outdated draft displays the server reason and cannot be sent', async () => {
+  const reason = 'Este borrador utiliza una versión anterior. Prepara y revisa un documento nuevo antes de enviarlo.';
+  const prepared: consent.TreatmentPreview = { requestId: 'old-request', version: 'specialist-treatment-consent-v1', sha256: 'b'.repeat(64), html: 'Documento anterior conservado', canSend: false, pendingLegalReview: false, sendUnavailableReason: reason };
+  jest.mocked(consent.getTreatmentConsent).mockResolvedValue({ ...pending, capabilities: { ...pending.capabilities, canSend: true, digitalUnavailableReason: null }, activeRequest: { id: prepared.requestId, stage: 'PREPARED', requestKind: 'GRANT', deliveryStatus: null, expiresAt: '2026-11-01', version: prepared.version, sha256: prepared.sha256 } });
+  jest.mocked(consent.prepareTreatmentConsent).mockResolvedValue(prepared);
+  show();
+  await screen.findByText('Pendiente');
+  fireEvent.press(screen.getByText('Enviar para firma'));
+  fireEvent.press(screen.getByText('Revisar documento'));
+  await screen.findByText(reason);
+  const button = screen.getByRole('button', { name: 'Enviar documento revisado' });
+  expect(button).toBeDisabled();
+  fireEvent.press(button);
+  expect(consent.sendTreatmentConsent).not.toHaveBeenCalled();
+});

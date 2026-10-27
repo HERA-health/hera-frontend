@@ -36,11 +36,13 @@ const resolutionSchema = z.discriminatedUnion('stage', [
       professionalTitle: z.string().trim().max(160).nullable(),
       licenseNumber: z.string().trim().max(160).nullable(),
     }).strict(),
-    purpose: z.literal('CLINICAL_RECORD'),
+    purpose: z.enum(['CLINICAL_RECORD', 'TREATMENT_CONSENT']),
     document: documentSchema,
   }).strict(),
   z.object({
     stage: z.literal('TERMINAL'),
+    purpose: z.literal('TREATMENT_CONSENT').optional(),
+    receiptAvailable: z.boolean().optional(),
     serverTime: dateTime,
     result: z.object({
       status: z.enum(['ACCEPTED', 'REJECTED', 'REVOKED']),
@@ -85,7 +87,7 @@ export const bootstrapClinicalGuestConsent = (requestId: string, token: string, 
 export const resolveClinicalGuestConsent = (requestId: string): Promise<ClinicalGuestConsentResolution> => requestJson(`${base(requestId)}/resolution`);
 export const requestClinicalGuestConsentOtp = (requestId: string): Promise<ClinicalGuestConsentResolution> => requestJson(`${base(requestId)}/otp`, { method: 'POST', body: '{}' });
 export const verifyClinicalGuestConsentOtp = (requestId: string, code: string): Promise<ClinicalGuestConsentResolution> => requestJson(`${base(requestId)}/otp/verify`, { method: 'POST', body: JSON.stringify(z.object({ code: z.string().regex(/^\d{6}$/) }).parse({ code })) });
-export const decideClinicalGuestConsent = (requestId: string, decision: 'ACCEPT' | 'REJECT'): Promise<ClinicalGuestConsentResolution> => requestJson(`${base(requestId)}/decision`, { method: 'POST', body: JSON.stringify({ decision }) });
+export const decideClinicalGuestConsent = (requestId: string, decision: 'ACCEPT' | 'REJECT', documentSha256?: string): Promise<ClinicalGuestConsentResolution> => requestJson(`${base(requestId)}/decision`, { method: 'POST', body: JSON.stringify({ decision, ...(documentSha256 ? { documentSha256 } : {}) }) });
 export const loadClinicalGuestConsentDocument = async (
   requestId: string,
   descriptor: ClinicalGuestConsentDocumentDescriptor
@@ -96,3 +98,10 @@ export const loadClinicalGuestConsentDocument = async (
     expectedSha256: descriptor.sha256,
   });
 };
+
+export async function downloadClinicalGuestReceipt(requestId: string): Promise<void> {
+  const response = await fetch(`${base(requestId)}/document`, { credentials: 'include', cache: 'no-store', referrerPolicy: 'no-referrer' });
+  if (!response.ok || !response.headers.get('content-type')?.includes('text/html')) throw new GuestConsentHttpError('UNAVAILABLE');
+  const { saveTreatmentHtml } = await import('./treatmentConsentService');
+  await saveTreatmentHtml(await response.text());
+}

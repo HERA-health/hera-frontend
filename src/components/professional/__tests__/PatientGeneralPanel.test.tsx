@@ -73,7 +73,6 @@ test("existing account and fiscal values remain visible while editing sends only
       onRefresh={onRefresh}
       onEditBilling={jest.fn()}
       onConsent={jest.fn()}
-      onOpenDocument={jest.fn()}
       onSession={jest.fn()}
       onPayments={jest.fn()}
     />,
@@ -136,7 +135,6 @@ test("a managed patient can complete the permitted fields without copying accoun
       onRefresh={jest.fn(async () => undefined)}
       onEditBilling={jest.fn()}
       onConsent={jest.fn()}
-      onOpenDocument={jest.fn()}
       onSession={jest.fn()}
       onPayments={jest.fn()}
     />,
@@ -178,7 +176,7 @@ test("a rejected removal of the last contact keeps the editor open and allows co
   render(<PatientGeneralPanel client={managedClient}
     summary={{ ...summary, profile: { ...profile, editableFields: [...profile.editableFields] } }}
     loading={false} error="" onRetry={jest.fn()} onRefresh={onRefresh}
-    onEditBilling={jest.fn()} onConsent={jest.fn()} onOpenDocument={jest.fn()}
+    onEditBilling={jest.fn()} onConsent={jest.fn()}
     onSession={jest.fn()} onPayments={jest.fn()} />);
   fireEvent.press(screen.getAllByText("Editar")[0]);
   fireEvent.changeText(screen.getByLabelText("Email"), "");
@@ -204,7 +202,6 @@ test("a failed summary offers retry without describing unavailable personal data
       onRefresh={jest.fn(async () => undefined)}
       onEditBilling={jest.fn()}
       onConsent={jest.fn()}
-      onOpenDocument={jest.fn()}
       onSession={jest.fn()}
       onPayments={jest.fn()}
     />,
@@ -238,7 +235,6 @@ test("a More editing request is consumed and returning to the tab does not reope
           onRefresh={jest.fn(async () => undefined)}
           onEditBilling={jest.fn()}
           onConsent={jest.fn()}
-          onOpenDocument={jest.fn()}
           onSession={jest.fn()}
           onPayments={jest.fn()}
           editRequest={request}

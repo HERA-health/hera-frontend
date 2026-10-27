@@ -1,4 +1,6 @@
 import { LEGAL_DOCUMENTS } from '../../constants/legal';
+import { AccountTreatmentConsentScreen } from './AccountTreatmentConsentScreen';
+import { getErrorCode } from '../../constants/errors';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -48,6 +50,16 @@ const textStyles = {
 };
 
 export function ClinicalConsentScreen() {
+  const { params } = useRoute<AppRouteProp<'ClinicalConsent'>>();
+  const { user } = useAuth();
+  return (
+    <ClinicalConsentRequestScreen
+      key={`${user?.id ?? 'guest'}:${params.requestId}:${params.token}`}
+    />
+  );
+}
+
+function ClinicalConsentRequestScreen() {
   const route = useRoute<AppRouteProp<'ClinicalConsent'>>();
   const navigation = useNavigation<AppNavigationProp>();
   const { requestId, token } = route.params;
@@ -57,6 +69,7 @@ export function ClinicalConsentScreen() {
   const isMobile = width < 720;
 
   const [resolution, setResolution] = useState<clinicalService.ClinicalConsentRequestResolution | null>(null);
+  const [treatment, setTreatment] = useState(false);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -74,6 +87,7 @@ export function ClinicalConsentScreen() {
       setResolution(nextResolution);
       setError(null);
     } catch (loadError: unknown) {
+      if (getErrorCode(loadError) === 'CLINICAL_TREATMENT_CONSENT_ROUTE_REQUIRED') { setTreatment(true); return; }
       setError(getErrorMessage(loadError, 'No se pudo abrir la autorización'));
     } finally {
       setLoading(false);
@@ -115,6 +129,8 @@ export function ClinicalConsentScreen() {
   const isGranted = resolution?.consentStatus === 'GRANTED' || resolution?.status === 'ACCEPTED';
   const canConfirm = Boolean(resolution) && isPending && !needsLogin;
   const canRevoke = Boolean(resolution) && isGranted && !needsLogin;
+
+  if (treatment) return <AccountTreatmentConsentScreen requestId={requestId} token={token} />;
 
   return (
     <ScrollView

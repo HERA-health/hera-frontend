@@ -20,7 +20,7 @@ export interface GuestConsentFlowAdapter {
   resolve: (requestId: string) => Promise<GuestConsentResolution>;
   requestOtp: (requestId: string) => Promise<GuestConsentResolution>;
   verifyOtp: (requestId: string, code: string) => Promise<GuestConsentResolution>;
-  decide: (requestId: string, decision: 'ACCEPT' | 'REJECT') => Promise<GuestConsentResolution>;
+  decide: (requestId: string, decision: 'ACCEPT' | 'REJECT', documentSha256?: string) => Promise<GuestConsentResolution>;
   loadDocument: (
     requestId: string,
     resolution: GuestConsentReadyResolution
@@ -41,7 +41,7 @@ const SPECIALIST_ADAPTER: GuestConsentFlowAdapter = {
     if (!('specialist' in resolution)) throw new GuestConsentHttpError('UNAVAILABLE');
     return specialistGuestService.loadClinicalGuestConsentDocument(requestId, resolution.document);
   },
-  intro: 'Revisa la autorización de tu especialista',
+  intro: 'Revisa el documento de tu especialista',
   grantLabel: 'Autorización del expediente clínico',
 };
 

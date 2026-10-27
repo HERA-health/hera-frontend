@@ -3,6 +3,8 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 interface Props {
   html: string;
   borderColor: string;
+  title?: string;
+  fitContent?: boolean;
 }
 
 const MINIMUM_HEIGHT = 520;
@@ -10,6 +12,8 @@ const MINIMUM_HEIGHT = 520;
 export function ClinicGuestConsentDocumentFrame({
   html,
   borderColor,
+  title = 'Documento completo de autorización',
+  fitContent = false,
 }: Props): React.ReactElement {
   const frameRef = useRef<HTMLIFrameElement | null>(null);
   const observerRef = useRef<ResizeObserver | null>(null);
@@ -21,12 +25,16 @@ export function ClinicGuestConsentDocumentFrame({
     const documentElement = frame?.contentDocument?.documentElement;
     const body = frame?.contentDocument?.body;
     if (!documentElement || !body) return;
+    if (fitContent) {
+      setHeight(Math.max(MINIMUM_HEIGHT, Math.ceil(body.getBoundingClientRect().height) + 2));
+      return;
+    }
     setHeight(Math.max(
       MINIMUM_HEIGHT,
       documentElement.scrollHeight,
       body.scrollHeight
     ));
-  }, []);
+  }, [fitContent]);
 
   const preventDocumentNavigation = useCallback((event: Event): void => {
     event.preventDefault();
@@ -54,7 +62,7 @@ export function ClinicGuestConsentDocumentFrame({
 
   return React.createElement('iframe', {
     ref: frameRef,
-    title: 'Documento completo de autorización',
+    title,
     srcDoc: html,
     sandbox: 'allow-same-origin',
     referrerPolicy: 'no-referrer',

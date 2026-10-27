@@ -1,3 +1,4 @@
+import { downloadClinicalGuestReceipt } from '../../services/clinicalGuestConsentPublicService';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -225,7 +226,7 @@ export function GuestConsentPublicScreen({ requestId, flow = 'clinic' }: Props):
       }
       setActionError(transientErrorMessage(error));
     }
-  }, [adapter, rememberRateLimit, requestId]);
+  }, [adapter, rememberRateLimit, requestId, resolution]);
 
   React.useEffect(() => {
     if (
@@ -358,7 +359,7 @@ export function GuestConsentPublicScreen({ requestId, flow = 'clinic' }: Props):
     try {
       let nextResolution: AnyResolution;
       try {
-        nextResolution = await adapter.decide(requestId, decision);
+        nextResolution = await adapter.decide(requestId, decision, resolution?.stage === 'READY' && 'purpose' in resolution && resolution.purpose === 'TREATMENT_CONSENT' ? resolution.document.sha256 : undefined);
       } catch (error: unknown) {
         const ambiguous = (
           error instanceof GuestConsentHttpError
@@ -367,7 +368,7 @@ export function GuestConsentPublicScreen({ requestId, flow = 'clinic' }: Props):
         if (!ambiguous) throw error;
         const recovered = await adapter.resolve(requestId);
         nextResolution = recovered.stage === 'READY'
-          ? await adapter.decide(requestId, decision)
+          ? await adapter.decide(requestId, decision, recovered.stage === 'READY' && 'purpose' in recovered && recovered.purpose === 'TREATMENT_CONSENT' ? recovered.document.sha256 : undefined)
           : recovered;
       }
       setResolution(nextResolution);
@@ -394,7 +395,7 @@ export function GuestConsentPublicScreen({ requestId, flow = 'clinic' }: Props):
     } finally {
       setBusy(false);
     }
-  }, [adapter, rememberRateLimit, requestId]);
+  }, [adapter, rememberRateLimit, requestId, resolution]);
 
   const downloadDocument = (): void => {
     if (!documentBytes) return;
@@ -409,6 +410,7 @@ export function GuestConsentPublicScreen({ requestId, flow = 'clinic' }: Props):
     window.setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
 
+  const isTreatment = resolution && 'purpose' in resolution && resolution.purpose === 'TREATMENT_CONSENT';
   const isWithdrawal = resolution?.stage === 'READY' && resolution.requestKind === 'WITHDRAWAL';
   const effectiveClock = clock + serverOffsetMs;
   const resendSeconds = resolution?.stage === 'OTP_REQUIRED'
@@ -454,14 +456,14 @@ export function GuestConsentPublicScreen({ requestId, flow = 'clinic' }: Props):
         {!started && !fatalError ? (
           <View style={styles.centerState} accessibilityLiveRegion="polite">
             <View style={styles.securityMark}><Text style={styles.securityMarkText}>✓</Text></View>
-            <Text style={styles.eyebrow}>Autorización protegida</Text>
+            <Text style={styles.eyebrow}>{flow === 'specialist' ? 'Documento protegido' : 'Autorización protegida'}</Text>
             <View ref={stageHeadingRef} style={styles.stageHeading} tabIndex={-1} role="heading" aria-level={1}>
               <Text style={styles.title}>
                 {adapter.intro}
               </Text>
             </View>
             <Text style={[styles.body, styles.centeredCopy]}>
-              Para proteger tus datos, no abriremos la autorización ni enviaremos ningún código hasta que pulses el botón.
+              {flow === 'specialist' ? 'Para proteger tus datos, no abriremos el documento ni enviaremos ningún código hasta que pulses el botón.' : 'Para proteger tus datos, no abriremos la autorización ni enviaremos ningún código hasta que pulses el botón.'}
             </Text>
             <ActionButton
               label={busy ? 'Comprobando…' : 'Continuar y recibir código por email'}
@@ -567,8 +569,8 @@ export function GuestConsentPublicScreen({ requestId, flow = 'clinic' }: Props):
           <View style={styles.stack}>
             <Text style={styles.eyebrow}>
               {isWithdrawal
-                ? 'Retirada de autorización'
-                : adapter.grantLabel}
+                ? isTreatment ? 'Retirada del consentimiento asistencial' : 'Retirada de autorización'
+                : isTreatment ? 'Consentimiento informado' : adapter.grantLabel}
             </Text>
             <View ref={stageHeadingRef} style={styles.stageHeading} tabIndex={-1} role="heading" aria-level={1}>
               <Text style={styles.title}>
@@ -592,6 +594,8 @@ export function GuestConsentPublicScreen({ requestId, flow = 'clinic' }: Props):
               <GuestConsentDocumentFrame
                 html={documentBytes.html}
                 borderColor={theme.border}
+                fitContent={Boolean(isTreatment)}
+                title={isTreatment ? 'Documento completo de consentimiento informado' : undefined}
               />
             ) : documentError ? (
               <View style={styles.documentError} accessibilityRole="alert">
@@ -631,7 +635,7 @@ export function GuestConsentPublicScreen({ requestId, flow = 'clinic' }: Props):
               >
                 <Text style={styles.confirmTitle}>
                   {confirmation === 'ACCEPT'
-                    ? isWithdrawal ? '¿Confirmas la retirada?' : '¿Confirmas la autorización?'
+                    ? isWithdrawal ? '¿Confirmas la retirada?' : isTreatment ? '¿Aceptas el consentimiento informado?' : '¿Confirmas la autorización?'
                     : '¿Confirmas que rechazas la solicitud?'}
                 </Text>
                 <Text style={styles.body}>
@@ -662,7 +666,7 @@ export function GuestConsentPublicScreen({ requestId, flow = 'clinic' }: Props):
             ) : (
               <View style={styles.actions}>
                 <ActionButton
-                  label={isWithdrawal ? 'Retirar autorización' : 'Autorizar'}
+                  label={isWithdrawal ? isTreatment ? 'Retirar consentimiento' : 'Retirar autorización' : isTreatment ? 'Aceptar consentimiento informado' : 'Autorizar'}
                   disabled={busy || !documentBytes || requestSeconds === 0}
                   buttonRef={decisionTriggerRef}
                   onPress={() => setConfirmation('ACCEPT')}
@@ -687,20 +691,24 @@ export function GuestConsentPublicScreen({ requestId, flow = 'clinic' }: Props):
             <View ref={stageHeadingRef} style={styles.stageHeading} tabIndex={-1} role="heading" aria-level={1}>
               <Text style={styles.title}>
                 {resolution.result.status === 'ACCEPTED'
-                  ? 'Autorización confirmada'
+                  ? isTreatment ? 'Consentimiento registrado' : 'Autorización confirmada'
                   : resolution.result.status === 'REVOKED'
-                    ? 'Autorización retirada'
+                    ? isTreatment ? 'Consentimiento retirado' : 'Autorización retirada'
                     : 'Solicitud rechazada'}
               </Text>
             </View>
             <Text style={[styles.body, styles.centeredCopy]}>
               Tu decisión se ha guardado correctamente. Puedes cerrar esta pestaña; no necesitas una cuenta HERA.
             </Text>
+            {isTreatment && 'receiptAvailable' in resolution && resolution.receiptAvailable ? <ActionButton
+              label="Descargar documento y justificante" disabled={busy} theme={theme}
+              onPress={() => { setBusy(true); void downloadClinicalGuestReceipt(requestId).catch(error => setActionError(transientErrorMessage(error))).finally(() => setBusy(false)); }}
+            /> : null}
           </View>
         ) : null}
         {busy && resolution ? <ActivityIndicator color={theme.primary} style={styles.busyOverlay} /> : null}
       </View>
-      <Text style={styles.footer}>HERA · Confirmación privada de autorizaciones · health-hera@gmail.com</Text>
+      <Text style={styles.footer}>{flow === 'specialist' ? 'HERA · Canal privado de documentos · health-hera@gmail.com' : 'HERA · Confirmación privada de autorizaciones · health-hera@gmail.com'}</Text>
     </ScrollView>
   );
 }

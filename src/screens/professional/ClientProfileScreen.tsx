@@ -16,7 +16,7 @@ import {
 import type {
   ClinicalPatientAction,
   ClinicalPatientSection,
-} from "../../components/professional/ClinicalPatientWorkspace";
+} from "../../components/professional/clinicalPatientTypes";
 import type { PatientPackage } from "../../services/packageService";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useRef } from "react";
@@ -871,7 +871,7 @@ export function ClientProfileScreen() {
                     >
                       {clinicalState.clientId === client.id &&
                       clinicalState.unlocked
-                        ? `Área clínica desbloqueada · Consentimiento ${clinicalState.consentStatus === "GRANTED" ? "vigente" : clinicalState.consentStatus === "REVOKED" ? "retirado" : "pendiente"}`
+                        ? `Área clínica desbloqueada · Consentimiento ${clinicalState.consentStatus === "SIGNED" ? "firmado" : clinicalState.consentStatus === "WITHDRAWN" ? "retirado" : clinicalState.consentStatus === "SENT" ? "enviado" : "pendiente"}`
                         : "Área clínica protegida · Gestionar consentimiento"}
                     </Text>
                   </AnimatedPressable>
@@ -1047,16 +1047,6 @@ export function ClientProfileScreen() {
             onRefresh={refreshAll}
             onEditBilling={() => setBillingModalVisible(true)}
             onConsent={() => requestClinicalAction("CONSENT")}
-            onOpenDocument={(id) => {
-              setClinicalDocumentTarget(id || undefined);
-              setActiveTab("documents");
-              if (!id)
-                setClinicalAction({
-                  id: Date.now(),
-                  kind: "UPLOAD",
-                  classification: "TREATMENT_CONSENT",
-                });
-            }}
             onSession={(id) => {
               setOperationalSessionTarget(id);
               setActiveTab("history");
