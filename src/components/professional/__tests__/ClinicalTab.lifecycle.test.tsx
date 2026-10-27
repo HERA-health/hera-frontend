@@ -109,6 +109,15 @@ test('rechecking a valid session preserves an open note and its unsaved draft', 
   expect(screen.getByDisplayValue('Borrador sin guardar')).toBeTruthy();
 });
 
+test('consent entry explains the PIN and keeps protected content inaccessible until unlock', async () => {
+  access = { ...access, token: null };
+  render(<ClinicalTab clientId={client.id} client={client} action={{ id: 1, kind: 'CONSENT' }} />);
+  await screen.findByText('Accede al consentimiento informado');
+  expect(screen.getByText('El consentimiento forma parte del expediente protegido. Introduce tu PIN para abrir su gestión.')).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'Continuar al consentimiento' })).toBeTruthy();
+  expect(clinical.getClinicalRecord).not.toHaveBeenCalled();
+});
+
 test('losing access while rechecking removes the draft immediately and never restores it on unlock', async () => {
   const view = render(<PatientView />);
   await screen.findAllByText('Notas clínicas');

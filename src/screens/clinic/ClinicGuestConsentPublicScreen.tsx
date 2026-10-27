@@ -516,11 +516,6 @@ export function GuestConsentPublicScreen({ requestId, flow = 'clinic' }: Props):
                     ? `No se pudo enviar el código a ${resolution.maskedEmail}. Puedes volver a solicitarlo cuando esté disponible.`
                     : `Todavía no se ha enviado ningún código a ${resolution.maskedEmail}.`}
             </Text>
-            {'otpReference' in resolution && resolution.otpReference ? (
-              <Text style={styles.body}>
-                Referencia del código: {resolution.otpReference}. Usa el correo que indica esta misma referencia.
-              </Text>
-            ) : null}
             {otpSeconds !== null ? (
               <Text style={styles.timerText}>
                 {otpSeconds > 0 ? `El código caduca en ${otpSeconds} s` : 'El código ha caducado'}
@@ -549,9 +544,7 @@ export function GuestConsentPublicScreen({ requestId, flow = 'clinic' }: Props):
                 disabled={busy || otp.length !== 6 || otpSeconds === 0}
                 onPress={() => { void runResolutionAction(
                   () => adapter.verifyOtp(requestId, otp),
-                  'otpReference' in resolution && resolution.otpReference
-                    ? 'El código no coincide con esta verificación o ya no está disponible. Comprueba la referencia del correo o solicita otro código.'
-                    : 'El código no es válido, ha caducado o ha alcanzado el máximo de intentos.'
+                  'El código no es correcto o ya no está disponible. Revisa el correo más reciente o solicita otro código.'
                 ); }}
                 theme={theme}
               />

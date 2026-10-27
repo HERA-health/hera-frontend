@@ -34,13 +34,14 @@ afterEach(() => {
   jest.clearAllMocks();
 });
 
-test('shows the email reference and guides a rejected code without claiming it expired', async () => {
+test('hides technical references and guides a rejected code without claiming it expired', async () => {
   render(<GuestConsentPublicScreen requestId="test" flow="specialist" />);
   fireEvent.press(screen.getByText('Continuar y recibir código por email'));
-  await screen.findByText(/Referencia del código: AB12-CD34/);
+  await screen.findByLabelText('Código de verificación de seis cifras');
+  expect(screen.queryByText(/AB12-CD34|Referencia del código/)).toBeNull();
   fireEvent.changeText(screen.getByLabelText('Código de verificación de seis cifras'), '001234');
   fireEvent.press(screen.getByText('Verificar código'));
-  await screen.findByText(/Comprueba la referencia del correo o solicita otro código/);
+  await screen.findByText(/Revisa el correo más reciente o solicita otro código/);
   await waitFor(() => expect(adapter.verifyOtp).toHaveBeenCalledWith('test', '001234'));
   expect(screen.getByLabelText('Código de verificación de seis cifras').props.value).toBe('');
   expect(screen.queryByText('El código no es válido, ha caducado o ha alcanzado el máximo de intentos.')).toBeNull();

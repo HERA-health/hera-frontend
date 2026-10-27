@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { TreatmentConsentPanel } from '../TreatmentConsentPanel';
 import * as consent from '../../../services/treatmentConsentService';
 import { pickClinicalFiles } from '../../../services/clinicalFilePicker';
@@ -50,6 +50,8 @@ const pending: consent.TreatmentConsent = {
 };
 beforeEach(() => {
   jest.clearAllMocks();
+  let key = 0;
+  jest.mocked(createSecureRandomUuid).mockImplementation(() => `operation-${++key}`);
   jest.mocked(consent.getTreatmentConsent).mockResolvedValue(pending);
 });
 const show = () =>
@@ -160,9 +162,9 @@ test('review sends the exact prepared snapshot hash and preserves signed state w
   show();
   await screen.findByText('Firmado');
   fireEvent.press(screen.getByText('Enviar para firma'));
-  fireEvent.press(screen.getByText('Revisar documento'));
+  fireEvent.press(screen.getByText('Revisar antes'));
   await screen.findByText('Documento personalizado inmutable');
-  fireEvent.press(screen.getByText('Enviar documento revisado'));
+  fireEvent.press(screen.getByText('Enviar por correo'));
   await waitFor(() =>
     expect(consent.sendTreatmentConsent).toHaveBeenCalledWith(
       'patient',
@@ -183,10 +185,112 @@ test('an outdated draft displays the server reason and cannot be sent', async ()
   show();
   await screen.findByText('Pendiente');
   fireEvent.press(screen.getByText('Enviar para firma'));
-  fireEvent.press(screen.getByText('Revisar documento'));
+  fireEvent.press(screen.getByText('Revisar antes'));
   await screen.findByText(reason);
-  const button = screen.getByRole('button', { name: 'Enviar documento revisado' });
+  const button = screen.getByRole('button', { name: 'Enviar por correo' });
   expect(button).toBeDisabled();
   fireEvent.press(button);
   expect(consent.sendTreatmentConsent).not.toHaveBeenCalled();
+});
+
+const readyDocument: consent.TreatmentPreview = {
+  requestId: 'new-request', version: 'specialist-treatment-consent-v2', sha256: 'c'.repeat(64),
+  html: 'Documento para revisar', canSend: true, pendingLegalReview: false,
+};
+const enabled: consent.TreatmentConsent = {
+  ...pending, capabilities: { ...pending.capabilities, canSend: true, digitalUnavailableReason: null },
+};
+
+test('direct sending asks first, then sends the prepared document without opening its preview', async () => {
+  jest.mocked(consent.getTreatmentConsent).mockResolvedValue(enabled);
+  jest.mocked(consent.prepareTreatmentConsent).mockResolvedValue(readyDocument);
+  jest.mocked(consent.sendTreatmentConsent).mockResolvedValue({ ...enabled, status: 'SENT' });
+  show();
+  await screen.findByText('Pendiente');
+  fireEvent.press(screen.getByText('Enviar para firma'));
+  expect(screen.getByText('Revisar antes')).toBeTruthy();
+  expect(consent.prepareTreatmentConsent).not.toHaveBeenCalled();
+  expect(consent.sendTreatmentConsent).not.toHaveBeenCalled();
+  fireEvent.press(screen.getByText('Enviar ahora'));
+  await screen.findByText('Enviado');
+  expect(consent.prepareTreatmentConsent).toHaveBeenCalledWith('patient', 'unlock', expect.any(String), false);
+  expect(consent.sendTreatmentConsent).toHaveBeenCalledWith('patient', 'unlock', readyDocument.requestId, readyDocument.sha256, expect.any(String));
+  expect(screen.queryByText(readyDocument.html)).toBeNull();
+  expect(screen.queryByText('Enviar ahora')).toBeNull();
+});
+
+test('an uncertain direct send retries the same request and operation without preparing another document', async () => {
+  jest.mocked(consent.getTreatmentConsent).mockResolvedValue(enabled);
+  jest.mocked(consent.prepareTreatmentConsent).mockResolvedValue(readyDocument);
+  jest.mocked(consent.sendTreatmentConsent).mockRejectedValueOnce(new Error('Envío sin confirmar')).mockResolvedValue({ ...enabled, status: 'SENT' });
+  show();
+  await screen.findByText('Pendiente');
+  fireEvent.press(screen.getByText('Enviar para firma'));
+  fireEvent.press(screen.getByText('Enviar ahora'));
+  await screen.findByText('Envío sin confirmar');
+  fireEvent.press(screen.getByText('Enviar ahora'));
+  await screen.findByText('Enviado');
+  expect(consent.prepareTreatmentConsent).toHaveBeenCalledTimes(1);
+  expect(jest.mocked(consent.sendTreatmentConsent).mock.calls[0]).toEqual(jest.mocked(consent.sendTreatmentConsent).mock.calls[1]);
+});
+
+test('direct sending respects a document that the server no longer allows sending', async () => {
+  jest.mocked(consent.getTreatmentConsent).mockResolvedValue(enabled);
+  jest.mocked(consent.prepareTreatmentConsent).mockResolvedValue({ ...readyDocument, canSend: false, sendUnavailableReason: 'Documento no disponible para enviar.' });
+  show();
+  await screen.findByText('Pendiente');
+  fireEvent.press(screen.getByText('Enviar para firma'));
+  fireEvent.press(screen.getByText('Enviar ahora'));
+  await screen.findByText('Documento no disponible para enviar.');
+  expect(consent.sendTreatmentConsent).not.toHaveBeenCalled();
+});
+
+test('a definitive send rejection allows preparing a fresh document with a new operation key', async () => {
+  jest.mocked(consent.getTreatmentConsent).mockResolvedValue(enabled);
+  jest.mocked(consent.prepareTreatmentConsent).mockResolvedValueOnce(readyDocument).mockResolvedValueOnce({ ...readyDocument, requestId: 'fresh-request' });
+  jest.mocked(consent.sendTreatmentConsent).mockRejectedValueOnce(new ClinicalRequestError({
+    isAxiosError: true, response: { status: 409, data: { error: 'Prepara un documento nuevo.' } },
+  }, 'Prepara un documento nuevo.')).mockResolvedValue({ ...enabled, status: 'SENT' });
+  show();
+  await screen.findByText('Pendiente');
+  fireEvent.press(screen.getByText('Enviar para firma'));
+  fireEvent.press(screen.getByText('Enviar ahora'));
+  await screen.findByText('Prepara un documento nuevo.');
+  fireEvent.press(screen.getByText('Enviar ahora'));
+  await screen.findByText('Enviado');
+  expect(consent.prepareTreatmentConsent).toHaveBeenCalledTimes(2);
+  const calls = jest.mocked(consent.sendTreatmentConsent).mock.calls;
+  expect(calls[1][2]).toBe('fresh-request');
+  expect(calls[1][4]).not.toBe(calls[0][4]);
+});
+
+test('changing patient while preparing does not send the previous patient document', async () => {
+  let resolveDocument!: (document: consent.TreatmentPreview) => void;
+  jest.mocked(consent.getTreatmentConsent).mockResolvedValue(enabled);
+  jest.mocked(consent.prepareTreatmentConsent).mockImplementationOnce(() => new Promise(resolve => { resolveDocument = resolve; }));
+  const view = show();
+  await screen.findByText('Pendiente');
+  fireEvent.press(screen.getByText('Enviar para firma'));
+  fireEvent.press(screen.getByText('Enviar ahora'));
+  view.rerender(<TreatmentConsentPanel clientId="another-patient" token="another-unlock" onChanged={async () => undefined} />);
+  await act(async () => resolveDocument(readyDocument));
+  expect(consent.sendTreatmentConsent).not.toHaveBeenCalled();
+  expect(screen.queryByText(readyDocument.html)).toBeNull();
+});
+
+test('withdrawal remains available and direct sending keeps its distinct request kind', async () => {
+  jest.mocked(consent.getTreatmentConsent).mockResolvedValue({ ...enabled, status: 'SIGNED', evidenceRequestId: 'accepted-request' });
+  jest.mocked(consent.prepareTreatmentConsent).mockResolvedValue(readyDocument);
+  jest.mocked(consent.sendTreatmentConsent).mockResolvedValue({ ...enabled, status: 'SIGNED' });
+  show();
+  await screen.findByText('Firmado');
+  expect(screen.getByRole('button', { name: 'Ver documento aceptado' })).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'Descargar justificante' })).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'Registrar retirada' })).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'Corregir registro' })).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'Ver historial' })).toBeTruthy();
+  fireEvent.press(screen.getByText('Solicitar retirada al paciente'));
+  fireEvent.press(screen.getByText('Enviar ahora'));
+  await waitFor(() => expect(consent.prepareTreatmentConsent).toHaveBeenCalledWith('patient', 'unlock', expect.any(String), true));
+  await waitFor(() => expect(consent.sendTreatmentConsent).toHaveBeenCalledTimes(1));
 });
