@@ -39,6 +39,7 @@ export const PhotoGallerySection: React.FC<PhotoGallerySectionProps> = ({
   photoGallery,
   specialistName,
   editorial = false,
+  compact = false,
 }) => {
   const { theme, isDark } = useTheme();
   const styles = useMemo(() => createStyles(theme, isDark), [theme, isDark]);
@@ -70,8 +71,8 @@ export const PhotoGallerySection: React.FC<PhotoGallerySectionProps> = ({
     if (currentIndex < count - 1) changeImage(currentIndex + 1);
   };
 
-  const openLightbox = () => {
-    setLightboxIndex(currentIndex);
+  const openLightbox = (index = currentIndex) => {
+    setLightboxIndex(index);
     lightboxOpacity.value = 1;
     setLightboxVisible(true);
   };
@@ -104,7 +105,22 @@ export const PhotoGallerySection: React.FC<PhotoGallerySectionProps> = ({
 
   return (
     <View style={styles.container}>
-      <ProfileDisclosureSection
+      {compact ? <View style={styles.compactContent}>
+        <View style={styles.compactHeader}>
+          <Text accessibilityRole="header" aria-level={2} style={{ color: theme.textPrimary, fontFamily: theme.fontSansSemiBold, fontSize: 15 }}>Galería</Text>
+          {count > 4 ? <AnimatedPressable accessibilityRole="button" onPress={() => openLightbox(0)} hoverLift={false}
+            style={{ minHeight: 44, justifyContent: 'center' }}>
+            <Text style={{ color: theme.primary, fontFamily: theme.fontSansSemiBold, fontSize: 12 }}>Ver todas ({count}) →</Text>
+          </AnimatedPressable> : <Text style={{ color: theme.textSecondary, fontFamily: theme.fontSans, fontSize: 12 }}>{count} {count === 1 ? 'foto' : 'fotos'}</Text>}
+        </View>
+        <View style={styles.compactThumbnails}>
+          {photoGallery.slice(0, 4).map((url, index) => <AnimatedPressable key={url + index} accessibilityRole="button"
+            accessibilityLabel={'Abrir foto ' + (index + 1) + ' de ' + count} onPress={() => openLightbox(index)} hoverLift={false}
+            style={styles.compactThumbnail}>
+            <Image source={{ uri: url }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+          </AnimatedPressable>)}
+        </View>
+      </View> : <ProfileDisclosureSection
         editorial={editorial}
         title={STRINGS.title}
         iconName="images-outline"
@@ -113,7 +129,7 @@ export const PhotoGallerySection: React.FC<PhotoGallerySectionProps> = ({
         testID="photo-gallery-disclosure"
         variant="surface"
       >
-        <AnimatedPressable onPress={openLightbox} style={styles.mainImageWrapper} hoverLift={false} pressScale={0.995}>
+        <AnimatedPressable onPress={() => openLightbox()} style={styles.mainImageWrapper} hoverLift={false} pressScale={0.995}>
           <Animated.Image
             source={{ uri: photoGallery[currentIndex] }}
             style={[styles.mainImage, animatedImageStyle]}
@@ -168,8 +184,7 @@ export const PhotoGallerySection: React.FC<PhotoGallerySectionProps> = ({
             })}
           </ScrollView>
         )}
-
-
+      </ProfileDisclosureSection>}
         <Modal visible={lightboxVisible} transparent={false} animationType="fade" onRequestClose={closeLightbox} statusBarTranslucent>
           <View style={styles.lightboxContainer}>
             <Animated.Image
@@ -218,7 +233,6 @@ export const PhotoGallerySection: React.FC<PhotoGallerySectionProps> = ({
             )}
           </View>
         </Modal>
-      </ProfileDisclosureSection>
     </View>
   );
 };
@@ -231,6 +245,10 @@ const createStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
     borderWidth: 1,
     borderColor: theme.borderLight,
   },
+  compactContent: { padding: 16, gap: 12 },
+  compactHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 28, gap: 12 },
+  compactThumbnails: { flexDirection: 'row', gap: 8 },
+  compactThumbnail: { flex: 1, maxWidth: 90, aspectRatio: 1, borderRadius: 10, overflow: 'hidden' },
   header: {
     minHeight: 76,
     flexDirection: 'row',

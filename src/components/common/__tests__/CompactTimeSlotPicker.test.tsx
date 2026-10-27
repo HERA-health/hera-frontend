@@ -37,6 +37,19 @@ test.each([0, 1, 4, 5, 80])('bounds preview for %i available times', count => {
   expect(Boolean(screen.queryByText('Ver todos los horarios'))).toBe(count > 4);
 });
 
+test.each([0, 1, 5, 6, 7, 80])('shows up to six real times in the three-column profile for %i slots', count => {
+  render(<CompactTimeSlotPicker {...props} slots={slots.slice(0, count)} columns={3} />);
+  expect(screen.queryAllByText(/^\d\d:\d\d$/)).toHaveLength(Math.min(count, 6));
+  expect(Boolean(screen.queryByText('Ver todos los horarios'))).toBe(count > 6);
+});
+
+test('retains an exact selected time in the six-slot preview', () => {
+  const preview = previewTimeSlots(slots, '09:05', 6);
+  expect(preview).toHaveLength(6);
+  expect(preview.every(slot => slots.includes(slot))).toBe(true);
+  expect(preview.map(slot => slot.startTime)).toContain('09:05');
+});
+
 test('every valid start is in the floating menu and selecting one preserves the slot object', () => {
   render(<CompactTimeSlotPicker {...props} slots={[...slots, { startTime: '20:00', endTime: '21:00', available: false }]} />);
   fireEvent.press(screen.getByText('Ver todos los horarios'));

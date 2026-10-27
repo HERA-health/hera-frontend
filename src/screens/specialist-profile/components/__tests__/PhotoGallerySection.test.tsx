@@ -74,4 +74,26 @@ describe('PhotoGallerySection', () => {
 
     expect(screen.queryByText('Galería')).toBeNull();
   });
+
+  it('shows at most four compact thumbnails and opens the selected photo in the existing viewer', () => {
+    const photos = ['one', 'two', 'three', 'four', 'five'].map(name => `https://example.com/${name}.jpg`);
+    render(<PhotoGallerySection compact photoGallery={photos} specialistName="Judith" />);
+    expect(screen.queryByLabelText('Abrir Galería')).toBeNull();
+    expect(screen.getAllByRole('button', { name: /Abrir foto/ })).toHaveLength(4);
+    expect(screen.getByText('Ver todas (5) →')).toBeTruthy();
+    fireEvent.press(screen.getByLabelText('Abrir foto 3 de 5'));
+    expect(screen.getByLabelText('Judith - 3 de 5').props.source.uri).toBe(photos[2]);
+    expect(screen.getByLabelText('Judith - 3 de 5').props.resizeMode).toBe('contain');
+    fireEvent.press(screen.getByLabelText('Cerrar galería'));
+    fireEvent.press(screen.getByText('Ver todas (5) →'));
+    expect(screen.getByLabelText('Judith - 1 de 5')).toBeTruthy();
+  });
+
+  it('does not repeat a single compact photo or show a more-photos action', () => {
+    const view = render(<PhotoGallerySection compact photoGallery={['https://example.com/one.jpg']} />);
+    expect(screen.getAllByRole('button', { name: /Abrir foto/ })).toHaveLength(1);
+    expect(screen.queryByText(/Ver todas/)).toBeNull();
+    view.rerender(<PhotoGallerySection compact photoGallery={[]} />);
+    expect(screen.queryByText('Galería')).toBeNull();
+  });
 });

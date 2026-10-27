@@ -9,6 +9,7 @@ interface Props {
   selectedTime?: string | null;
   resetKey: string;
   disabled?: boolean;
+  columns?: 2 | 3;
   onSelect: (slot: TimeSlot) => void;
   renderSlot: (slot: TimeSlot) => React.ReactNode;
 }
@@ -18,8 +19,8 @@ const minutes = (time: string) => {
   return hour * 60 + minute;
 };
 
-export function previewTimeSlots(available: TimeSlot[], selectedTime?: string | null): TimeSlot[] {
-  if (available.length <= 4) return available;
+export function previewTimeSlots(available: TimeSlot[], selectedTime?: string | null, limit = 4): TimeSlot[] {
+  if (available.length <= limit) return available;
   const candidates = available.filter((slot, index) => {
     const start = minutes(slot.startTime);
     return start % 15 === 0 || start % 5 !== 0
@@ -33,9 +34,10 @@ export function previewTimeSlots(available: TimeSlot[], selectedTime?: string | 
     available.filter(slot => minutes(slot.startTime) % 30 === 0),
     available.filter(slot => minutes(slot.startTime) % 15 === 0),
     candidates,
+    ...(limit === 6 ? [available] : []),
   ]) {
     const remaining = pool.filter(slot => !sample.includes(slot));
-    const count = Math.min(4 - sample.length, remaining.length);
+    const count = Math.min(limit - sample.length, remaining.length);
     for (let index = 0; index < count; index++) {
       sample.push(remaining[count === 1 ? 0 : Math.round(index * (remaining.length - 1) / (count - 1))]);
     }
@@ -54,18 +56,19 @@ export function previewTimeSlots(available: TimeSlot[], selectedTime?: string | 
 }
 
 /** A bounded preview; the full, unchanged availability lives in a floating menu. */
-export function CompactTimeSlotPicker({ slots, selectedTime, resetKey, disabled, onSelect, renderSlot }: Props) {
+export function CompactTimeSlotPicker({ slots, selectedTime, resetKey, disabled, columns = 2, onSelect, renderSlot }: Props) {
   const available = useMemo(() => slots.filter(slot => slot.available !== false)
     .sort((a, b) => a.startTime.localeCompare(b.startTime)), [slots]);
-  const preview = useMemo(() => previewTimeSlots(available, selectedTime), [available, selectedTime]);
-  return <View style={styles.container}>
-    {[preview.slice(0, 2), preview.slice(2, 4)].filter(row => row.length > 0).map((row, index) => (
-      <View key={index} style={styles.row}>
+  const limit = columns * 2;
+  const preview = useMemo(() => previewTimeSlots(available, selectedTime, limit), [available, selectedTime, limit]);
+  return <View style={[styles.container, columns === 3 && styles.compactGap]}>
+    {[preview.slice(0, columns), preview.slice(columns, limit)].filter(row => row.length > 0).map((row, index) => (
+      <View key={index} style={[styles.row, columns === 3 && styles.compactGap]}>
         {row.map(slot => <View key={slot.startTime} style={styles.cell}>{renderSlot(slot)}</View>)}
-        {row.length === 1 && <View style={styles.cell} />}
+        {Array.from({ length: columns - row.length }, (_, emptyIndex) => <View key={emptyIndex} style={styles.cell} />)}
       </View>
     ))}
-    {available.length > 4 && <SimpleDropdown
+    {available.length > limit && <SimpleDropdown
       key={resetKey}
       options={available.map(slot => ({ label: slot.startTime, value: slot.startTime }))}
       value={selectedTime ?? null}
@@ -87,5 +90,6 @@ export function CompactTimeSlotPicker({ slots, selectedTime, resetKey, disabled,
 const styles = StyleSheet.create({
   container: { gap: spacing.sm },
   row: { flexDirection: 'row', gap: spacing.sm },
+  compactGap: { gap: 6 },
   cell: { flex: 1, minWidth: 0 },
 });

@@ -53,6 +53,7 @@ export function PublicPackageOffers({ specialistId, anonymous, intentToken, onPr
     return () => { current = false; };
   }, [specialistId, retry]);
   if (!rich && (!offers.length || !acquisitionsEnabled) && !error) return null;
+  if (dialog && loading && !catalogOpen && !selected) return null;
   if (dialog && !loading && !offers.length && !error && !catalogOpen) return null;
   const content = <View style={[{ gap: 12, paddingVertical: dialog ? 0 : 16 }, editorial && !dialog && { borderTopWidth: 1, borderTopColor: theme.borderLight, marginTop: 32, paddingTop: 28, paddingBottom: 0 }]}>
     {!dialog ? <Text accessibilityRole="header" aria-level={2} style={{ color: theme.textPrimary, fontFamily: editorial ? theme.fontDisplay : theme.fontSansSemiBold, fontSize: editorial ? 26 : 18, lineHeight: editorial ? 34 : undefined }}>{editorial ? 'Bonos de sesiones' : '¿Quieres un nuevo bono?'}</Text> : null}
@@ -81,8 +82,8 @@ export function PublicPackageOffers({ specialistId, anonymous, intentToken, onPr
     {!!message && <Text accessibilityLiveRegion="polite" style={{ color: theme.success }}>{message}</Text>}
   </View>;
   return <>
-    {dialog ? <View style={{ borderTopWidth: 1, borderColor: theme.borderLight, paddingTop: 12 }}>
-      <Button variant="secondary" fullWidth focusRef={triggerRef} onPress={() => setCatalogOpen(true)}>Comprar bono de sesiones</Button>
+    {dialog ? <View style={{ flex: 1, minWidth: 0 }}>
+      <Button variant="secondary" fullWidth style={{ minHeight: 44, paddingVertical: 10, paddingHorizontal: 12 }} textStyle={{ fontSize: 13 }} accessibilityLabel="Comprar bono de sesiones" focusRef={triggerRef} onPress={() => setCatalogOpen(true)}>Comprar bono</Button>
       {catalogOpen && !selected ? <PackageCatalogDialog onClose={closeCatalog}>{content}</PackageCatalogDialog> : null}
     </View> : content}
     {selected && (anonymous ? <GuestPackageAcquisition offer={selected} specialistId={specialistId} intentToken={effectiveIntent} onPrivacy={onPrivacy} onClose={() => setSelected(undefined)} onDone={acquired} /> : <PackageAcquisition professional={false} offer={selected} specialistId={specialistId} bookingIntentToken={effectiveIntent} onClose={() => setSelected(undefined)} onAcquired={acquired} />)}

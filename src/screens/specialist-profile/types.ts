@@ -212,6 +212,7 @@ export interface CompactHeroProps {
 }
 
 export interface PhotoGallerySectionProps {
+  compact?: boolean;
   editorial?: boolean;
   photoGallery: string[];
   specialistName?: string;

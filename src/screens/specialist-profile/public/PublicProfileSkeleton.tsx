@@ -8,7 +8,7 @@ export function PublicProfileSkeleton() {
   const mobile = width < 768;
   const desktop = width >= 1200;
   return <View accessibilityLabel="Cargando perfil" accessibilityState={{ busy: true }}
-    style={{ paddingTop: 162, paddingHorizontal: mobile ? 20 : 32 }}>
+    style={{ paddingTop: 130, paddingHorizontal: mobile ? 20 : 32 }}>
     <View style={{ width: '100%', maxWidth: 1440, alignSelf: 'center', flexDirection: desktop ? 'row' : 'column', gap: 32 }}>
       <View style={{ flex: 1, minWidth: 0, gap: 24 }}>
         <View style={{ flexDirection: 'row', gap: mobile ? 16 : 28 }}>
@@ -22,7 +22,9 @@ export function PublicProfileSkeleton() {
         <View style={{ height: 16, borderRadius: 6, backgroundColor: theme.secondaryMuted }} />
         <View style={{ height: 16, width: '80%', borderRadius: 6, backgroundColor: theme.secondaryMuted }} />
       </View>
-      <View style={{ width: desktop ? 360 : '100%', height: 280, backgroundColor: theme.bgCard, borderRadius: 20 }} />
+      <View style={{ width: desktop ? 420 : '100%', maxWidth: 640, alignSelf: desktop ? 'flex-start' : 'center', gap: 16 }}>
+        {[280, 250, 160].map((height, index) => <View key={index} style={{ height, backgroundColor: theme.bgCard, borderRadius: 20 }} />)}
+      </View>
     </View>
   </View>;
 }

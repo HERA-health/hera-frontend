@@ -21,6 +21,9 @@ interface SelectableAvailabilityPreviewProps {
   timeZoneLabel?: string;
   onSelectionInvalidated?: () => void;
   onValidationChange?: (validated: boolean) => void;
+  compact?: boolean;
+  onOpenFullCalendar?: () => void;
+  revalidateOnFocus?: boolean;
 }
 
 const DATE_KEY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
@@ -66,6 +69,9 @@ export const SelectableAvailabilityPreview: React.FC<SelectableAvailabilityPrevi
   timeZoneLabel = 'Horarios en Europe/Madrid',
   onSelectionInvalidated,
   onValidationChange,
+  compact = false,
+  onOpenFullCalendar,
+  revalidateOnFocus = false,
 }) => {
   const { theme, isDark } = useTheme();
   const styles = useMemo(() => createStyles(theme, isDark), [theme, isDark]);
@@ -77,6 +83,7 @@ export const SelectableAvailabilityPreview: React.FC<SelectableAvailabilityPrevi
   const dateScrollRef = useRef<ScrollView>(null);
   const previousAvailabilityContextRef = useRef({ specialistId, startDate, optionId });
   const [selectedDate, setSelectedDate] = useState(selectedSlot?.date ?? dates[0]);
+  const [firstVisibleDate, setFirstVisibleDate] = useState(0);
   const [slotCache, setSlotCache] = useState<Record<string, TimeSlot[]>>({});
   const [loadingDate, setLoadingDate] = useState<string | null>(null);
   const [errorDate, setErrorDate] = useState<string | null>(null);
@@ -100,6 +107,7 @@ export const SelectableAvailabilityPreview: React.FC<SelectableAvailabilityPrevi
     ) return;
     previousAvailabilityContextRef.current = { specialistId, startDate, optionId };
     setSelectedDate(dates[0]);
+    setFirstVisibleDate(0);
     setErrorDate(null);
     dateScrollRef.current?.scrollTo({ x: 0, animated: false });
     setDateScrollMetrics((current) => ({ ...current, offsetX: 0 }));
@@ -109,12 +117,13 @@ export const SelectableAvailabilityPreview: React.FC<SelectableAvailabilityPrevi
   const cacheKey = `${specialistId}:${optionId ?? 'default'}:${selectedDate}`;
   useDiscoveryRevalidation(useCallback(() => {
     if (!canBook || activeSlotRequest.current?.cacheKey === cacheKey) return;
+    responseHandlers.current.onValidationChange?.(false);
     setSlotCache(current => {
       const updated = { ...current };
       delete updated[cacheKey];
       return updated;
     });
-  }, [cacheKey, canBook]), false);
+  }, [cacheKey, canBook]), revalidateOnFocus);
 
   useEffect(() => {
     let active = true;
@@ -164,10 +173,17 @@ export const SelectableAvailabilityPreview: React.FC<SelectableAvailabilityPrevi
     0,
     dateScrollMetrics.contentWidth - dateScrollMetrics.viewportWidth,
   );
-  const canScrollDatesBack = dateScrollMetrics.offsetX > 1;
-  const canScrollDatesForward = dateScrollMetrics.offsetX < maximumDateScroll - 1;
+  const visibleDateCount = Math.max(1, Math.floor((dateScrollMetrics.viewportWidth + 6) / 54));
+  const compactDateStart = Math.min(firstVisibleDate, Math.max(0, dates.length - visibleDateCount));
+  const visibleDates = compact ? dates.slice(compactDateStart, compactDateStart + visibleDateCount) : dates;
+  const canScrollDatesBack = compact ? compactDateStart > 0 : dateScrollMetrics.offsetX > 1;
+  const canScrollDatesForward = compact ? compactDateStart + visibleDateCount < dates.length : dateScrollMetrics.offsetX < maximumDateScroll - 1;
 
   const scrollDates = (direction: -1 | 1) => {
+    if (compact) {
+      setFirstVisibleDate(Math.max(0, Math.min(dates.length - visibleDateCount, compactDateStart + direction * visibleDateCount)));
+      return;
+    }
     const nextOffset = Math.max(
       0,
       Math.min(maximumDateScroll, dateScrollMetrics.offsetX + direction * DATE_SCROLL_STEP),
@@ -183,55 +199,53 @@ export const SelectableAvailabilityPreview: React.FC<SelectableAvailabilityPrevi
     if (selectedSlot && selectedSlot.date !== date) onSlotChange(null);
   };
 
+  const previousDates = <AnimatedPressable
+    accessibilityRole="button" accessibilityLabel="Ver días anteriores"
+    accessibilityState={{ disabled: !canScrollDatesBack }}
+    disabled={!canScrollDatesBack} hoverLift={false} pressScale={0.95}
+    onPress={() => scrollDates(-1)}
+    style={[styles.dateNavButton, compact && styles.inlineDateArrow, !canScrollDatesBack && styles.dateNavButtonDisabled]}>
+    <Ionicons name="chevron-back" size={17} color={theme.textPrimary} />
+  </AnimatedPressable>;
+  const nextDates = <AnimatedPressable
+    accessibilityRole="button" accessibilityLabel="Ver días siguientes"
+    accessibilityState={{ disabled: !canScrollDatesForward }}
+    disabled={!canScrollDatesForward} hoverLift={false} pressScale={0.95}
+    onPress={() => scrollDates(1)}
+    style={[styles.dateNavButton, compact && styles.inlineDateArrow, !canScrollDatesForward && styles.dateNavButtonDisabled]}>
+    <Ionicons name="chevron-forward" size={17} color={theme.textPrimary} />
+  </AnimatedPressable>;
+
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, compact && { gap: 8 }]}>
       <View style={styles.headerRow}>
-        <View>
-          <Text style={styles.title}>Elige tu horario</Text>
+        <View style={{ flex: 1 }}>
+          <Text accessibilityRole="header" aria-level={2} style={[styles.title, compact && { fontSize: 15, lineHeight: 21 }]}>{compact ? 'Disponibilidad' : 'Elige tu horario'}</Text>
           <Text style={styles.subtitle}>{timeZoneLabel}</Text>
         </View>
-        <View style={styles.liveBadge}>
+        {compact ? onOpenFullCalendar ? <AnimatedPressable accessibilityRole="button" onPress={onOpenFullCalendar}
+          hoverLift={false} style={{ minHeight: 44, justifyContent: 'center', maxWidth: 164 }}>
+          <Text style={[styles.retryText, { textAlign: 'right' }]}>Ver calendario completo →</Text>
+        </AnimatedPressable> : null : <View style={styles.liveBadge}>
           <Ionicons name="flash-outline" size={13} color={theme.secondaryDark} />
           <Text style={styles.liveBadgeText}>Actualizado</Text>
-        </View>
+        </View>}
       </View>
 
-      <View style={styles.dateNavigation}>
+      {!compact ? <View style={styles.dateNavigation}>
         <Text style={styles.dateRangeLabel}>Próximos {DATE_RANGE_DAYS} días</Text>
-        <View style={styles.dateNavigationActions}>
-          <AnimatedPressable
-            accessibilityRole="button"
-            accessibilityLabel="Ver días anteriores"
-            accessibilityState={{ disabled: !canScrollDatesBack }}
-            disabled={!canScrollDatesBack}
-            hoverLift={false}
-            pressScale={0.95}
-            onPress={() => scrollDates(-1)}
-            style={[styles.dateNavButton, !canScrollDatesBack && styles.dateNavButtonDisabled]}
-          >
-            <Ionicons name="chevron-back" size={17} color={theme.textPrimary} />
-          </AnimatedPressable>
-          <AnimatedPressable
-            accessibilityRole="button"
-            accessibilityLabel="Ver días siguientes"
-            accessibilityState={{ disabled: !canScrollDatesForward }}
-            disabled={!canScrollDatesForward}
-            hoverLift={false}
-            pressScale={0.95}
-            onPress={() => scrollDates(1)}
-            style={[styles.dateNavButton, !canScrollDatesForward && styles.dateNavButtonDisabled]}
-          >
-            <Ionicons name="chevron-forward" size={17} color={theme.textPrimary} />
-          </AnimatedPressable>
-        </View>
-      </View>
-
+        <View style={styles.dateNavigationActions}>{previousDates}{nextDates}</View>
+      </View> : null}
+      <View style={compact && styles.inlineDates}>
+      {compact ? previousDates : null}
       <ScrollView
         ref={dateScrollRef}
+        style={compact && styles.dateScroller}
         horizontal
+        scrollEnabled={!compact}
         nestedScrollEnabled
         showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.dateStrip}
+        contentContainerStyle={[styles.dateStrip, compact && { gap: 6, paddingRight: 0, flexGrow: 1 }]}
         onContentSizeChange={(contentWidth) => {
           setDateScrollMetrics((current) => ({ ...current, contentWidth }));
         }}
@@ -249,7 +263,7 @@ export const SelectableAvailabilityPreview: React.FC<SelectableAvailabilityPrevi
         }}
         scrollEventThrottle={32}
       >
-        {dates.map((date) => {
+        {visibleDates.map((date) => {
           const active = date === selectedDate;
           return (
             <AnimatedPressable
@@ -265,7 +279,7 @@ export const SelectableAvailabilityPreview: React.FC<SelectableAvailabilityPrevi
               hoverLift={false}
               pressScale={0.97}
               onPress={() => handleDateSelect(date)}
-              style={[styles.dateButton, active && styles.dateButtonSelected]}
+              style={[styles.dateButton, compact && { width: 0, flex: 1, minHeight: 52, paddingHorizontal: 2 }, active && styles.dateButtonSelected]}
             >
               <Text style={[styles.dateWeekday, active && styles.dateTextSelected]}>{getDayLabel(date)}</Text>
               <Text style={[styles.dateDay, active && styles.dateTextSelected]}>{getDayNumberLabel(date)}</Text>
@@ -273,6 +287,8 @@ export const SelectableAvailabilityPreview: React.FC<SelectableAvailabilityPrevi
           );
         })}
       </ScrollView>
+      {compact ? nextDates : null}
+      </View>
 
       <View style={styles.slotsArea}>
         {loading ? (
@@ -307,6 +323,7 @@ export const SelectableAvailabilityPreview: React.FC<SelectableAvailabilityPrevi
           </View>
         ) : (
           <CompactTimeSlotPicker
+            columns={compact ? 3 : 2}
             slots={selectedSlots}
             selectedTime={selectedSlot?.date === selectedDate ? selectedSlot.slot.startTime : null}
             resetKey={`${specialistId}-${selectedDate}-${optionId}`}
@@ -323,7 +340,7 @@ export const SelectableAvailabilityPreview: React.FC<SelectableAvailabilityPrevi
                   hoverLift={false}
                   pressScale={0.97}
                   onPress={() => onSlotChange(active ? null : { date: selectedDate, slot })}
-                  style={[styles.slotButton, active && styles.slotButtonSelected]}
+                  style={[styles.slotButton, compact && { paddingVertical: 6, paddingHorizontal: 4 }, active && styles.slotButtonSelected]}
                 >
                   <Ionicons name="time-outline" size={16} color={active ? theme.textOnPrimary : theme.primary} accessible={false} />
                   <Text style={[styles.slotText, active && styles.slotTextSelected]}>{slot.startTime}</Text>
@@ -376,6 +393,9 @@ const createStyles = (
     textTransform: 'uppercase',
   },
   dateNavigationActions: { flexDirection: 'row', gap: spacing.xs },
+  inlineDates: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  dateScroller: { flex: 1, minWidth: 0 },
+  inlineDateArrow: { flexShrink: 0, width: 40, height: 44, borderWidth: 0, backgroundColor: 'transparent' },
   dateNavButton: {
     width: 40,
     height: 40,

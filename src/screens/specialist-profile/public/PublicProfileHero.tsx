@@ -27,6 +27,7 @@ export function PublicProfileHero({ specialist, onPractice, onReviews, reviewsVi
   const { theme } = useTheme();
   const { width } = useWindowDimensions();
   const mobile = width < 768;
+  const desktop = width >= 1200;
   const { options } = useProfileOptions();
   const [failedPhoto, setFailedPhoto] = useState<string | null>(null);
   const [verificationOpen, setVerificationOpen] = useState(false);
@@ -91,7 +92,7 @@ export function PublicProfileHero({ specialist, onPractice, onReviews, reviewsVi
   </View>;
   return <View>
     <View style={[styles.top, mobile && styles.topMobile]}>
-      <View style={[styles.portrait, width < 1200 && styles.portraitTablet, mobile && styles.portraitMobile, { backgroundColor: theme.secondaryMuted }]}>
+      <View style={[styles.portrait, !desktop && styles.portraitTablet, mobile && styles.portraitMobile, { backgroundColor: theme.secondaryMuted }]}>
         {photo && failedPhoto !== photo ? <Image source={{ uri: photo }} resizeMode="cover" style={styles.photo}
           accessibilityLabel={`Fotografía de ${specialist.name}`} onError={() => setFailedPhoto(photo)} /> :
           <Text style={{ fontFamily: theme.fontDisplay, fontSize: mobile ? 40 : 72, color: theme.textPrimary }}>
@@ -99,7 +100,10 @@ export function PublicProfileHero({ specialist, onPractice, onReviews, reviewsVi
           </Text>}
       </View>
       <View style={[styles.identity, mobile && styles.identityMobile]}>
+        <View style={styles.nameRow}>
         <Text accessibilityRole="header" style={[styles.name, mobile && styles.nameMobile, { color: theme.textPrimary, fontFamily: theme.fontDisplay }]}>{specialist.name}</Text>
+        <Pressable accessibilityRole="button" accessibilityLabel="Compartir perfil" onPress={onShare} style={styles.iconAction}><Ionicons name="share-social-outline" size={19} color={theme.primary} /></Pressable>
+        </View>
         <Text style={[styles.profession, body]}>{getProfessionalTypeLabel(specialist.professionalType, specialist.professionalTypeLabel)}</Text>
         {!mobile ? trust : null}
         {!mobile ? details : null}
@@ -107,19 +111,18 @@ export function PublicProfileHero({ specialist, onPractice, onReviews, reviewsVi
     </View>
     {mobile ? trust : null}
     {mobile ? details : null}
-    <View style={styles.bottom}>
-      <View style={styles.specialties}>
+    {!desktop || showFavorite ? <View style={[styles.bottom, desktop && { justifyContent: 'flex-end' }]}>
+      {!desktop ? <View style={styles.specialties}>
         {specialist.specializations.slice(0, 3).map(value => <View key={value} style={[styles.chip, { backgroundColor: theme.bgCard }]}><Text style={[styles.small, strong]}>{translateSpecialty(value)}</Text></View>)}
         {specialist.specializations.length > 3 ? <Pressable accessibilityRole="button" onPress={onPractice} style={styles.textAction}><Text style={link}>Ver todas (+{specialist.specializations.length - 3})</Text></Pressable> : null}
-      </View>
-      <View style={styles.actions}>
-        <Pressable accessibilityRole="button" accessibilityLabel="Compartir perfil" onPress={onShare} style={styles.iconAction}><Ionicons name="share-social-outline" size={19} color={theme.primary} /></Pressable>
-        {showFavorite ? <Pressable accessibilityRole="button" accessibilityLabel={isFavorite ? 'Quitar de guardados' : 'Guardar perfil'} disabled={favoriteLoading}
+      </View> : null}
+      {showFavorite ? <View style={styles.actions}>
+        <Pressable accessibilityRole="button" accessibilityLabel={isFavorite ? 'Quitar de guardados' : 'Guardar perfil'} disabled={favoriteLoading}
           accessibilityState={{ disabled: favoriteLoading, selected: isFavorite }} onPress={onFavorite} style={styles.iconAction}>
           <Ionicons name={isFavorite ? 'heart' : 'heart-outline'} size={20} color={theme.primary} />
-        </Pressable> : null}
-      </View>
-    </View>
+        </Pressable>
+      </View> : null}
+    </View> : null}
   </View>;
 }
 
@@ -132,7 +135,8 @@ const styles = StyleSheet.create({
   photo: { width: '100%', height: '100%' },
   identity: { flex: 1, minWidth: 0, paddingTop: 4 },
   identityMobile: { paddingTop: 0 },
-  name: { fontSize: 38, lineHeight: 46, letterSpacing: -0.6 },
+  nameRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
+  name: { flex: 1, fontSize: 38, lineHeight: 46, letterSpacing: -0.6 },
   nameMobile: { fontSize: 28, lineHeight: 35, letterSpacing: -0.4 },
   profession: { fontSize: 15, lineHeight: 22, marginTop: 6 },
   credentials: { zIndex: 20, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: 12, rowGap: 0, marginTop: 10 },

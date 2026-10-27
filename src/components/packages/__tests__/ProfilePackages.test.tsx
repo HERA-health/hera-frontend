@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { lightTheme } from '../../../constants/theme';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { loadPublicPackageCatalog } from '../../../services/packageService';
@@ -104,7 +104,7 @@ test('the public dialog opens from a compact action, returns from acquisition an
   render(<ProfilePackages presentation="dialog" specialistId="specialist" onModalVisibilityChange={onVisibility} />);
   await waitFor(() => expect(loadPublicPackageCatalog).toHaveBeenCalled());
   expect(screen.queryByText(offer.name)).toBeNull();
-  fireEvent.press(screen.getByText('Comprar bono de sesiones'));
+  fireEvent.press(await screen.findByRole('button', { name: 'Comprar bono de sesiones' }));
   expect(await screen.findByText(offer.name)).toBeTruthy();
   expect(onVisibility).toHaveBeenLastCalledWith(true);
   fireEvent.press(screen.getByText('Solicitar bono'));
@@ -114,17 +114,26 @@ test('the public dialog opens from a compact action, returns from acquisition an
   fireEvent.press(screen.getByLabelText('Cerrar bonos de sesiones'));
   expect(screen.queryByText(offer.name)).toBeNull();
   expect(onVisibility).toHaveBeenLastCalledWith(false);
-  fireEvent.press(screen.getByText('Comprar bono de sesiones'));
+  fireEvent.press(await screen.findByRole('button', { name: 'Comprar bono de sesiones' }));
   fireEvent.press(screen.getByText('Solicitar bono'));
   fireEvent.press(screen.getByText('Confirmar adquisición sintética'));
   await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('Booking', { specialistId: 'specialist', patientPackageId: 'acquired' }));
   expect(loadPublicPackageCatalog).toHaveBeenCalledTimes(1);
 });
 
+test.each([false, true])('does not advertise packages before the catalog resolves (offers: %s)', async hasOffers => {
+  let resolveCatalog: (catalog: Awaited<ReturnType<typeof loadPublicPackageCatalog>>) => void = () => { throw new Error('Request not started'); };
+  jest.mocked(loadPublicPackageCatalog).mockReturnValueOnce(new Promise(resolve => { resolveCatalog = resolve; }));
+  render(<ProfilePackages presentation="dialog" specialistId="specialist" />);
+  expect(screen.queryByRole('button', { name: 'Comprar bono de sesiones' })).toBeNull();
+  await act(async () => resolveCatalog({ offers: hasOffers ? [offer] : [], acquisitionsEnabled: true }));
+  expect(Boolean(screen.queryByRole('button', { name: 'Comprar bono de sesiones' }))).toBe(hasOffers);
+});
+
 test('the dialog lists published offers when acquisition is disabled and hides the action for an empty catalog', async () => {
   jest.mocked(loadPublicPackageCatalog).mockResolvedValueOnce({ offers: [offer], acquisitionsEnabled: false });
   const view = render(<ProfilePackages presentation="dialog" specialistId="specialist" />);
-  fireEvent.press(screen.getByText('Comprar bono de sesiones'));
+  fireEvent.press(await screen.findByRole('button', { name: 'Comprar bono de sesiones' }));
   expect(await screen.findByText(offer.name)).toBeTruthy();
   expect(screen.getByText('La adquisición de bonos no está disponible en este momento.')).toBeTruthy();
   expect(screen.queryByText('Solicitar bono')).toBeNull();
@@ -132,13 +141,13 @@ test('the dialog lists published offers when acquisition is disabled and hides t
   jest.mocked(loadPublicPackageCatalog).mockResolvedValueOnce({ offers: [], acquisitionsEnabled: true });
   view.rerender(<ProfilePackages presentation="dialog" specialistId="another" />);
   await waitFor(() => expect(loadPublicPackageCatalog).toHaveBeenLastCalledWith('another'));
-  await waitFor(() => expect(screen.queryByText('Comprar bono de sesiones')).toBeNull());
+  await waitFor(() => expect(screen.queryByRole('button', { name: 'Comprar bono de sesiones' })).toBeNull());
 });
 
 test('an error remains accessible through the dialog and can be retried', async () => {
   jest.mocked(loadPublicPackageCatalog).mockRejectedValueOnce(new Error('No se pudieron cargar los bonos disponibles.'));
   render(<ProfilePackages presentation="dialog" specialistId="specialist" />);
-  fireEvent.press(screen.getByText('Comprar bono de sesiones'));
+  fireEvent.press(await screen.findByRole('button', { name: 'Comprar bono de sesiones' }));
   fireEvent.press(await screen.findByText('Reintentar bonos disponibles'));
   expect(await screen.findByText(offer.name)).toBeTruthy();
   expect(screen.queryByText(/No hay bonos disponibles/)).toBeNull();
@@ -147,7 +156,7 @@ test('an error remains accessible through the dialog and can be retried', async 
 test('the catalog closes when legal acceptance is required so it cannot cover the destination screen', async () => {
   mockAuth.legalStatusSnapshot.requiresAcceptance = true;
   render(<ProfilePackages presentation="dialog" specialistId="specialist" />);
-  fireEvent.press(screen.getByText('Comprar bono de sesiones'));
+  fireEvent.press(await screen.findByRole('button', { name: 'Comprar bono de sesiones' }));
   fireEvent.press(await screen.findByText('Solicitar bono'));
   expect(mockNavigate).toHaveBeenCalledWith('RequiredLegalAcceptance');
   expect(screen.queryByLabelText('Cerrar bonos de sesiones')).toBeNull();
