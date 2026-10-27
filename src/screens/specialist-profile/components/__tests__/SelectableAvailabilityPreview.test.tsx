@@ -34,6 +34,43 @@ describe('SelectableAvailabilityPreview', () => {
 
   afterEach(() => jest.clearAllMocks());
 
+  it('does not repeat a slow request when the parent redraws with new callbacks', async () => {
+    let resolve: (slots: sessionsService.TimeSlot[]) => void = () => undefined;
+    mockedSessionsService.getAvailableSlots.mockReturnValue(new Promise(done => { resolve = done; }));
+    const view = render(<SelectableAvailabilityPreview specialistId="specialist-1" nextAvailable="2099-07-29" onSlotChange={() => undefined} />);
+    for (let i = 0; i < 20; i++) {
+      view.rerender(<SelectableAvailabilityPreview specialistId="specialist-1" nextAvailable="2099-07-29" onSlotChange={() => undefined} onValidationChange={() => undefined} />);
+    }
+    expect(mockedSessionsService.getAvailableSlots).toHaveBeenCalledTimes(1);
+    await act(async () => resolve([{ startTime: '11:05', endTime: '12:05', available: true }]));
+    expect(screen.getByText('11:05')).toBeTruthy();
+  });
+
+  it('does not cache a failed day as empty and retries it when revisited', async () => {
+    mockedSessionsService.getAvailableSlots.mockRejectedValueOnce(new Error('offline'))
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ startTime: '11:05', endTime: '12:05', available: true }]);
+    render(<SelectableAvailabilityPreview specialistId="specialist-1" nextAvailable="2099-07-29" onSlotChange={jest.fn()} />);
+    await screen.findByText('No pudimos cargar este día.');
+    expect(mockedSessionsService.getAvailableSlots).toHaveBeenCalledTimes(1);
+    fireEvent.press(screen.getByTestId('availability-date-2099-07-30'));
+    await screen.findByText('No hay horas libres este día.');
+    fireEvent.press(screen.getByTestId('availability-date-2099-07-29'));
+    await screen.findByText('11:05');
+    expect(mockedSessionsService.getAvailableSlots).toHaveBeenCalledTimes(3);
+  });
+
+  it('recovers a failed day with one explicit retry and no automatic loop', async () => {
+    mockedSessionsService.getAvailableSlots.mockRejectedValueOnce(new Error('offline'))
+      .mockResolvedValueOnce([{ startTime: '11:05', endTime: '12:05', available: true }]);
+    render(<SelectableAvailabilityPreview specialistId="specialist-1" nextAvailable="2099-07-29" onSlotChange={jest.fn()} />);
+    await screen.findByText('No pudimos cargar este día.');
+    expect(mockedSessionsService.getAvailableSlots).toHaveBeenCalledTimes(1);
+    fireEvent.press(screen.getByText('Reintentar'));
+    await screen.findByText('11:05');
+    expect(mockedSessionsService.getAvailableSlots).toHaveBeenCalledTimes(2);
+  });
+
   it('loads the new service duration and ignores a late response from the previous option', async () => {
     const oldSlot = { startTime: '09:00', endTime: '10:00', available: true };
     const newSlot = { startTime: '12:05', endTime: '12:10', available: true };

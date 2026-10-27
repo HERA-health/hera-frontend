@@ -199,7 +199,7 @@ describe('PublicSpecialistsScreen', () => {
     expect(screen.getByText(specialist.descriptionExcerpt)).toBeTruthy();
     fireEvent.press(screen.getByText('Dra. Elena Martín'));
 
-    await waitFor(() => expect(navigate).toHaveBeenCalledWith('PublicSpecialistProfile', { profileRef: 'elena-martin', intentToken: 'verified-directory-intent' }));
+    await waitFor(() => expect(navigate).toHaveBeenCalledWith('PublicSpecialistProfile', { profileRef: 'elena-martin', optionId: undefined }));
   });
 
   it('uses the landing header and routes its specialist link back to the landing section', async () => {

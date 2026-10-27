@@ -4,6 +4,7 @@ import { useTheme } from '../../../../contexts/ThemeContext';
 import { lightTheme } from '../../../../constants/theme';
 import { FeaturedSpecialistsSection } from '../FeaturedSpecialistsSection';
 import { getFeaturedSpecialists } from '../../../../services/specialistsService';
+import { PublicDiscoveryRateLimitError } from '../../../../services/generalRateLimit';
 
 jest.mock('../../../../config/api', () => ({
   __esModule: true,
@@ -79,5 +80,15 @@ describe('FeaturedSpecialistsSection', () => {
 
     await waitFor(() => expect(screen.getByText('No hemos podido cargar los perfiles ahora')).toBeTruthy());
     expect(screen.getByText('Reintentar')).toBeTruthy();
+  });
+
+  it('explains a temporary limit and loads profiles when retry succeeds', async () => {
+    const error = new PublicDiscoveryRateLimitError(30, undefined);
+    mockedGetFeaturedSpecialists.mockRejectedValueOnce(error).mockResolvedValueOnce([specialist]);
+    render(<FeaturedSpecialistsSection onOpenSpecialist={jest.fn()} onViewAll={jest.fn()} />);
+    await waitFor(() => expect(screen.getByText(error.message)).toBeTruthy());
+    fireEvent.press(screen.getByText('Reintentar'));
+    await waitFor(() => expect(screen.getByText(specialist.name)).toBeTruthy());
+    expect(screen.queryByText('No hemos podido cargar los perfiles ahora')).toBeNull();
   });
 });

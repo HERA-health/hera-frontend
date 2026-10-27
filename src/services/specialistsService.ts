@@ -1,6 +1,7 @@
 import {getSpecialistDiscoveryRevision, invalidateSpecialistDiscovery} from '../utils/specialistDiscoveryRevision';
 import { api } from './api';
 import { isAxiosError } from 'axios';
+import { PublicDiscoveryRateLimitError } from './generalRateLimit';
 import { getErrorMessage } from '../constants/errors';
 import type { Specialist } from '../screens/specialist-profile/types';
 import type { ProfessionalType } from '../constants/professionalTypes';
@@ -521,7 +522,19 @@ export const getMatchedSpecialists = async (): Promise<MatchedSpecialistsRespons
  * Supports optional filters including proximity-based filtering
  */
 export const getAllSpecialists = async (filters?: SpecialistFilters): Promise<SpecialistData[]> => {
-  if (filters?.religion || filters?.specialties?.length || filters?.approaches?.length) return (await api.post<{ success: boolean; data: SpecialistData[] }>('/specialists/search', filters)).data.data;
+  if (filters?.religion || filters?.specialties?.length || filters?.approaches?.length) {
+    // Only share concurrent reads. Never retain sensitive search results.
+    const key = `search:${JSON.stringify(filters)}`;
+    const existing = publicSpecialistsRequests.get(key);
+    if (existing) return existing;
+    const request = api.post<{ success: boolean; data: SpecialistData[] }>('/specialists/search', filters)
+      .then(response => response.data.data)
+      .finally(() => {
+        if (publicSpecialistsRequests.get(key) === request) publicSpecialistsRequests.delete(key);
+      });
+    publicSpecialistsRequests.set(key, request);
+    return request;
+  }
   const revision = getSpecialistDiscoveryRevision();
   const cacheKey = getPublicSpecialistsCacheKey(filters);
   const cached = getFreshCache(publicSpecialistsCache, cacheKey);
@@ -584,11 +597,7 @@ export const getFeaturedSpecialists = async (): Promise<PublicSpecialistCard[]> 
 export const getPublicSpecialistDirectory = async (
   filters?: PublicSpecialistDirectoryFilters
  ): Promise<PublicSpecialistDirectoryPage> => {
-  if (filters?.religion) {
-    const { specialties, approaches, ...rest } = filters;
-    return (await api.post<{ success: boolean; data: PublicSpecialistDirectoryPage }>('/specialists/directory/search', { ...rest, specialty: specialties, approach: approaches })).data.data;
-  }
-  const cacheKey = getPublicDirectoryCacheKey(filters);
+  const cacheKey = filters?.religion ? `search:${JSON.stringify(filters)}` : getPublicDirectoryCacheKey(filters);
   const inFlight = publicDirectoryRequests.get(cacheKey);
   if (inFlight) {
     return inFlight;
@@ -596,8 +605,11 @@ export const getPublicSpecialistDirectory = async (
 
   const queryString = buildPublicDirectoryQueryParams(filters).toString();
   const url = `/specialists/directory${queryString ? `?${queryString}` : ''}`;
-  const request = api
-    .get<{ success: boolean; data: PublicSpecialistDirectoryPage }>(url)
+  const { specialties, approaches, ...rest } = filters ?? {};
+  const transport = filters?.religion
+    ? api.post<{ success: boolean; data: PublicSpecialistDirectoryPage }>('/specialists/directory/search', { ...rest, specialty: specialties, approach: approaches })
+    : api.get<{ success: boolean; data: PublicSpecialistDirectoryPage }>(url);
+  const request = transport
     .then((response) => response.data.data)
     .catch((error: unknown) => {
       throw new Error(getErrorMessage(error, 'No se pudo cargar el directorio de especialistas'));
@@ -644,7 +656,7 @@ export const getPublicSpecialistDetails = async (
   ).then(response => response.data.data).catch((error: unknown) => {
     throw new PublicSpecialistProfileError(
       getErrorMessage(error, 'Error al cargar el perfil público del especialista'),
-      isAxiosError(error) ? error.response?.status : undefined,
+      error instanceof PublicDiscoveryRateLimitError ? error.status : isAxiosError(error) ? error.response?.status : undefined,
     );
   }).finally(() => {
     if (publicProfileRequests.get(key) === request) publicProfileRequests.delete(key);

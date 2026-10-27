@@ -3,6 +3,7 @@ import { api } from '../api';
 jest.mock('../../config/api', () => ({ __esModule: true, default: () => ({ apiUrl: 'http://diagnostic.invalid/api' }) }));
 import {
   GeneralRateLimitError, getGeneralRateLimitRetryAt, isGeneralRead,
+  PublicDiscoveryRateLimitError, isPublicDiscoveryRequest, isDiscoveryRequest, recordGeneralRateLimit,
   parseRetryAfter, resetGeneralRateLimit,
 } from '../generalRateLimit';
 
@@ -92,4 +93,70 @@ describe('general rate limit transport recovery', () => {
     expect(isGeneralRead('/auth/me')).toBe(false);
     expect(isGeneralRead('/sessions', 'post')).toBe(false);
   });
+
+  const publicRoutes = [
+    ['/specialists', 'get'], ['/specialists/featured', 'get'],
+    ['/specialists/directory/?page=2', 'get'], ['/specialists/profile-options', 'get'],
+    ['/specialists/public/public-slug', 'get'], ['/specialists/id/available-slots?date=2026-10-27', 'get'],
+    ['/specialists/id/packages', 'get'], ['/specialists/id/certificates/cert/document', 'get'],
+    ['/reviews/specialist/id', 'get'], ['/hera-commissions/directory-entry/public-slug', 'get'],
+    ['/specialists/search', 'post'], ['/specialists/directory/search', 'post'],
+  ];
+
+  it.each(publicRoutes)('allows %s despite an unrelated general cooldown', async (url, method) => {
+    recordGeneralRateLimit(900, undefined);
+    const adapter = jest.fn<ReturnType<AxiosAdapter>, Parameters<AxiosAdapter>>(async config =>
+      ({ config, status: 200, statusText: 'OK', headers: new AxiosHeaders(), data: {} }));
+    api.defaults.adapter = adapter;
+    expect(isPublicDiscoveryRequest(url, method)).toBe(true);
+    expect(isGeneralRead(url, method)).toBe(false);
+    await expect(api.request({ url, method })).resolves.toMatchObject({ status: 200 });
+    expect(adapter).toHaveBeenCalledTimes(1);
+  });
+
+  it.each(['public-discovery', 'general'])('isolates a public %s 429, preserves Retry-After and permits recovery', async limiter => {
+    const now = Date.now();
+    let blocked = true;
+    api.defaults.adapter = async config => {
+      if (blocked && config.url === '/specialists/featured') throw new AxiosError('limited', 'ERR_BAD_REQUEST', config, undefined, {
+        config, status: 429, statusText: 'Too Many Requests', headers: new AxiosHeaders({ 'retry-after': '30' }),
+        data: { limiter },
+      });
+      return { config, status: 200, statusText: 'OK', headers: new AxiosHeaders(), data: {} };
+    };
+    await expect(api.get('/specialists/featured')).rejects.toMatchObject({
+      name: 'PublicDiscoveryRateLimitError', status: 429, retryAt: now + 30_000,
+    });
+    expect(getGeneralRateLimitRetryAt()).toBe(0);
+    await expect(api.get('/dashboard/home')).resolves.toMatchObject({ status: 200 });
+    blocked = false;
+    jest.advanceTimersByTime(30_000);
+    await expect(api.get('/specialists/featured')).resolves.toMatchObject({ status: 200 });
+  });
+
+  it('does not classify private resources or mutations as public discovery', () => {
+    for (const path of ['/specialists/me/profile', '/specialists/id', '/specialists/id/favorite',
+      '/specialists/id/certificates/cert', '/reviews/specialist/id/can-review',
+      '/hera-commissions/configuration', '/patient-packages/id/available-slots', '/public/patient-packages/id/payment']) {
+      expect(isPublicDiscoveryRequest(path)).toBe(false);
+    }
+    expect(isPublicDiscoveryRequest('/specialists/featured', 'delete')).toBe(false);
+    expect(isPublicDiscoveryRequest('/hera-commissions/public-requests', 'post')).toBe(false);
+    expect(isDiscoveryRequest('/hera-commissions/directory-intents', 'post')).toBe(false);
+    expect(new PublicDiscoveryRateLimitError(undefined, undefined).retryAt).toBe(Date.now() + 60_000);
+  });
+
+  it.each(['/specialists/specialist-id', '/specialists/matched/for-me', '/specialists/me/personalization'])(
+    'allows authenticated discovery %s during an unrelated workspace cooldown', async url => {
+      recordGeneralRateLimit(900, undefined);
+      const adapter = jest.fn<ReturnType<AxiosAdapter>, Parameters<AxiosAdapter>>(async config =>
+        ({ config, status: 200, statusText: 'OK', headers: new AxiosHeaders(), data: {} }));
+      api.defaults.adapter = adapter;
+      expect(isDiscoveryRequest(url)).toBe(true);
+      expect(isPublicDiscoveryRequest(url)).toBe(false);
+      await expect(api.get(url)).resolves.toMatchObject({ status: 200 });
+      expect(adapter).toHaveBeenCalledTimes(1);
+      expect(adapter.mock.calls[0][0].headers.has('X-Hera-Discovery-Visitor')).toBe(false);
+    },
+  );
 });

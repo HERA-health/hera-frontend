@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import { Image, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useTheme } from '../../contexts/ThemeContext';
-import { useProfileOptions } from '../../hooks/useProfileOptions';
 import { optionLabel } from '../../utils/profileOptions';
+import type { ProfileOptions } from '../../services/profileDiscoveryService';
 import {
   matchingChoiceLabel,
   PROFESSIONAL_SPECIALTY_OPTIONS,
@@ -20,13 +20,13 @@ interface Props {
   style?: StyleProp<ViewStyle>;
   compactDirectory?: boolean;
   mobileDirectory?: boolean;
+  profileOptions?: ProfileOptions | null;
 }
 
 const priceFormat = new Intl.NumberFormat('es-ES', { maximumFractionDigits: 2 });
 
-export function DirectorySpecialistCard({ specialist, onPress, href, style, compactDirectory = false, mobileDirectory = false }: Props) {
+export function DirectorySpecialistCard({ specialist, onPress, href, style, compactDirectory = false, mobileDirectory = false, profileOptions: options }: Props) {
   const { theme } = useTheme();
-  const { options } = useProfileOptions();
   const [failedPhoto, setFailedPhoto] = useState<string | null>(null);
   const details = 'specialties' in specialist ? specialist : null;
   const photo = specialist.avatar ? getCloudinaryProfileImageUrl(specialist.avatar, 336, 384) : null;

@@ -377,6 +377,37 @@ describe('specialistsService personalization', () => {
 
 describe('profile discovery filter transport', () => {
   beforeEach(() => { jest.clearAllMocks(); invalidateSpecialistsCache(); });
+  it('shares concurrent POST directory reads without caching sensitive filters or failed requests', async () => {
+    const payload = { items: [], total: 0, page: 1, pageSize: 12, hasMore: false };
+    let resolve: (value: { data: { data: typeof payload } }) => void = () => { throw new Error('not started'); };
+    mockedApi.post.mockReturnValueOnce(new Promise(done => { resolve = done; }));
+    const filters = { religion: 'catholic', language: 'arabic' };
+    const first = getPublicSpecialistDirectory(filters);
+    const second = getPublicSpecialistDirectory({ ...filters });
+    expect(mockedApi.post).toHaveBeenCalledTimes(1);
+    resolve({ data: { data: payload } });
+    await expect(Promise.all([first, second])).resolves.toEqual([payload, payload]);
+    mockedApi.post.mockRejectedValueOnce(new Error('temporary failure'));
+    await expect(getPublicSpecialistDirectory(filters)).rejects.toThrow();
+    mockedApi.post.mockResolvedValueOnce({ data: { data: payload } });
+    await expect(getPublicSpecialistDirectory(filters)).resolves.toEqual(payload);
+    expect(mockedApi.post).toHaveBeenCalledTimes(3);
+    expect(mockedApi.get).not.toHaveBeenCalled();
+  });
+
+  it('shares concurrent advanced searches and revalidates their results', async () => {
+    let resolve: (value: { data: { data: SpecialistData[] } }) => void = () => { throw new Error('not started'); };
+    mockedApi.post.mockReturnValueOnce(new Promise(done => { resolve = done; }));
+    const filters = { specialties: ['anxiety'] };
+    const first = getAllSpecialists(filters);
+    const second = getAllSpecialists(filters);
+    expect(mockedApi.post).toHaveBeenCalledTimes(1);
+    resolve({ data: { data: [] } });
+    await expect(Promise.all([first, second])).resolves.toEqual([[], []]);
+    mockedApi.post.mockResolvedValueOnce({ data: { data: [] } });
+    await getAllSpecialists(filters);
+    expect(mockedApi.post).toHaveBeenCalledTimes(2);
+  });
   it('sends religion only in POST bodies and does not reuse cached results', async () => {
     mockedApi.post.mockResolvedValue({ data: { success: true, data: { items: [], total: 0, page: 1, pageSize: 12, hasMore: false } } });
     await getPublicSpecialistDirectory({ language: 'arabic', religion: 'catholic', specialties: ['anxiety'] });

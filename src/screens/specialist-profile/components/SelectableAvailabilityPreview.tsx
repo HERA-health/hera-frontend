@@ -81,6 +81,10 @@ export const SelectableAvailabilityPreview: React.FC<SelectableAvailabilityPrevi
   const [loadingDate, setLoadingDate] = useState<string | null>(null);
   const [errorDate, setErrorDate] = useState<string | null>(null);
   const activeSlotRequest = useRef<{ cacheKey: string } | null>(null);
+  // Rendering/selection callbacks are not inputs to the availability query.
+  // Read their latest values when a response arrives without restarting it.
+  const responseHandlers = useRef({ selectedSlot, onSlotChange, onSelectionInvalidated, onValidationChange });
+  responseHandlers.current = { selectedSlot, onSlotChange, onSelectionInvalidated, onValidationChange };
   const [dateScrollMetrics, setDateScrollMetrics] = useState<DateScrollMetrics>({
     contentWidth: 0,
     offsetX: 0,
@@ -120,11 +124,12 @@ export const SelectableAvailabilityPreview: React.FC<SelectableAvailabilityPrevi
       activeSlotRequest.current = request;
       setLoadingDate(selectedDate);
       setErrorDate(null);
-      onValidationChange?.(false);
+      responseHandlers.current.onValidationChange?.(false);
       try {
         const slots = await sessionsService.getAvailableSlots(specialistId, selectedDate, optionId);
         if (!active) return;
         const availableSlots = slots.filter((slot) => slot.available !== false);
+        const { selectedSlot, onSlotChange, onSelectionInvalidated, onValidationChange } = responseHandlers.current;
         setSlotCache((current) => ({
           ...current,
           [cacheKey]: availableSlots,
@@ -138,9 +143,8 @@ export const SelectableAvailabilityPreview: React.FC<SelectableAvailabilityPrevi
         onValidationChange?.(true);
       } catch {
         if (active) {
-          setSlotCache((current) => ({ ...current, [cacheKey]: [] }));
           setErrorDate(selectedDate);
-          onSlotChange(null);
+          responseHandlers.current.onSlotChange(null);
         }
       } finally {
         if (activeSlotRequest.current === request) activeSlotRequest.current = null;
@@ -149,7 +153,7 @@ export const SelectableAvailabilityPreview: React.FC<SelectableAvailabilityPrevi
     };
     void loadSlots();
     return () => { active = false; };
-  }, [canBook, cacheKey, selectedDate, slotCache, specialistId, optionId, selectedSlot, onSlotChange, onSelectionInvalidated, onValidationChange]);
+  }, [canBook, cacheKey, selectedDate, slotCache, specialistId, optionId]);
 
   if (!canBook) return null;
 

@@ -1,5 +1,4 @@
 import { directoryEntryHref } from '../../services/directoryBookingService';
-import { directoryIntent } from '../../services/heraCommissionService';
 import { SearchableProfileSelect } from '../../components/common/SearchableProfileSelect';
 import { renderLanguageIcon } from '../../components/common/LanguageIcon';
 import { usePublicDirectory } from './usePublicDirectory';
@@ -135,7 +134,6 @@ export const PublicSpecialistsScreen: React.FC = () => {
   const [filters, setFilters] = useState<DirectoryFilters>(() =>
     createInitialFilters(route.params?.specialty)
   );
-  const [profileError, setProfileError] = useState<string | null>(null);
   const [headerScrolled, setHeaderScrolled] = useState(false);
   const headerScrolledRef = useRef(false);
   const requestFilters = useMemo<specialistsService.PublicSpecialistDirectoryFilters>(() => ({
@@ -415,7 +413,6 @@ export const PublicSpecialistsScreen: React.FC = () => {
                 </View>
               </View> : null}
               {!isDesktop ? activeFilterSummary : null}
-              {profileError ? <Text accessibilityRole="alert" style={[styles.inlineError, { color: theme.textPrimary, fontFamily: theme.fontSans }]}>{profileError}</Text> : null}
               {error && data ? <View accessibilityRole="alert" style={[styles.errorBanner, { backgroundColor: theme.bgCard, borderColor: theme.border }]}>
                 <Text style={[styles.errorText, textStyle]}>{error} Puedes seguir consultando los últimos resultados disponibles.</Text>
                 <Button variant="outline" size="small" onPress={() => void retry()}>Reintentar</Button>
@@ -444,15 +441,13 @@ export const PublicSpecialistsScreen: React.FC = () => {
                         <PublicSpecialistCard specialist={specialist} variant="directory"
                           compactDirectory={compactCards}
                           mobileDirectory={isMobile}
+                          profileOptions={profileOptions}
                           style={styles.gridCell}
                           href={directoryEntryHref(specialist.publicSlug ?? specialist.id, specialist.matchedOptionId ?? undefined)}
-                          onPress={async () => {
-                            setProfileError(null);
-                            try {
-                              const intent = await directoryIntent(specialist.id);
-                              navigation.navigate('PublicSpecialistProfile', { profileRef: specialist.publicSlug ?? specialist.id, intentToken: intent.token, optionId: specialist.matchedOptionId ?? undefined });
-                            } catch { setProfileError('No se pudo abrir el perfil desde el Directorio. Inténtalo de nuevo.'); }
-                          }} />
+                          onPress={() => navigation.navigate('PublicSpecialistProfile', {
+                            profileRef: specialist.publicSlug ?? specialist.id,
+                            optionId: specialist.matchedOptionId ?? undefined,
+                          })} />
                       </View>)}
                       {row.length < gridColumns ? <View style={styles.gridCell} testID="directory-empty-cell" /> : null}
                     </View>)}

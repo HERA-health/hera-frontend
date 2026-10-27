@@ -63,6 +63,44 @@ export class GeneralRateLimitError extends Error {
   }
 }
 
+// Match only endpoints served by publicDiscoveryLimiter. Private specialist
+// data, reservations, payments and consent must retain their existing policy.
+export const isPublicDiscoveryRequest = (url = '', method = 'get'): boolean => {
+  const path = url.split('?')[0].replace(/\/$/, '');
+  const verb = method.toLowerCase();
+  if (verb === 'post') return [
+    '/specialists/search', '/specialists/directory/search',
+  ].includes(path);
+  if (verb !== 'get' && verb !== 'head') return false;
+  return /^\/specialists(?:\/(?:featured|directory|profile-options)|\/public\/[^/]+|\/[^/]+\/(?:available-slots|packages)|\/[^/]+\/certificates\/[^/]+\/document)?$/.test(path)
+    || /^\/reviews\/specialist\/[^/]+$/.test(path)
+    || /^\/hera-commissions\/directory-entry\/[^/]+$/.test(path);
+};
+
+// These reads retain server authentication/ownership checks. Only their quota
+// and transport recovery are shared with public profile browsing.
+export const isDiscoveryRequest = (url = '', method = 'get'): boolean => {
+  if (isPublicDiscoveryRequest(url, method)) return true;
+  if (method.toLowerCase() !== 'get') return false;
+  const path = url.split('?')[0].replace(/\/$/, '');
+  if (['/specialists/matched/for-me', '/specialists/me/personalization'].includes(path)) return true;
+  return /^\/specialists\/[^/]+$/.test(path) && path !== '/specialists/me';
+};
+
+export class PublicDiscoveryRateLimitError extends Error {
+  readonly code = 'RATE_LIMIT_EXCEEDED';
+  readonly status = 429;
+  readonly retryAt: number;
+  constructor(bodyValue: unknown, headerValue: unknown) {
+    const now = Date.now();
+    const retryAt = parseRetryAfter(bodyValue, now) ?? parseRetryAfter(headerValue, now) ?? now + 60_000;
+    super(`Se han realizado muchas consultas seguidas. Podrás reintentar a las ${new Date(retryAt).toLocaleTimeString('es-ES')}.`);
+    this.name = 'PublicDiscoveryRateLimitError';
+    this.retryAt = retryAt;
+  }
+}
+
 export const isGeneralRead = (url = '', method = 'get'): boolean =>
   method.toLowerCase() === 'get'
+  && !isDiscoveryRequest(url, method)
   && /^\/(dashboard|specialists|sessions|clients|clinics|billing|availability|clinical)(\/|\?|$)|^\/specialist-contact(?:\/|\?|$)/.test(url);

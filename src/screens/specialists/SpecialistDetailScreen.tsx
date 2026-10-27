@@ -1,7 +1,7 @@
 import { useDiscoveryRevalidation } from '../../hooks/useDiscoveryRevalidation';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useFocusEffect } from '@react-navigation/native';
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import { StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { Button } from '../../components/common';
 import { showAppAlert, useAppAlert } from '../../components/common/alert';
@@ -42,35 +42,42 @@ export const SpecialistDetailScreen: React.FC<SpecialistDetailScreenProps> = ({
   const [specialist, setSpecialist] = useState<Specialist | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const requestSequence = useRef(0);
   const canBook = specialist
     ? specialist.offersOnline !== false || specialist.offersInPerson === true || specialist.offersPhone === true
     : false;
 
   const loadSpecialistDetails = useCallback(async () => {
+    const requestId = ++requestSequence.current;
     try {
       setLoading(true);
+      setLoadError(null);
+      setSpecialist(null);
       setReviews([]);
       if (!specialistId) throw new Error('No specialist ID provided');
 
       const data = await specialistsService.getSpecialistDetails(specialistId);
+      if (requestId !== requestSequence.current) return;
       setSpecialist(specialistsService.mapSpecialistToProfile(data));
       if (data.reviewCount > 0 && data.reviews) setReviews(data.reviews);
     } catch (error: unknown) {
+      if (requestId !== requestSequence.current) return;
       const message = error instanceof Error
         ? error.message
         : 'No se pudo cargar el perfil del especialista';
-      showAppAlert(appAlert, 'Error', message);
-      navigation.goBack();
+      setLoadError(message);
     } finally {
-      setLoading(false);
+      if (requestId === requestSequence.current) setLoading(false);
     }
-  }, [appAlert, navigation, specialistId]);
+  }, [specialistId]);
 
   useDiscoveryRevalidation(loadSpecialistDetails, false);
 
   useFocusEffect(useCallback(() => {
     analyticsService.trackScreen('specialist_detail');
     void loadSpecialistDetails();
+    return () => { requestSequence.current += 1; };
   }, [loadSpecialistDetails]));
 
   const handleBookSession = useCallback((selectedSlot?: SelectedProfileSlot, optionId?: string) => {
@@ -118,7 +125,11 @@ export const SpecialistDetailScreen: React.FC<SpecialistDetailScreenProps> = ({
     return (
       <View style={styles.errorContainer}>
         <Ionicons name="alert-circle" size={64} color={theme.warning} />
-        <Text style={styles.errorText}>No se pudo cargar el perfil</Text>
+        <Text accessibilityRole="alert" style={styles.errorText}>{loadError ?? 'No se pudo cargar el perfil'}</Text>
+        <Button onPress={() => void loadSpecialistDetails()} style={styles.errorButton}>Reintentar</Button>
+        {specialistId ? <Button onPress={() => navigation.navigate('PublicSpecialistProfile', { profileRef: specialistId })} variant="outline" style={styles.errorButton}>
+          Ver perfil público
+        </Button> : null}
         <Button onPress={navigation.goBack} variant="primary" size="large" style={styles.errorButton}>
           Volver
         </Button>

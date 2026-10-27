@@ -1,4 +1,5 @@
-jest.mock('../../../hooks/useProfileOptions', () => ({useProfileOptions: () => ({options: null})}));
+jest.mock('../../../hooks/useProfileOptions', () => ({useProfileOptions: jest.fn(() => ({options: null}))}));
+import { useProfileOptions } from '../../../hooks/useProfileOptions';
 import React from 'react';
 import { Platform } from 'react-native';
 import { fireEvent, render, screen } from '@testing-library/react-native';
@@ -24,6 +25,14 @@ const directorySpecialist: PublicSpecialistDirectoryCard = {
 
 describe('PublicSpecialistCard', () => {
   const originalPlatform = Platform.OS;
+
+  it('renders supplied directory labels without starting another options request', () => {
+    jest.mocked(useProfileOptions).mockClear();
+    const profileOptions = { languages: [{ value: 'arabic', label: 'Árabe', aliases: [] }], religions: [], religionEnabled: false, religionNotice: null, religionNoticeVersion: null };
+    render(<PublicSpecialistCard variant="directory" specialist={{ ...directorySpecialist, languages: ['arabic'] }} profileOptions={profileOptions} onPress={jest.fn()} />);
+    expect(screen.getByText('Árabe')).toBeTruthy();
+    expect(useProfileOptions).not.toHaveBeenCalled();
+  });
 
   beforeEach(() => {
     Object.defineProperty(Platform, 'OS', { value: 'web', configurable: true });

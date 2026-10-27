@@ -12,6 +12,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { MotionView } from '../../../components/common/MotionView';
 import { Button } from '../../../components/common/Button';
+import { getErrorMessage } from '../../../constants/errors';
 import { PublicSpecialistCard } from '../../../components/features/PublicSpecialistCard';
 import {
   getFeaturedSpecialists,
@@ -33,15 +34,15 @@ export const FeaturedSpecialistsSection: React.FC<FeaturedSpecialistsSectionProp
   const isTablet = width >= 768 && width < 1024;
   const [specialists, setSpecialists] = useState<PublicSpecialistCardData[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const loadSpecialists = useCallback(async () => {
     try {
       setLoading(true);
-      setError(false);
+      setError(null);
       setSpecialists(await getFeaturedSpecialists());
-    } catch {
-      setError(true);
+    } catch (cause: unknown) {
+      setError(getErrorMessage(cause, 'Inténtalo de nuevo en unos segundos.'));
     } finally {
       setLoading(false);
     }
@@ -99,6 +100,7 @@ export const FeaturedSpecialistsSection: React.FC<FeaturedSpecialistsSectionProp
           <View style={[styles.statusCard, { backgroundColor: theme.bgCard, borderColor: theme.border }]}>
             <Ionicons name="cloud-offline-outline" size={24} color={theme.textMuted} />
             <Text style={[styles.statusTitle, { color: theme.textPrimary, fontFamily: theme.fontSansSemiBold }]}>No hemos podido cargar los perfiles ahora</Text>
+            <Text accessibilityRole="alert" style={{ color: theme.textSecondary, fontFamily: theme.fontSans, textAlign: 'center' }}>{error}</Text>
             <Button variant="outline" size="small" onPress={() => void loadSpecialists()}>Reintentar</Button>
           </View>
         ) : specialists.length === 0 ? (

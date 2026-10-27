@@ -44,7 +44,7 @@ export const PublicSpecialistProfileScreen: React.FC = () => {
   const [reviews, setReviews] = useState<Review[]>([]);
   const [reviewsVisible, setReviewsVisible] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [unavailable, setUnavailable] = useState(false);
   const [refreshError, setRefreshError] = useState<string | null>(null);
   const canBook = specialist
@@ -83,7 +83,7 @@ export const PublicSpecialistProfileScreen: React.FC = () => {
         setReviews([]);
         setReviewsVisible(false);
       }
-      setError(false);
+      setError(null);
       setUnavailable(false);
       setRefreshError(null);
       if (!profileRef) throw new Error('No specialist profile reference provided');
@@ -106,7 +106,7 @@ export const PublicSpecialistProfileScreen: React.FC = () => {
         loadedProfileRef.current = null;
         setSpecialist(null);
         setReviews([]);
-        setError(true);
+        setError(loadError instanceof Error ? loadError.message : 'Inténtalo de nuevo en unos segundos.');
         setUnavailable(unavailable || !profileRef);
       }
     } finally {
@@ -251,7 +251,7 @@ export const PublicSpecialistProfileScreen: React.FC = () => {
           <Ionicons name="alert-circle" size={64} color={theme.warning} />
           <Text style={styles.errorTitle}>{unavailable ? 'Perfil no disponible' : 'No hemos podido cargar el perfil'}</Text>
           <Text style={styles.errorText}>
-            {unavailable ? 'Este perfil no existe o no está disponible en este momento.' : 'Comprueba tu conexión e inténtalo de nuevo.'}
+            {unavailable ? 'Este perfil no existe o no está disponible en este momento.' : error}
           </Text>
           {!unavailable ? <Button fullWidth={false} style={styles.errorButton} onPress={() => void loadSpecialistDetails()}>Reintentar</Button> : null}
           <Button variant="outline" style={styles.errorButton} onPress={handleBrowseSpecialists}>Todos los especialistas</Button>

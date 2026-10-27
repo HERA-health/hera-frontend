@@ -1,6 +1,5 @@
 import {SearchableProfileSelect} from '../../components/common/SearchableProfileSelect';
 import {PROFESSIONAL_SPECIALTY_OPTIONS, PROFESSIONAL_THERAPEUTIC_APPROACH_OPTIONS} from '../../constants/professionalMatchingOptions';
-import { directoryIntent } from '../../services/heraCommissionService';
 import { ProfileDiscoveryFilters } from '../../components/common/ProfileDiscoveryFilters';
 import { useDiscoveryRevalidation } from '../../hooks/useDiscoveryRevalidation';
 import { affinityPercentage, combineSpecialistResults } from './specialistDiscoveryResults';
@@ -333,16 +332,13 @@ const SpecialistsScreen: React.FC = () => {
     }
   }, [proximityEnabled, searchQuery, selectedFilters.length, selectedProfessionalTypes.length]);
 
-  const handleSpecialistPress = useCallback(async (specialistId: string) => {
+  const handleSpecialistPress = useCallback((specialistId: string) => {
     const specialist = matchedSpecialists.find((item) => item.id === specialistId)
       || allSpecialists.find((item) => item.id === specialistId);
     const affinity = specialist ? specialist.affinityPercentage / 100 : undefined;
 
-    try {
-      const intent = await directoryIntent(specialistId);
-      navigation.navigate('SpecialistDetail', { specialistId, affinity, intentToken: intent.token });
-    } catch { showAppAlert(appAlert, 'No se pudo abrir el perfil', 'Inténtalo de nuevo.'); }
-  }, [allSpecialists, matchedSpecialists, navigation, appAlert]);
+    navigation.navigate('SpecialistDetail', { specialistId, affinity });
+  }, [allSpecialists, matchedSpecialists, navigation]);
 
   const applyFavoriteState = useCallback((specialistId: string, isFavorite: boolean) => {
     const update = (items: Specialist[]) =>

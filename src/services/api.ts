@@ -1,5 +1,5 @@
 import { notifyLegalUpdate } from './legalEvents';
-import { GeneralRateLimitError, getGeneralRateLimitRetryAt, getRateLimitSessionGeneration, isGeneralRead, isGeneralRateLimited, recordGeneralRateLimit } from './generalRateLimit';
+import { GeneralRateLimitError, PublicDiscoveryRateLimitError, getGeneralRateLimitRetryAt, getRateLimitSessionGeneration, isGeneralRead, isGeneralRateLimited, isDiscoveryRequest, recordGeneralRateLimit } from './generalRateLimit';
 import axios, {
   AxiosError,
   AxiosHeaders,
@@ -307,7 +307,17 @@ api.interceptors.response.use(
   },
   async (error: AxiosError<unknown>) => {
     if (error instanceof GeneralRateLimitError) return Promise.reject(error);
+    if (axios.isCancel(error)) return Promise.reject(error);
     const body = error.response?.data;
+    // Public browsing uses a separate server quota. Even an older deployment's
+    // general 429 here must not freeze the authenticated workspace locally.
+    if (error.response?.status === 429 && error.config
+      && isDiscoveryRequest(error.config.url, error.config.method)) {
+      return Promise.reject(new PublicDiscoveryRateLimitError(
+        body && typeof body === 'object' && 'retryAfter' in body ? body.retryAfter : undefined,
+        error.response.headers['retry-after'],
+      ));
+    }
     if (body && typeof body === 'object' && 'code' in body && (body.code === 'LEGAL_ACCEPTANCE_REQUIRED' || body.code === 'LEGAL_DOCUMENT_VERSION_CHANGED')) notifyLegalUpdate();
     if (error.response?.status === 429 && typeof body === 'object' && body !== null
       && (('limiter' in body && body.limiter === 'general')

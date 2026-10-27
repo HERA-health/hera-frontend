@@ -1,6 +1,4 @@
-import getEnvVars from '../config/api';
-
-// Native browser navigation (new tab, context menu, keyboard) must enter through
-// the server too. It creates the same verified intent as an ordinary app click.
+// Direct links work in new tabs and without cookies. The verified booking
+// channel establishes origin without a database write to view each profile.
 export const directoryEntryHref = (profileRef: string, optionId?: string) =>
-  `${getEnvVars().apiUrl.replace(/\/$/, '')}/hera-commissions/directory-entry/${encodeURIComponent(profileRef)}${optionId ? `?optionId=${encodeURIComponent(optionId)}` : ''}`;
+  `/especialista/${encodeURIComponent(profileRef)}${optionId ? `?optionId=${encodeURIComponent(optionId)}` : ''}`;

@@ -6,6 +6,7 @@ import { useTheme } from '../../contexts/ThemeContext';
 import { getGradientColors } from '../../constants/gradients';
 import { AnimatedPressable } from '../common/AnimatedPressable';
 import { DirectorySpecialistCard } from './DirectorySpecialistCard';
+import type { ProfileOptions } from '../../services/profileDiscoveryService';
 import type { PublicSpecialistCard as PublicSpecialistCardData, PublicSpecialistDirectoryCard } from '../../services/specialistsService';
 
 interface PublicSpecialistCardProps {
@@ -16,6 +17,7 @@ interface PublicSpecialistCardProps {
   href?: string;
   compactDirectory?: boolean;
   mobileDirectory?: boolean;
+  profileOptions?: ProfileOptions | null;
 }
 
 export function PublicSpecialistCard(props: PublicSpecialistCardProps) {
