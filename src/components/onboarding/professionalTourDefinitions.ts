@@ -283,7 +283,7 @@ export const PROFESSIONAL_TOUR_DEFINITIONS: Record<
     routeName: 'ClientProfile',
     autoStart: true,
     steps: [
-      { id:'clinical-hero', targetId:'professional.clinical.hero', title:'Expediente protegido', body:'Aquí puedes gestionar la autorización del paciente y bloquear el área clínica cuando termines.', placement:'bottom' },
+      { id:'clinical-hero', targetId:'professional.clinical.hero', title:'Expediente protegido', body:'Aquí puedes gestionar el consentimiento informado del paciente y bloquear el área clínica cuando termines.', placement:'bottom' },
       { id:'workspace-tabs', targetId:'professional.clinical.workspace-tabs', title:'Una ficha organizada', body:'Información general, Sesiones y Datos y bonos reúnen la gestión administrativa. Notas, historia y documentos se consultan dentro del área clínica protegida.', placement:'bottom' },
       { id:'consent', targetId:'professional.clinical.consent', title:'Consentimiento informado', body:'Registra el PDF firmado o utiliza la firma digital cuando esté disponible. Si está pendiente, puedes seguir trabajando; una retirada impide nuevas actuaciones y conserva el historial.', placement:'bottom' },
       { id:'notes', targetId:'professional.clinical.notes', title:'Notas clínicas', body:'Busca y filtra tus notas, consulta su detalle y adjuntos y conserva el historial de las correcciones. Puedes vincularlas a una sesión.', placement:'bottom' },
