@@ -315,6 +315,25 @@ describe('PublicSpecialistsScreen', () => {
     await waitFor(() => expect(mockedDirectory).toHaveBeenCalledWith(expect.objectContaining({ q: 'ansiedad', page: 1 })));
   });
 
+  it('explains the minimum without discarding an applied search, and allows clearing it', async () => {
+    mockedDirectory.mockResolvedValue({ items: [], page: 1, pageSize: 12, total: 0, hasMore: false });
+    render(<PublicSpecialistsScreen />);
+    const input = screen.getByPlaceholderText('Nombre, profesión o especialidad');
+    expect(input.props.maxLength).toBe(80);
+    fireEvent.changeText(input, '  Lucía ansiedad  ');
+    fireEvent(input, 'submitEditing');
+    await waitFor(() => expect(mockedDirectory).toHaveBeenLastCalledWith(expect.objectContaining({ q: 'Lucía ansiedad', page: 1 })));
+    const requests = mockedDirectory.mock.calls.length;
+    fireEvent.changeText(input, 'a');
+    fireEvent.press(screen.getByText('Buscar'));
+    expect(screen.getByText('Escribe al menos 2 caracteres para buscar.')).toBeTruthy();
+    expect(mockedDirectory).toHaveBeenCalledTimes(requests);
+    fireEvent.changeText(input, '');
+    expect(screen.queryByText('Escribe al menos 2 caracteres para buscar.')).toBeNull();
+    fireEvent.press(screen.getByText('Buscar'));
+    await waitFor(() => expect(mockedDirectory).toHaveBeenLastCalledWith(expect.objectContaining({ q: undefined, page: 1 })));
+  });
+
   it('applies useful public filters and can clear them together', async () => {
     mockedDirectory.mockResolvedValue({
       items: [],

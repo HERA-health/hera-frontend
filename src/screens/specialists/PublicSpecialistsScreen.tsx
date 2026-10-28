@@ -130,6 +130,7 @@ export const PublicSpecialistsScreen: React.FC = () => {
   const gridColumns = gridWidth >= 740 ? 2 : 1;
   const compactCards = (gridWidth - (gridColumns - 1) * 20) / gridColumns >= 460;
   const [queryInput, setQueryInput] = useState('');
+  const [searchError, setSearchError] = useState<string | undefined>();
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [filters, setFilters] = useState<DirectoryFilters>(() =>
     createInitialFilters(route.params?.specialty)
@@ -231,14 +232,20 @@ export const PublicSpecialistsScreen: React.FC = () => {
 
   const submitSearch = useCallback(() => {
     const nextQuery = queryInput.trim();
+    if (nextQuery.length === 1) {
+      setSearchError('Escribe al menos 2 caracteres para buscar.');
+      return;
+    }
+    setSearchError(undefined);
     setFilters((currentFilters) => ({
       ...currentFilters,
-      q: nextQuery.length >= 2 ? nextQuery : '',
+      q: nextQuery,
     }));
   }, [queryInput]);
 
   const clearFilters = useCallback(() => {
     setQueryInput('');
+    setSearchError(undefined);
     setFilters(INITIAL_FILTERS);
   }, []);
 
@@ -246,7 +253,7 @@ export const PublicSpecialistsScreen: React.FC = () => {
     () => PROFESSIONAL_TYPE_OPTIONS.map(option => ({ label: option.label, value: option.id })), []
   );
   const activeFilters: Array<{ key: string; label: string; remove: () => void }> = [];
-  if (filters.q) activeFilters.push({ key: 'q', label: `«${filters.q}»`, remove: () => { setQueryInput(''); setFilters(current => ({ ...current, q: '' })); } });
+  if (filters.q) activeFilters.push({ key: 'q', label: `«${filters.q}»`, remove: () => { setQueryInput(''); setSearchError(undefined); setFilters(current => ({ ...current, q: '' })); } });
   if (filters.language) activeFilters.push({ key: 'language', label: optionLabel(profileOptions?.languages ?? [], filters.language), remove: () => setFilters(current => ({ ...current, language: undefined })) });
   if (filters.religion) activeFilters.push({ key: 'religion', label: optionLabel(profileOptions?.religions ?? [], filters.religion), remove: () => setFilters(current => ({ ...current, religion: undefined })) });
   if (filters.professionalType) activeFilters.push({ key: 'type', label: selectedProfessionalType.find(option => option.value === filters.professionalType)?.label ?? filters.professionalType, remove: () => setFilters(current => ({ ...current, professionalType: null })) });
@@ -369,7 +376,8 @@ export const PublicSpecialistsScreen: React.FC = () => {
             </View>
             <View style={[styles.searchArea, isDesktop && styles.searchAreaDesktop]}>
               <View style={styles.searchRow}>
-                <Input value={queryInput} onChangeText={setQueryInput} onSubmitEditing={submitSearch}
+                <Input value={queryInput} onChangeText={value => { setQueryInput(value); setSearchError(undefined); }} onSubmitEditing={submitSearch}
+                  maxLength={80}
                   placeholder={isMobile ? 'Nombre o especialidad' : 'Nombre, profesión o especialidad'} accessibilityLabel="Nombre, profesión o especialidad" returnKeyType="search"
                   style={isMobile ? styles.mobileSearchInput : undefined}
                   leftIcon={!isMobile ? <Ionicons name="search-outline" size={19} color={theme.primary} /> : undefined}
@@ -380,6 +388,9 @@ export const PublicSpecialistsScreen: React.FC = () => {
                   containerStyle={styles.searchField} />
                 {!isMobile ? <Button variant="primary" size="medium" onPress={submitSearch}>Buscar</Button> : null}
               </View>
+              <Text accessibilityLiveRegion="polite" style={[styles.hint, { color: searchError ? theme.error : theme.textSecondary, fontFamily: theme.fontSans }]}>
+                {searchError ?? 'Combina nombre, profesión, especialidad o enfoque. Entre 2 y 80 caracteres.'}
+              </Text>
               {isDesktop ? <View style={styles.searchTools}>
                 <View style={styles.searchHint}>
                   <Ionicons name="shield-checkmark-outline" size={16} color={theme.primary} />
