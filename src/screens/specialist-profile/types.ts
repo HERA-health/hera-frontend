@@ -45,6 +45,7 @@ export interface Specialist {
   photoGallery?: string[];
   presentationVideoUrl?: string | null;
   yearsInPractice?: number | null;
+  age?: number | null;
   languagesSpoken?: string[];
   religionCode?: string | null;
   religionOtherText?: string | null;

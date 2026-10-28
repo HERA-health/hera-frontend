@@ -1,3 +1,4 @@
+import { ProfessionalBirthdayEditor } from '../../components/professional/ProfessionalBirthdayEditor';
 import { emptyPerspective, type PerspectiveDraft } from '../../utils/perspective';
 import type {PerspectiveOperation} from '../../services/profileDiscoveryService';
 import { customChoiceError, PROFESSIONAL_SPECIALTY_OPTIONS, PROFESSIONAL_THERAPEUTIC_APPROACH_OPTIONS } from '../../constants/professionalMatchingOptions';
@@ -188,6 +189,8 @@ interface SpecialistProfileData {
   photoGallery: string[];
   presentationVideoUrl: string;
   yearsInPractice: string;
+  birthDate: string | null;
+  showAge: boolean;
   languagesSpoken: string[];
 
   // Location & Service Modality
@@ -427,6 +430,8 @@ const mapServiceProfileToFormData = (profile: ServiceProfileData): SpecialistPro
   photoGallery: profile.photoGallery ?? [],
   presentationVideoUrl: profile.presentationVideoUrl ?? '',
   yearsInPractice: profile.yearsInPractice == null ? '' : String(profile.yearsInPractice),
+  birthDate: profile.birthDate ?? null,
+  showAge: profile.showAge ?? false,
   languagesSpoken: profile.languagesSpoken ?? [],
   officeAddress: profile.officeAddress || '',
   officeCity: profile.officeCity || '',
@@ -690,6 +695,8 @@ export function SpecialistProfileScreen() {
     photoGallery: [],
     presentationVideoUrl: '',
     yearsInPractice: '',
+    birthDate: null,
+    showAge: false,
     languagesSpoken: [],
 
     // Location & Service Modality
@@ -959,12 +966,13 @@ export function SpecialistProfileScreen() {
 
     const perspectiveChanged = JSON.stringify(profileData.perspective) !== JSON.stringify(originalData.perspective);
     const perspective = profileData.perspective;
-    const withdrawalOnly = perspectiveChanged && originalData.perspective.hasDeclaration && !perspective.publish
-      && Object.keys(profileData).every(key => key === 'perspective'
-        || JSON.stringify(profileData[key as keyof SpecialistProfileData]) === JSON.stringify(originalData[key as keyof SpecialistProfileData]));
+    const withdrawalOnly = Object.keys(profileData).every(key =>
+      JSON.stringify(profileData[key as keyof SpecialistProfileData]) === JSON.stringify(originalData[key as keyof SpecialistProfileData])
+      || (key === 'perspective' && originalData.perspective.hasDeclaration && !perspective.publish)
+      || (key === 'showAge' && !profileData.showAge) || (key === 'birthDate' && profileData.birthDate === null));
 
     const experienceInput = profileData.yearsInPractice.trim();
-    if (experienceInput !== '' && (!/^\d+$/.test(experienceInput) || Number(experienceInput) > 60)) {
+    if (!withdrawalOnly && experienceInput !== '' && (!/^\d+$/.test(experienceInput) || Number(experienceInput) > 60)) {
       showAppAlert(appAlert, 'Revisa los años de experiencia', 'Indica un número entero entre 0 y 60, o deja el campo vacío para no mostrarlo.');
       return false;
     }
@@ -1040,6 +1048,8 @@ export function SpecialistProfileScreen() {
       assignIfChanged('gradientId', 'gradientId', profileData.gradientId);
       assignIfChanged('photoGallery', 'photoGallery', profileData.photoGallery);
       assignIfChanged('presentationVideoUrl', 'presentationVideoUrl', profileData.presentationVideoUrl);
+      assignIfChanged('birthDate', 'birthDate', profileData.birthDate);
+      assignIfChanged('showAge', 'showAge', profileData.showAge);
       assignIfChanged('yearsInPractice', 'yearsInPractice', experienceInput === '' ? null : Number(experienceInput));
 
       assignIfChanged('officeAddress', 'officeAddress', profileData.officeAddress);
@@ -2133,6 +2143,8 @@ export function SpecialistProfileScreen() {
                   )}
                 </View>
               </View>
+              <ProfessionalBirthdayEditor birthDate={profileData.birthDate} showAge={profileData.showAge}
+                onChange={(birthDate, showAge) => setProfileData(current => ({ ...current, birthDate, showAge }))} />
             </View>
           </View>
         </View>

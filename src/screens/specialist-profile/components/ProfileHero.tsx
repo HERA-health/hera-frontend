@@ -60,8 +60,8 @@ export const ProfileHero: React.FC<ProfileHeroProps> = ({
 
           <View style={[styles.infoBlock, isMobile && styles.infoBlockMobile]}>
             <View style={[styles.titleRow, isMobile && styles.titleRowMobile]}>
-              <Text style={[styles.nameText, isMobile && styles.nameTextMobile]} numberOfLines={2}>
-                {specialist.name}
+              <Text style={[styles.nameText, isMobile && styles.nameTextMobile]}>
+                {specialist.name}{specialist.age != null ? <Text style={{ color: theme.textSecondary, fontFamily: theme.fontSans, fontSize: 20 }}>{` ·\u00a0${specialist.age}\u00a0años`}</Text> : null}
               </Text>
 
               {specialist.verificationStatus === 'VERIFIED' && (

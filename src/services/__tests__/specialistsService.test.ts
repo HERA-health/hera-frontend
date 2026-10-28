@@ -203,6 +203,16 @@ describe('specialistsService personalization', () => {
     expect(mockedApi.get).toHaveBeenCalledTimes(2);
   });
 
+  it('serializes age and experience in both directory transports', async () => {
+    const result = {items: [], page: 1, pageSize: 12, total: 0, hasMore: false};
+    mockedApi.get.mockResolvedValue({data: {success: true, data: result}});
+    mockedApi.post.mockResolvedValue({data: {success: true, data: result}});
+    await getPublicSpecialistDirectory({minExperienceYears: 5, minAge: 0, maxAge: 55});
+    expect(mockedApi.get).toHaveBeenLastCalledWith('/specialists/directory?minExperienceYears=5&minAge=0&maxAge=55');
+    await getPublicSpecialistDirectory({religion: 'catholic', minExperienceYears: 5, minAge: 35, maxAge: 55});
+    expect(mockedApi.post).toHaveBeenLastCalledWith('/specialists/directory/search', expect.objectContaining({minExperienceYears: 5, minAge: 35, maxAge: 55}));
+  });
+
   it('requests only the selected public directory page and filters', async () => {
     const payload = {
       items: [],

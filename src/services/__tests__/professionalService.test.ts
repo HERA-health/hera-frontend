@@ -300,6 +300,11 @@ describe('professionalService.getVerificationStatus', () => {
 });
 
 describe('professionalService.updateComprehensiveProfile', () => {
+  it.each([{birthDate: '1990-10-28', showAge: true}, {birthDate: null, showAge: false}, {showAge: false}])('sends optional birth date and publication changes (%j)', async data => {
+    mockedApi.put.mockResolvedValue({data: {success: true, data}});
+    await updateComprehensiveProfile(data);
+    expect(mockedApi.put).toHaveBeenLastCalledWith('/specialists/me/profile', data);
+  });
   it.each([3, null])('sends declared experience or its removal (%s)', async yearsInPractice => {
     mockedApi.put.mockResolvedValue({ data: { success: true, data: { yearsInPractice } } });
     await updateComprehensiveProfile({ yearsInPractice });

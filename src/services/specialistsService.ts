@@ -54,6 +54,7 @@ export interface SpecialistData {
   photoGallery?: string[];
   presentationVideoUrl?: string | null;
   yearsInPractice?: number | null;
+  age?: number | null;
   languagesSpoken?: string[];
   religionCode?: string | null;
   religionOtherText?: string | null;
@@ -129,6 +130,7 @@ export interface PublicSpecialistProfileData {
   photoGallery?: string[];
   presentationVideoUrl?: string | null;
   yearsInPractice?: number | null;
+  age?: number | null;
   languagesSpoken?: string[];
   religionCode?: string | null;
   religionOtherText?: string | null;
@@ -174,6 +176,9 @@ export interface PublicSpecialistDirectoryCard extends PublicSpecialistCard {
 }
 
 export interface PublicSpecialistDirectoryFilters {
+  minExperienceYears?: number;
+  minAge?: number;
+  maxAge?: number;
   language?: string;
   religion?: string;
   q?: string;
@@ -300,6 +305,9 @@ const buildPublicDirectoryQueryParams = (
   filters?.approaches?.forEach((approach) => params.append('approach', approach));
   if (filters?.minRating !== undefined) params.append('minRating', filters.minRating.toString());
   if (filters?.maxPrice !== undefined) params.append('maxPrice', filters.maxPrice.toString());
+  if (filters?.minExperienceYears !== undefined) params.append('minExperienceYears', String(filters.minExperienceYears));
+  if (filters?.minAge !== undefined) params.append('minAge', String(filters.minAge));
+  if (filters?.maxAge !== undefined) params.append('maxAge', String(filters.maxAge));
   if (filters?.sort && filters.sort !== 'RECENT') params.append('sort', filters.sort);
   if (filters?.page && filters.page > 1) params.append('page', filters.page.toString());
 
@@ -448,6 +456,7 @@ export function mapSpecialistToProfile(data: Omit<SpecialistData, 'userId'>): Sp
     photoGallery: data.photoGallery || [],
     presentationVideoUrl: data.presentationVideoUrl || null,
     yearsInPractice: data.yearsInPractice ?? null,
+    age: data.age ?? null,
     languagesSpoken: data.languagesSpoken || [],
     religionCode: data.religionCode ?? null,
     religionOtherText: data.religionOtherText ?? null,

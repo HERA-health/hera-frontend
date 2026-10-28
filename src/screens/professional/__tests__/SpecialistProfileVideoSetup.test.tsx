@@ -201,3 +201,18 @@ test('legacy agenda settings navigation redirects to Agenda and clears the old t
   expect(mockNavigation.setParams).toHaveBeenCalledWith({ initialTab: undefined });
   expect(screen.queryByRole('tab', { name: 'Agenda y reservas' })).toBeNull();
 });
+
+
+test('age can be hidden or birth date cleared without completing unrelated profile fields', async () => {
+  const incomplete = {...profile, professionalType: null, specialties: [], birthDate: '1990-10-28', showAge: true};
+  jest.mocked(professionalService.getComprehensiveProfile).mockResolvedValue(incomplete);
+  jest.mocked(professionalService.updateComprehensiveProfile).mockImplementation(async data => ({...incomplete, ...data}));
+  render(<SpecialistProfileScreen />);
+  fireEvent.press(await screen.findByLabelText('Mostrar mi edad en el perfil'));
+  await act(async () => fireEvent.press(screen.getByText('Guardar')));
+  expect(professionalService.updateComprehensiveProfile).toHaveBeenLastCalledWith({showAge: false});
+  expect(screen.getByText('28/10/1990')).toBeTruthy();
+  fireEvent.press(screen.getByLabelText('Borrar fecha de nacimiento'));
+  await act(async () => fireEvent.press(screen.getByText('Guardar')));
+  expect(professionalService.updateComprehensiveProfile).toHaveBeenLastCalledWith({birthDate: null});
+});

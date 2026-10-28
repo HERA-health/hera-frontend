@@ -148,7 +148,7 @@ export const ProfileHeroEditorial: React.FC<ProfileHeroProps> = ({
           </View>
 
           <View style={[styles.identity, { paddingRight: actionsReserve }]}>
-            <Text style={styles.name} numberOfLines={3}>{specialist.name}</Text>
+            <Text style={styles.name}>{specialist.name}{specialist.age != null ? <Text style={{ color: theme.textSecondary, fontFamily: theme.fontSans, fontSize: 20 }}>{` ·\u00a0${specialist.age}\u00a0años`}</Text> : null}</Text>
             <Text style={styles.profession}>{displayTitle}</Text>
             {years != null && years > 0 ? (
               <View style={styles.experienceRow}>

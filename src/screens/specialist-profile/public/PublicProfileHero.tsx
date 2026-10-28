@@ -101,7 +101,7 @@ export function PublicProfileHero({ specialist, onPractice, onReviews, reviewsVi
       </View>
       <View style={[styles.identity, mobile && styles.identityMobile]}>
         <View style={styles.nameRow}>
-        <Text accessibilityRole="header" style={[styles.name, mobile && styles.nameMobile, { color: theme.textPrimary, fontFamily: theme.fontDisplay }]}>{specialist.name}</Text>
+        <Text accessibilityRole="header" style={[styles.name, mobile && styles.nameMobile, { color: theme.textPrimary, fontFamily: theme.fontDisplay }]}>{specialist.name}{specialist.age != null ? <Text style={{ color: theme.textSecondary, fontFamily: theme.fontSans, fontSize: 20 }}>{` ·\u00a0${specialist.age}\u00a0años`}</Text> : null}</Text>
         <Pressable accessibilityRole="button" accessibilityLabel="Compartir perfil" onPress={onShare} style={styles.iconAction}><Ionicons name="share-social-outline" size={19} color={theme.primary} /></Pressable>
         </View>
         <Text style={[styles.profession, body]}>{getProfessionalTypeLabel(specialist.professionalType, specialist.professionalTypeLabel)}</Text>

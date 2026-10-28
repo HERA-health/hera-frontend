@@ -151,6 +151,35 @@ describe('PublicSpecialistsScreen', () => {
     mockedUseRoute.mockReturnValue({ params: undefined } as ReturnType<typeof useRoute>);
   });
 
+  it('applies experience and age separately, waits for Apply and resets drafts with filters', async () => {
+    mockedDirectory.mockResolvedValue({items: [specialist], total: 1, page: 1, pageSize: 12, hasMore: false});
+    render(<PublicSpecialistsScreen />);
+    await screen.findByText(specialist.name);
+    fireEvent.press(screen.getByLabelText('Experiencia mínima'));
+    fireEvent.press(screen.getByText('Al menos 5 años'));
+    await waitFor(() => expect(mockedDirectory).toHaveBeenLastCalledWith(expect.objectContaining({minExperienceYears: 5, page: 1})));
+    const calls = mockedDirectory.mock.calls.length;
+    fireEvent.changeText(screen.getByLabelText('Edad mínima'), '55');
+    fireEvent.changeText(screen.getByLabelText('Edad máxima'), '35');
+    expect(mockedDirectory).toHaveBeenCalledTimes(calls);
+    fireEvent.press(screen.getByLabelText('Aplicar filtro de edad'));
+    expect(screen.getByText('La edad máxima debe ser igual o mayor que la mínima.')).toBeTruthy();
+    expect(mockedDirectory).toHaveBeenCalledTimes(calls);
+    fireEvent.changeText(screen.getByLabelText('Edad mínima'), '35');
+    fireEvent.changeText(screen.getByLabelText('Edad máxima'), '55');
+    fireEvent.press(screen.getByLabelText('Aplicar filtro de edad'));
+    await waitFor(() => expect(mockedDirectory).toHaveBeenLastCalledWith(expect.objectContaining({minExperienceYears: 5, minAge: 35, maxAge: 55, page: 1})));
+    fireEvent.press(screen.getByLabelText('Quitar filtro: Edad: 35–55 años'));
+    expect(screen.getByLabelText('Edad mínima').props.value).toBe('');
+    await waitFor(() => expect(mockedDirectory).toHaveBeenLastCalledWith(expect.objectContaining({minAge: undefined, maxAge: undefined, minExperienceYears: 5})));
+    fireEvent.changeText(screen.getByLabelText('Edad máxima'), '40');
+    fireEvent.press(screen.getByLabelText('Aplicar filtro de edad'));
+    await waitFor(() => expect(mockedDirectory).toHaveBeenLastCalledWith(expect.objectContaining({minAge: undefined, maxAge: 40})));
+    fireEvent.press(screen.getByLabelText('Limpiar filtros'));
+    expect(screen.getByLabelText('Edad máxima').props.value).toBe('');
+    await waitFor(() => expect(mockedDirectory).toHaveBeenLastCalledWith(expect.objectContaining({minAge: undefined, maxAge: undefined, minExperienceYears: undefined})));
+  });
+
   it.each([
     ['client', 'Home', true, true],
     ['professional', 'ProfessionalHome', true, true],
@@ -351,7 +380,9 @@ describe('PublicSpecialistsScreen', () => {
     fireEvent.press(screen.getByText('Ansiedad'));
     fireEvent.press(screen.getByText('Depresión y estado de ánimo'));
     expect(mockedDirectory).toHaveBeenCalledTimes(1);
-    fireEvent.press(screen.getByText('Aplicar'));
+    const topicModal = screen.UNSAFE_getAllByType(ReactNative.Modal).find(modal => within(modal).queryByLabelText('Cerrar tema'));
+    if (!topicModal) throw new Error('Topic selector is not open');
+    fireEvent.press(within(topicModal).getByText('Aplicar'));
     await waitFor(() => expect(mockedDirectory).toHaveBeenLastCalledWith(
       expect.objectContaining({ specialties: ['anxiety', 'depression'], page: 1 })
     ));

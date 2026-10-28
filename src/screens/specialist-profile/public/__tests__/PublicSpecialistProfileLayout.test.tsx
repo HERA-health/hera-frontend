@@ -293,3 +293,11 @@ it('preserves an open package flow when resizing across the desktop breakpoint',
   } finally { dimensions.mockRestore(); }
   await act(async () => {});
 });
+
+
+it('shows published age next to the profile name and omits hidden age', () => {
+  const view = render(<PublicProfileHero specialist={{...specialist, age: 36}} onPractice={jest.fn()} onReviews={jest.fn()} onShare={jest.fn()} onFavorite={jest.fn()} showFavorite={false} isFavorite={false} favoriteLoading={false} />);
+  expect(screen.getByText(/36 años/)).toBeTruthy();
+  view.rerender(<PublicProfileHero specialist={{...specialist, age: null}} onPractice={jest.fn()} onReviews={jest.fn()} onShare={jest.fn()} onFavorite={jest.fn()} showFavorite={false} isFavorite={false} favoriteLoading={false} />);
+  expect(screen.queryByText(/36 años/)).toBeNull();
+});

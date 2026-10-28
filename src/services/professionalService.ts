@@ -630,6 +630,9 @@ export interface PublicDirectoryStatus {
 }
 
 export interface SpecialistProfileData {
+  birthDate?: string | null;
+  showAge?: boolean;
+  age?: number | null;
   directoryStatus?: PublicDirectoryStatus;
   id?: string;
   publicSlug?: string | null;
@@ -974,6 +977,8 @@ export const updateComprehensiveProfile = async (
     if (data.gradientId !== undefined) apiData.gradientId = data.gradientId;
     if (data.photoGallery !== undefined) apiData.photoGallery = data.photoGallery;
     if (data.presentationVideoUrl !== undefined) apiData.presentationVideoUrl = data.presentationVideoUrl;
+    if (data.birthDate !== undefined) apiData.birthDate = data.birthDate;
+    if (data.showAge !== undefined) apiData.showAge = data.showAge;
     if (data.yearsInPractice !== undefined) apiData.yearsInPractice = data.yearsInPractice;
     if (data.languagesSpoken !== undefined) apiData.languagesSpoken = data.languagesSpoken;
 
