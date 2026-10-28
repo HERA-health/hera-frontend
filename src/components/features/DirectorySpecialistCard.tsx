@@ -68,9 +68,6 @@ export function DirectorySpecialistCard({ specialist, onPress, href, style, comp
         <Ionicons name={hasReviews ? 'star' : 'star-outline'} size={13} color={hasReviews ? theme.starRating : theme.textSecondary} />
         <Text style={[styles.smallText, body]}>{reviewText}</Text>
       </View>
-      {!!specialist.yearsInPractice && specialist.yearsInPractice > 0 ? (
-        <Text style={[styles.smallText, body]}>{specialist.yearsInPractice} {specialist.yearsInPractice === 1 ? 'año' : 'años'} de experiencia</Text>
-      ) : null}
     </View>
   );
   const facts = (
@@ -118,7 +115,17 @@ export function DirectorySpecialistCard({ specialist, onPress, href, style, comp
               <Ionicons name="shield-checkmark" size={13} color={theme.primary} />
               <Text style={[styles.verifiedText, { color: theme.primary, fontFamily: theme.fontSansSemiBold }]}>Verificado</Text>
             </View>
-            {details?.collegiateNumber ? <Text style={[styles.credential, body]} numberOfLines={1}>Col. {details.collegiateNumber}</Text> : null}
+            {details?.collegiateNumber || (specialist.yearsInPractice != null && specialist.yearsInPractice > 0) ? (
+              <View style={[styles.credentialDetails, compactDirectory && styles.compactCredentialDetails]}>
+                {details?.collegiateNumber ? <Text style={[styles.credential, body, { flexShrink: 1 }]} numberOfLines={1}>Col. {details.collegiateNumber}</Text> : null}
+                {specialist.yearsInPractice != null && specialist.yearsInPractice > 0 ? (
+                  <Text style={[styles.credential, body, { flexShrink: 0 }]} numberOfLines={1}
+                    accessibilityLabel={`${specialist.yearsInPractice} ${specialist.yearsInPractice === 1 ? 'año' : 'años'} de experiencia, declarados por el profesional`}>
+                    {details?.collegiateNumber ? '· ' : ''}{specialist.yearsInPractice} {specialist.yearsInPractice === 1 ? 'año' : 'años'}{compactDirectory ? ' de experiencia' : ' exp.'}
+                  </Text>
+                ) : null}
+              </View>
+            ) : null}
           </View>
           {compactDirectory ? reputation : null}
           {compactDirectory ? facts : null}
@@ -176,7 +183,9 @@ const styles = StyleSheet.create({
   identityRow: { flexDirection: 'row', gap: 16, alignItems: 'center' },
   compactIdentityRow: { alignItems: 'flex-start' },
   credentials: { gap: 5 },
-  credentialsRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 10 },
+  credentialsRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  credentialDetails: { flexDirection: 'row', alignItems: 'center', gap: 8, minWidth: 0 },
+  compactCredentialDetails: { flex: 1 },
   compactReputation: { marginTop: 1, justifyContent: 'flex-start', columnGap: 12, rowGap: 2 },
   compactFacts: { marginTop: 3, gap: 4 },
   portraitFrame: { width: 112, height: 128, borderRadius: 12, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },

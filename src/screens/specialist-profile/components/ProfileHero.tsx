@@ -91,7 +91,7 @@ export const ProfileHero: React.FC<ProfileHeroProps> = ({
               {specialist.yearsInPractice != null && specialist.yearsInPractice > 0 && (
                 <View style={styles.statItem}>
                   <Ionicons name="briefcase-outline" size={16} color={theme.textSecondary} />
-                  <Text style={styles.statLabel}>{specialist.yearsInPractice} años de experiencia</Text>
+                  <Text style={styles.statLabel}>{specialist.yearsInPractice} {specialist.yearsInPractice === 1 ? 'año' : 'años'} de experiencia</Text>
                 </View>
               )}
             </View>

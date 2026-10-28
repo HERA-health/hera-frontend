@@ -718,7 +718,7 @@ export interface SpecialistProfileData {
   gradientId?: string;
   photoGallery?: string[];
   presentationVideoUrl?: string;
-  yearsInPractice?: number;
+  yearsInPractice?: number | null;
   languagesSpoken?: string[];
 
   // Location & Service Modality

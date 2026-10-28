@@ -48,6 +48,14 @@ const props = {
   onReviewSubmitted: jest.fn(), onScrollChange: jest.fn(),
 };
 const summary = () => within(screen.getByTestId('public-booking-summary'));
+
+it('shows declared experience and does not restore legacy years after removal', async () => {
+  const view = render(<PublicSpecialistProfileLayout {...props} specialist={{ ...specialist, yearsInPractice: 1, experienceYears: 10 }} />);
+  expect(screen.getByText('1 año de experiencia')).toBeTruthy();
+  view.rerender(<PublicSpecialistProfileLayout {...props} specialist={{ ...specialist, yearsInPractice: null, experienceYears: 10 }} />);
+  expect(screen.queryByText(/años? de experiencia/)).toBeNull();
+  await act(async () => {});
+});
 const reserve = () => fireEvent.press(summary().getByText('Reservar'));
 
 beforeEach(() => { jest.clearAllMocks(); jest.mocked(useProfileOptions).mockReturnValue({ options: null, error: false, retry: jest.fn() }); jest.mocked(sessions.getAvailableSlots).mockResolvedValue([slot]); });

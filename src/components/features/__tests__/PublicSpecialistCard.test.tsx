@@ -55,11 +55,21 @@ describe('PublicSpecialistCard', () => {
     expect(screen.getByText('Español, Inglés')).toBeTruthy();
     expect(screen.getByText('+1')).toBeTruthy();
     expect(screen.getByText('4,8 · 12 reseñas')).toBeTruthy();
-    expect(screen.getByText('8 años de experiencia')).toBeTruthy();
+    expect(screen.getByText(compactDirectory ? '· 8 años de experiencia' : '· 8 años exp.')).toBeTruthy();
     const portrait = screen.getByLabelText('Retrato de Elena Martín');
     fireEvent(portrait, 'error', { nativeEvent: { error: 'Unavailable' } });
     expect(screen.queryByLabelText('Retrato de Elena Martín')).toBeNull();
     expect(screen.getByText('EM')).toBeTruthy();
+  });
+
+  it.each([null, 0])('omits undeclared experience (%s)', yearsInPractice => {
+    render(<PublicSpecialistCard specialist={{ ...directorySpecialist, yearsInPractice }} variant="directory" onPress={jest.fn()} />);
+    expect(screen.queryByLabelText(/de experiencia, declarados/)).toBeNull();
+  });
+
+  it('uses the singular and shows experience without a collegiate number', () => {
+    render(<PublicSpecialistCard specialist={{ ...directorySpecialist, collegiateNumber: null, yearsInPractice: 1 }} variant="directory" compactDirectory onPress={jest.fn()} />);
+    expect(screen.getByText('1 año de experiencia')).toBeTruthy();
   });
 
   it('keeps private reviews and unavailable location out of the card', () => {

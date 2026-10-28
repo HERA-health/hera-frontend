@@ -222,7 +222,6 @@ export const SpecialistProfileLayout: React.FC<SpecialistProfileLayoutProps> = (
                 experience={specialist.experience}
                 certifications={specialist.certifications}
                 collegiateNumber={specialist.collegiateNumber}
-                experienceYears={specialist.experienceYears}
                 onOpenCertificate={onOpenCertificate}
               />
             </View>

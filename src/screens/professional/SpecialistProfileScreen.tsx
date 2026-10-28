@@ -187,7 +187,7 @@ interface SpecialistProfileData {
   gradientId: string;
   photoGallery: string[];
   presentationVideoUrl: string;
-  yearsInPractice: number;
+  yearsInPractice: string;
   languagesSpoken: string[];
 
   // Location & Service Modality
@@ -426,7 +426,7 @@ const mapServiceProfileToFormData = (profile: ServiceProfileData): SpecialistPro
   gradientId: profile.gradientId ?? 'salvia-lavanda',
   photoGallery: profile.photoGallery ?? [],
   presentationVideoUrl: profile.presentationVideoUrl ?? '',
-  yearsInPractice: profile.yearsInPractice ?? 0,
+  yearsInPractice: profile.yearsInPractice == null ? '' : String(profile.yearsInPractice),
   languagesSpoken: profile.languagesSpoken ?? [],
   officeAddress: profile.officeAddress || '',
   officeCity: profile.officeCity || '',
@@ -689,7 +689,7 @@ export function SpecialistProfileScreen() {
     gradientId: 'salvia-lavanda',
     photoGallery: [],
     presentationVideoUrl: '',
-    yearsInPractice: 0,
+    yearsInPractice: '',
     languagesSpoken: [],
 
     // Location & Service Modality
@@ -963,6 +963,12 @@ export function SpecialistProfileScreen() {
       && Object.keys(profileData).every(key => key === 'perspective'
         || JSON.stringify(profileData[key as keyof SpecialistProfileData]) === JSON.stringify(originalData[key as keyof SpecialistProfileData]));
 
+    const experienceInput = profileData.yearsInPractice.trim();
+    if (experienceInput !== '' && (!/^\d+$/.test(experienceInput) || Number(experienceInput) > 60)) {
+      showAppAlert(appAlert, 'Revisa los años de experiencia', 'Indica un número entero entre 0 y 60, o deja el campo vacío para no mostrarlo.');
+      return false;
+    }
+
     if (!withdrawalOnly && profileData.offersInPerson && !profileData.insuranceUploaded) {
       showAppAlert(appAlert, 
         'Falta la póliza',
@@ -1034,7 +1040,7 @@ export function SpecialistProfileScreen() {
       assignIfChanged('gradientId', 'gradientId', profileData.gradientId);
       assignIfChanged('photoGallery', 'photoGallery', profileData.photoGallery);
       assignIfChanged('presentationVideoUrl', 'presentationVideoUrl', profileData.presentationVideoUrl);
-      assignIfChanged('yearsInPractice', 'yearsInPractice', profileData.yearsInPractice);
+      assignIfChanged('yearsInPractice', 'yearsInPractice', experienceInput === '' ? null : Number(experienceInput));
 
       assignIfChanged('officeAddress', 'officeAddress', profileData.officeAddress);
       assignIfChanged('officeCity', 'officeCity', profileData.officeCity);
@@ -1697,6 +1703,7 @@ export function SpecialistProfileScreen() {
       maxLength?: number;
       characterCount?: boolean;
       compactSpacing?: boolean;
+      alignVerificationLabel?: boolean;
     }
   ) => {
     const {
@@ -1711,11 +1718,12 @@ export function SpecialistProfileScreen() {
       maxLength,
       characterCount = false,
       compactSpacing = false,
+      alignVerificationLabel = false,
     } = options || {};
 
     return (
       <View style={[styles.formField, compactSpacing && { marginBottom: 0 }]}>
-        <View style={styles.labelRow}>
+        <View style={[styles.labelRow, alignVerificationLabel && styles.alignedVerificationLabel]}>
           <Text style={styles.fieldLabel}>
             {label}
             {required && <Text style={styles.required}> *</Text>}
@@ -2090,23 +2098,41 @@ export function SpecialistProfileScreen() {
                 </View>
               </View>
               {renderProfessionalTypeSelector()}
-              {/* Colegiado number - read-only, sourced from verification flow */}
-              {renderFormField(
-                'Número de colegiado',
-                verificationStatus.colegiadoNumber || '',
-                () => {},
-                {
-                  placeholder: verificationStatus.verificationStatus === 'VERIFIED'
-                    ? ''
-                    : verificationStatus.verificationStatus === 'PENDING'
-                      ? 'En revisión'
-                      : 'Se completa mediante la verificación profesional',
-                  required: false,
-                  verified: verificationStatus.verificationStatus === 'VERIFIED',
-                  disabled: true,
-                  helperText: 'Se actualiza desde Credenciales.',
-                }
-              )}
+              <View style={styles.formRow}>
+                <View style={styles.formFieldHalf}>
+                  {/* Colegiado number - read-only, sourced from verification flow */}
+                  {renderFormField(
+                    'Número de colegiado',
+                    verificationStatus.colegiadoNumber || '',
+                    () => {},
+                    {
+                      placeholder: verificationStatus.verificationStatus === 'VERIFIED'
+                        ? ''
+                        : verificationStatus.verificationStatus === 'PENDING'
+                          ? 'En revisión'
+                          : 'Se completa mediante la verificación profesional',
+                      required: false,
+                      verified: verificationStatus.verificationStatus === 'VERIFIED',
+                      alignVerificationLabel: true,
+                      disabled: true,
+                      helperText: 'Se actualiza desde Credenciales.',
+                    }
+                  )}
+                </View>
+                <View style={styles.formFieldHalf}>
+                  {renderFormField(
+                    'Años de experiencia (opcional)',
+                    profileData.yearsInPractice,
+                    (text) => updateField('yearsInPractice', text),
+                    {
+                      placeholder: 'Ej: 3',
+                      keyboardType: 'numeric',
+                      alignVerificationLabel: true,
+                      helperText: 'Dato declarado por ti, visible en tu perfil y en el directorio. Cuenta años completos de ejercicio, sin estudios ni periodos simultáneos. Déjalo vacío para no mostrarlo.',
+                    }
+                  )}
+                </View>
+              </View>
             </View>
           </View>
         </View>
@@ -2466,7 +2492,7 @@ export function SpecialistProfileScreen() {
           {profileData.experience.length === 0 ? (
             <View style={styles.emptyState}>
               <Ionicons name="briefcase-outline" size={40} color={palette.textMuted} />
-              <Text style={styles.emptyStateTitle}>No has añadido experiencia</Text>
+              <Text style={styles.emptyStateTitle}>No has añadido puestos</Text>
               <Text style={styles.emptyStateDescription}>
                 Añade tu experiencia para que los clientes conozcan tu trayectoria.
               </Text>
@@ -4147,6 +4173,9 @@ function createStyles(
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: spacing.sm,
+  },
+  alignedVerificationLabel: {
+    minHeight: 28,
   },
   fieldLabel: {
     fontSize: 14,

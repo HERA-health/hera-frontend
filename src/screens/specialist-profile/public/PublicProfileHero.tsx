@@ -37,7 +37,7 @@ export function PublicProfileHero({ specialist, onPractice, onReviews, reviewsVi
   const body = { color: theme.textSecondary, fontFamily: theme.fontSans };
   const strong = { color: theme.textPrimary, fontFamily: theme.fontSansSemiBold };
   const link = { color: theme.primary, fontFamily: theme.fontSansSemiBold, fontSize: 13 };
-  const years = specialist.yearsInPractice ?? specialist.experienceYears;
+  const years = specialist.yearsInPractice;
   const languages = getProfileLanguages(specialist).map(value => {
     const label = optionLabel(options?.languages ?? [], value);
     return { label, code: options?.languages.find(item => item.label === label)?.value ?? value };

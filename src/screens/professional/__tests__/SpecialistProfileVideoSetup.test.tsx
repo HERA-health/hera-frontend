@@ -61,6 +61,43 @@ beforeEach(() => {
   });
 });
 
+test('optional experience years loads empty, saves a number, and can be cleared', async () => {
+  jest.mocked(professionalService.updateComprehensiveProfile).mockImplementation(async data => ({ ...profile, yearsInPractice: data.yearsInPractice }));
+  render(<SpecialistProfileScreen />);
+  const input = await screen.findByLabelText('Años de experiencia (opcional)');
+  expect(input.props.value).toBe('');
+  fireEvent.changeText(input, '3');
+  await act(async () => fireEvent.press(screen.getByText('Guardar')));
+  expect(professionalService.updateComprehensiveProfile).toHaveBeenLastCalledWith(expect.objectContaining({ yearsInPractice: 3 }));
+  expect(screen.getByLabelText('Años de experiencia (opcional)').props.value).toBe('3');
+  fireEvent.changeText(screen.getByLabelText('Años de experiencia (opcional)'), '');
+  await act(async () => fireEvent.press(screen.getByText('Guardar')));
+  expect(professionalService.updateComprehensiveProfile).toHaveBeenLastCalledWith(expect.objectContaining({ yearsInPractice: null }));
+  expect(screen.getByLabelText('Años de experiencia (opcional)').props.value).toBe('');
+});
+
+test.each(['-1', '3.5', '61', 'abc'])('invalid experience input %s is not saved', async value => {
+  render(<SpecialistProfileScreen />);
+  fireEvent.changeText(await screen.findByLabelText('Años de experiencia (opcional)'), value);
+  fireEvent.press(screen.getByText('Guardar'));
+  expect(professionalService.updateComprehensiveProfile).not.toHaveBeenCalled();
+  expect(showAppAlert).toHaveBeenCalledWith(expect.anything(), 'Revisa los años de experiencia', expect.any(String));
+});
+
+test('a failed experience save preserves the draft for retry', async () => {
+  jest.mocked(professionalService.getComprehensiveProfile).mockResolvedValue({ ...profile, yearsInPractice: 8 });
+  jest.mocked(professionalService.updateComprehensiveProfile).mockRejectedValueOnce(new Error('Error de prueba'));
+  render(<SpecialistProfileScreen />);
+  const input = await screen.findByLabelText('Años de experiencia (opcional)');
+  expect(input.props.value).toBe('8');
+  fireEvent.changeText(input, '9');
+  await act(async () => fireEvent.press(screen.getByText('Guardar')));
+  expect(screen.getByLabelText('Años de experiencia (opcional)').props.value).toBe('9');
+  jest.mocked(professionalService.updateComprehensiveProfile).mockResolvedValue({ ...profile, yearsInPractice: 9 });
+  await act(async () => fireEvent.press(screen.getByText('Guardar')));
+  expect(professionalService.updateComprehensiveProfile).toHaveBeenCalledTimes(2);
+});
+
 test('enabling online sessions persists the modality before opening the Google tab', async () => {
   let finishSave: (value: professionalService.SpecialistProfileData) => void = () => { throw new Error('Save not started'); };
   jest.mocked(professionalService.updateComprehensiveProfile).mockImplementation(() => new Promise(resolve => { finishSave = resolve; }));

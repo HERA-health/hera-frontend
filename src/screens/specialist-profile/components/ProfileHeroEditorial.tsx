@@ -100,7 +100,7 @@ export const ProfileHeroEditorial: React.FC<ProfileHeroProps> = ({
     : null;
   const approaches = specialist.therapeuticApproaches ?? therapeuticApproach?.split(',').map(value => value.trim()).filter(Boolean) ?? [];
   const showReadMore = (bio?.trim().length ?? 0) > 220;
-  const years = specialist.yearsInPractice ?? specialist.experienceYears;
+  const years = specialist.yearsInPractice;
   const verified = specialist.verificationStatus === 'VERIFIED';
   const offersOnline = specialist.offersOnline ?? true;
   const offersInPerson = specialist.offersInPerson ?? false;
@@ -153,7 +153,7 @@ export const ProfileHeroEditorial: React.FC<ProfileHeroProps> = ({
             {years != null && years > 0 ? (
               <View style={styles.experienceRow}>
                 <Ionicons name="briefcase-outline" size={15} color={theme.primary} />
-                <Text style={styles.experienceText}>{years} años de experiencia</Text>
+                <Text style={styles.experienceText}>{years} {years === 1 ? 'año' : 'años'} de experiencia</Text>
               </View>
             ) : null}
           </View>

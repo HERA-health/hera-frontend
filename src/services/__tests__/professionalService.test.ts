@@ -300,6 +300,11 @@ describe('professionalService.getVerificationStatus', () => {
 });
 
 describe('professionalService.updateComprehensiveProfile', () => {
+  it.each([3, null])('sends declared experience or its removal (%s)', async yearsInPractice => {
+    mockedApi.put.mockResolvedValue({ data: { success: true, data: { yearsInPractice } } });
+    await updateComprehensiveProfile({ yearsInPractice });
+    expect(mockedApi.put).toHaveBeenLastCalledWith('/specialists/me/profile', { yearsInPractice });
+  });
   beforeEach(() => {
     jest.clearAllMocks();
     clearRequestCache();
