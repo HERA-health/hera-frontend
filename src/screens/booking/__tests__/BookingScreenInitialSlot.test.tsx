@@ -222,6 +222,46 @@ describe('BookingScreen initial slot preselection', () => {
     jest.clearAllMocks();
   });
 
+  it('shows a loading state instead of unavailable services while the catalog is pending', async () => {
+    const options = await loadPublicBookingOptions('specialist-1');
+    let resolveCatalog!: (value: PrivateServiceOption[]) => void;
+    jest.mocked(loadPublicBookingOptions).mockReturnValueOnce(new Promise(resolve => { resolveCatalog = resolve; }));
+    render(<BookingScreen route={routeWithoutInitialSlot} navigation={navigation} />);
+
+    await screen.findByText('Preparando tu reserva');
+    expect(screen.queryByText('No hay servicios disponibles para reservar.')).toBeNull();
+    expect(screen.queryByText('Selecciona un servicio para ver sus modalidades.')).toBeNull();
+    expect(screen.queryByText('No disponible')).toBeNull();
+    expect(mockedSessionsService.getBookingQuote).not.toHaveBeenCalled();
+    expect(screen.getByText('calendar-disabled')).toBeTruthy();
+
+    await act(async () => resolveCatalog(options));
+    await screen.findByText('Tipo de servicio');
+    expect(screen.queryByText('Preparando tu reserva')).toBeNull();
+    await waitFor(() => expect(mockedSessionsService.getBookingQuote).toHaveBeenCalled());
+  });
+
+  it('shows an empty catalog only after loading has completed', async () => {
+    let resolveCatalog!: (value: PrivateServiceOption[]) => void;
+    jest.mocked(loadPublicBookingOptions).mockReturnValueOnce(new Promise(resolve => { resolveCatalog = resolve; }));
+    render(<BookingScreen route={routeWithoutInitialSlot} navigation={navigation} />);
+    await screen.findByText('Preparando tu reserva');
+    expect(screen.queryByText('No hay servicios disponibles para reservar.')).toBeNull();
+
+    await act(async () => resolveCatalog([]));
+    await screen.findByText('No hay servicios disponibles para reservar.');
+    expect(screen.queryByText('Preparando tu reserva')).toBeNull();
+    expect(mockedSessionsService.getBookingQuote).not.toHaveBeenCalled();
+  });
+
+  it('leaves the loading state and reports a genuine catalog failure', async () => {
+    jest.mocked(loadPublicBookingOptions).mockRejectedValueOnce(new Error('Catalog unavailable'));
+    render(<BookingScreen route={routeWithoutInitialSlot} navigation={navigation} />);
+    await screen.findByText('No se pudieron cargar las tarifas. Vuelve a abrir la reserva.');
+    expect(screen.queryByText('Preparando tu reserva')).toBeNull();
+    expect(mockedSessionsService.getBookingQuote).not.toHaveBeenCalled();
+  });
+
   it('selects a service across modalities and revalidates the date with its real option', async () => {
     const base: PrivateServiceOption = { id: 'video', serviceId: 'therapy', serviceName: 'Terapia', name: 'Terapia', serviceDescription: 'Descripción publicada de terapia',
       modality: 'VIDEO_CALL', durationMinutes: 60, priceCents: 6000, currency: 'EUR', isActive: true, isPublic: true,

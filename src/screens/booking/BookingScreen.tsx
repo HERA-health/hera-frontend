@@ -273,6 +273,8 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
   const avatar = specialist.avatar;
   const title = specialist.title;
   const [bookingOptions, setBookingOptions] = useState<PrivateServiceOption[]>([]);
+  const [optionsLoading, setOptionsLoading] = useState(true);
+  const catalogLoading = optionsLoading && bookingOptions.length === 0;
   const liveBookingOptions = useRef<PrivateServiceOption[]>([]);
   const acquiredOptions = useRef<PrivateServiceOption[]>([]);
   const [patientPackageId, setPatientPackageId] = useState<string | undefined>(route.params.patientPackageId);
@@ -386,6 +388,7 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
   const [sessionPhone, setSessionPhone] = useState('');
   useEffect(() => {
     let current = true;
+    setOptionsLoading(true);
     loadPublicBookingOptions(specialistId).then(options => {
       if (!current) return;
       liveBookingOptions.current = options;
@@ -394,7 +397,8 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
       const initial = initialPrivateOption(options, route.params.optionId);
       if (initial) { setSelectedOptionId(initial.id); setSessionType(initial.modality); }
       else if (route.params.optionId) setOptionsError('La opción seleccionada ya no está disponible. Elige otra para continuar.');
-    }).catch(() => { if (current) setOptionsError('No se pudieron cargar las tarifas. Vuelve a abrir la reserva.'); });
+    }).catch(() => { if (current) setOptionsError('No se pudieron cargar las tarifas. Vuelve a abrir la reserva.'); })
+      .finally(() => { if (current) setOptionsLoading(false); });
     return () => { current = false; };
   }, [specialistId, route.params.optionId]);
   const [verificationAttempt, setVerificationAttempt] = useState(0);
@@ -419,6 +423,13 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
 
   useEffect(() => {
     let isCurrent = true;
+
+    if (catalogLoading) {
+      setBookingQuote(null);
+      setQuoteLoading(true);
+      setQuoteError(null);
+      return;
+    }
 
     if (!isBookingSessionTypeAvailable(sessionType, modalityFlags) || !selectedOption) {
       setBookingQuote(null);
@@ -483,6 +494,7 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
       isCurrent = false;
     };
   }, [
+    catalogLoading,
     selectedOptionId, patientPackageId, packageRevision,
     quoteRetry,
     availableSessionTypes.length,
@@ -1303,6 +1315,13 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
   const renderScheduleSurface = () => (
     <>
       <View style={styles.mainSurface}>
+        {catalogLoading ? (
+          <View style={styles.catalogLoading} accessibilityLiveRegion="polite" accessibilityState={{ busy: true }}>
+            <ActivityIndicator size="small" color={theme.primary} />
+            <Text accessibilityRole="header" style={styles.sectionTitle}>Preparando tu reserva</Text>
+            <Text style={[styles.sectionSubtitle, { textAlign: 'center' }]}>Estamos cargando los servicios y modalidades del especialista.</Text>
+          </View>
+        ) : <>
         <View style={styles.selectionColumns}>
           <View style={styles.selectionColumn}>
             {!!optionsError && <Text accessibilityRole="alert" style={{ color: theme.error }}>{optionsError}</Text>}
@@ -1329,6 +1348,7 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
           <Text style={styles.serviceDetailsLabel}>Acerca de «{serviceOptions[0].serviceName ?? serviceOptions[0].name}»</Text>
           <Text style={styles.serviceDetailsText}>{serviceOptions[0].serviceDescription}</Text>
         </View>}
+        </>}
       </View>
       <View style={styles.mainSurface}>
         {renderSectionHeading(3, 'Fecha y hora')}
@@ -1586,7 +1606,7 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
       >
         {renderPageContent()}
       </ScrollView>
-      {isMobile && !isAnonymousBooking ? renderMobileFooter() : null}
+      {isMobile && !isAnonymousBooking && !catalogLoading ? renderMobileFooter() : null}
     </KeyboardAvoidingView>
   );
 };
@@ -1673,6 +1693,12 @@ const createStyles = (
     pageIntro: {
       maxWidth: 720,
       gap: 0,
+    },
+    catalogLoading: {
+      alignItems: 'center',
+      gap: 12,
+      paddingHorizontal: 16,
+      paddingVertical: 48,
     },
     pageTitle: {
       color: theme.textPrimary,
