@@ -1260,6 +1260,9 @@ export function BillingScreen() {
               value={tempFiscal.vatRate ?? 0}
               onSelect={(v) => setTempFiscal((f) => ({ ...f, vatRate: v, applyVat: v > 0 }))}
               placeholder="Seleccionar IVA..."
+              accessibilityLabel={STRINGS.vat}
+              presentation="portal"
+              keyboardNavigation
             />
           </View>
           <View>
