@@ -8,7 +8,7 @@ import { getErrorCode, getErrorMessage } from '../../constants/errors';
 import { formatPrivatePrice } from '../../utils/privateTariff';
 import { loadPublicBookingOptions, type PrivateServiceOption } from '../../services/privateCatalogService';
 import { initialPrivateOption, privateOptionForModality } from '../../utils/privateServiceSelection';
-import { PrivateServicePicker } from '../../components/scheduling/PrivateServicePicker';
+import { BookingServiceSection } from './components/BookingServiceSection';
 import { SimpleDropdown } from '../../components/common/SimpleDropdown';
 import { durableCommandKey } from '../../services/heraCommissionService';
 import { showAppAlert, useAppAlert } from '../../components/common/alert';
@@ -36,8 +36,8 @@ import { AnimatedPressable } from '../../components/common/AnimatedPressable';
 import { Button } from '../../components/common/Button';
 import { BookingEmailVerification } from './components/BookingEmailVerification';
 import { BookingConfirmationPanel } from './components/BookingConfirmationPanel';
-import { StyledLogo } from '../../components/common/StyledLogo';
-import { ThemeToggleButton } from '../../components/common/ThemeToggleButton';
+import { LandingHeader } from '../landing/components/LandingHeader';
+import type { LandingSectionAnchor } from '../landing/types';
 import type { RootStackParamList } from '../../constants/types';
 import * as sessionsService from '../../services/sessionsService';
 import { BookingQuote, SessionStatus, SessionType, TimeSlot } from '../../services/sessionsService';
@@ -81,6 +81,7 @@ interface BookingScreenProps {
     navigate: (screen: string, params?: Record<string, unknown>) => void;
     goBack: () => void;
     addListener?: (event: 'focus', callback: () => void) => () => void;
+    getState?: () => { routeNames: readonly string[] };
   };
 }
 
@@ -135,6 +136,34 @@ const buildInitialSlotSelection = (
     endTime: params.initialSlotEndTime,
   };
 };
+
+function BookingPublicHeader({ navigation, scrolled = false }: { navigation: BookingScreenProps['navigation']; scrolled?: boolean }) {
+  const { isAuthenticated, user, verificationSubmitted } = useAuth();
+  const handleGoHome = () => {
+    const workspaceRoute = navigation.getState?.().routeNames.includes('RequiredLegalAcceptance')
+      ? 'RequiredLegalAcceptance'
+      : user?.type === 'professional'
+        ? (verificationSubmitted === false ? 'ProfessionalVerification' : 'ProfessionalHome')
+        : user?.type === 'clinic' ? 'ClinicDashboard' : 'Home';
+    navigation.navigate(isAuthenticated ? workspaceRoute : 'Landing');
+  };
+  const canVisitLanding = navigation.getState?.().routeNames.includes('Landing') ?? !isAuthenticated;
+  const navigateToSection = (section: LandingSectionAnchor) => navigation.navigate('Landing', { section });
+  return (
+    <LandingHeader
+      context="directory"
+      isScrolled={scrolled}
+      accessLabel={isAuthenticated ? 'Mi espacio' : 'Acceder'}
+      onLogoPress={handleGoHome}
+      onFindSpecialist={() => navigation.navigate('PublicSpecialists')}
+      onViewPlans={() => navigation.navigate('Pricing')}
+      onExploreProfessionals={canVisitLanding ? () => navigateToSection('forSpecialists') : undefined}
+      onScrollToSection={canVisitLanding ? navigateToSection : undefined}
+      onAccess={() => isAuthenticated ? handleGoHome() : navigation.navigate('Login', { userType: 'CLIENT' })}
+    />
+  );
+
+}
 
 export const BookingScreen: React.FC<BookingScreenProps> = ({ route, navigation, referralBooking }) => {
   const { theme } = useTheme();
@@ -193,19 +222,7 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({ route, navigation,
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <AnimatedPressable
-          accessibilityRole="button"
-          accessibilityLabel="Volver a la pantalla anterior"
-          onPress={navigation.goBack}
-          style={styles.backButton}
-        >
-          <Ionicons name="arrow-back" size={18} color={theme.textSecondary} />
-          <Text style={styles.backButtonText}>Volver</Text>
-        </AnimatedPressable>
-        <StyledLogo size={38} />
-        <ThemeToggleButton size="sm" />
-      </View>
+      <BookingPublicHeader navigation={navigation} />
       <View
         accessibilityRole={loadError ? 'alert' : undefined}
         accessibilityLiveRegion="polite"
@@ -216,6 +233,7 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({ route, navigation,
             <Ionicons name="alert-circle-outline" size={34} color={theme.error} />
             <Text style={styles.stateTitle}>No se pudo abrir la reserva</Text>
             <Text style={styles.stateMessage}>{loadError}</Text>
+            <Button variant="outline" onPress={navigation.goBack}>Volver</Button>
             <Button
               variant="primary"
               size="medium"
@@ -267,6 +285,9 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
   const [optionsError, setOptionsError] = useState('');
   const [quoteRetry, setQuoteRetry] = useState(0);
   const selectedOption = bookingOptions.find(o => o.id === selectedOptionId);
+  const [pendingServiceId, setPendingServiceId] = useState<string>();
+  const selectedServiceId = selectedOption?.serviceId ?? pendingServiceId;
+  const serviceOptions = useMemo(() => bookingOptions.filter(option => option.isActive && option.serviceId === selectedServiceId), [bookingOptions, selectedServiceId]);
   const slotDuration = selectedOption?.durationMinutes ?? specialist.sessionDuration ?? 60;
   const offersOnline = specialist.offersOnline;
   const offersInPerson = specialist.offersInPerson;
@@ -293,14 +314,15 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
   const submissionInFlightRef = useRef(false);
   const pageScrollRef = useRef<ScrollView>(null);
   const pageScrollOffsetRef = useRef(0);
+  const [headerScrolled, setHeaderScrolled] = useState(false);
   const contactSectionRef = useRef<View>(null);
   const modalityFlags = useMemo(
     () => ({
-      offersOnline: bookingOptions.some(o => o.modality === 'VIDEO_CALL'),
-      offersInPerson: bookingOptions.some(o => o.modality === 'IN_PERSON'),
-      offersPhone: bookingOptions.some(o => o.modality === 'PHONE_CALL'),
+      offersOnline: serviceOptions.some(o => o.modality === 'VIDEO_CALL'),
+      offersInPerson: serviceOptions.some(o => o.modality === 'IN_PERSON'),
+      offersPhone: serviceOptions.some(o => o.modality === 'PHONE_CALL'),
     }),
-    [bookingOptions],
+    [serviceOptions],
   );
   const availableSessionTypes = useMemo(
     () => getAvailableBookingSessionTypes(modalityFlags),
@@ -371,7 +393,7 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
       if (acquiredOptions.current.length) return;
       const initial = initialPrivateOption(options, route.params.optionId);
       if (initial) { setSelectedOptionId(initial.id); setSessionType(initial.modality); }
-      else setOptionsError('La opción seleccionada ya no está disponible. Elige otra para continuar.');
+      else if (route.params.optionId) setOptionsError('La opción seleccionada ya no está disponible. Elige otra para continuar.');
     }).catch(() => { if (current) setOptionsError('No se pudieron cargar las tarifas. Vuelve a abrir la reserva.'); });
     return () => { current = false; };
   }, [specialistId, route.params.optionId]);
@@ -403,8 +425,8 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
       setQuoteLoading(false);
       setQuoteError(
         availableSessionTypes.length === 0
-          ? 'Este especialista no tiene modalidades de reserva activas.'
-          : 'Esta modalidad no está disponible para este especialista.'
+          ? 'Selecciona un servicio para continuar.'
+          : 'Elige la duración para consultar el precio de tu sesión.'
       );
       return () => {
         isCurrent = false;
@@ -625,7 +647,14 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
   );
 
   useEffect(() => {
-    if (!selectedOptionId) return;
+    if (!selectedOptionId) {
+      slotsRequestIdRef.current += 1;
+      loadedSelectionRef.current = undefined;
+      setAvailableSlots(current => current.length ? [] : current);
+      setSelectedSlot(null);
+      setLoadingSlots(false);
+      return;
+    }
     const selectionKey = JSON.stringify([specialistId, selectedDate, selectedOptionId, sessionType, slotDuration, patientPackageId, packageRevision]);
     if (loadedSelectionRef.current === selectionKey) return;
     loadedSelectionRef.current = selectionKey;
@@ -662,14 +691,35 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
     [loading],
   );
 
+  const handleServiceSelect = (serviceId: string) => {
+    if (loading || serviceId === selectedServiceId) return;
+    const options = bookingOptions.filter(option => option.isActive && option.serviceId === serviceId);
+    const preferred = options.find(option => option.isPreferred) ?? options[0];
+    if (!preferred) return;
+    const type = options.some(option => option.modality === sessionType) ? sessionType : preferred.modality;
+    const variants = options.filter(option => option.modality === type);
+    const next = variants.find(option => option.durationMinutes === selectedOption?.durationMinutes)
+      ?? variants.find(option => option.isPreferred) ?? (variants.length === 1 ? variants[0] : undefined);
+    setPendingServiceId(serviceId);
+    setSessionType(type);
+    setSelectedOptionId(next?.id);
+    setSelectedSlot(null);
+    setAvailableSlots([]);
+    setOptionsError('');
+  };
+
   const handleSessionTypeChange = useCallback((type: SessionType) => {
-    if (!loading) {
-      setSessionType(type);
-      const next = privateOptionForModality(bookingOptions, selectedOption, type);
-      setSelectedOptionId(next?.id);
-      setOptionsError(next ? '' : 'El servicio o su duración no están disponibles en esta modalidad. Elige una alternativa para continuar.');
-    }
-  }, [loading, bookingOptions, selectedOption]);
+    if (loading || !serviceOptions.some(option => option.modality === type)) return;
+    const variants = serviceOptions.filter(option => option.modality === type);
+    const next = privateOptionForModality(serviceOptions, selectedOption, type)
+      ?? (variants.length === 1 ? variants[0] : undefined);
+    setPendingServiceId(selectedServiceId);
+    setSessionType(type);
+    setSelectedOptionId(next?.id);
+    setSelectedSlot(null);
+    setAvailableSlots([]);
+    setOptionsError('');
+  }, [loading, serviceOptions, selectedOption, selectedServiceId]);
 
   const updatePublicContactField = useCallback(
     <T extends keyof typeof publicContact>(field: T, value: (typeof publicContact)[T]) => {
@@ -904,6 +954,7 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
   const handlePageScroll = useCallback(
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {
       pageScrollOffsetRef.current = event.nativeEvent.contentOffset.y;
+      setHeaderScrolled(event.nativeEvent.contentOffset.y > 12);
     },
     [],
   );
@@ -954,10 +1005,10 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
 
   const renderPublicContactCard = () => {
     if (isAuthenticatedClient || referralBooking) return <View style={styles.publicContactCard}>
-      <Text style={styles.publicContactTitle}>Datos del paciente</Text>
+      <Text style={styles.sectionTitle}>Datos del paciente</Text>
       <TextInput accessibilityLabel="Nombre del paciente" placeholder="Nombre" value={patientIdentity.firstName} onChangeText={firstName => setPatientIdentity(current => ({ ...current, firstName }))} style={styles.publicContactInput} />
       <TextInput accessibilityLabel="Apellidos del paciente" placeholder="Apellidos" value={patientIdentity.lastName} onChangeText={lastName => setPatientIdentity(current => ({ ...current, lastName }))} style={styles.publicContactInput} />
-      <Text style={styles.publicContactSubtitle}>Indica nombre y apellidos para preparar la factura. El envío utiliza tu correo verificado.</Text>
+      <Text style={styles.sectionSubtitle}>Indica nombre y apellidos para preparar la factura. El envío utiliza tu correo verificado.</Text>
     </View>;
     if (!isAnonymousBooking) {
       return null;
@@ -965,18 +1016,6 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
 
     return (
       <View style={styles.publicContactCard}>
-        <View style={styles.publicContactHeader}>
-          <View style={styles.publicContactIcon}>
-            <Ionicons name="person-add-outline" size={17} color={theme.primary} />
-          </View>
-          <View style={styles.publicContactTitleBlock}>
-            <Text style={styles.publicContactTitle}>Tus datos de contacto</Text>
-            <Text style={styles.publicContactSubtitle}>
-              Los usaremos para gestionar esta cita con el profesional.
-            </Text>
-          </View>
-        </View>
-
         <View style={styles.publicContactFields}>
           <View style={styles.publicContactFieldRow}>
             <View style={styles.publicContactField}>
@@ -1044,70 +1083,72 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
             </View>
           </View>
 
-          <View style={styles.publicContactField}>
-            <Text style={styles.publicContactLabel}>Email</Text>
-            <TextInput
-              accessibilityLabel="Correo electrónico"
-              editable={!loading}
-              value={publicContact.email}
-              onChangeText={(value) => updatePublicContactField('email', value)}
-              placeholder="tu@email.com"
-              placeholderTextColor={theme.textSecondary}
-              style={[
-                styles.publicContactInput,
-                focusedContactField === 'email'
-                  ? styles.publicContactInputFocused
-                  : null,
-                publicContactErrors.email ? styles.publicContactInputError : null,
-              ]}
-              autoCapitalize="none"
-              autoCorrect={false}
-              keyboardType="email-address"
-              textContentType="emailAddress"
-              onFocus={() => setFocusedContactField('email')}
-              onBlur={() => handleContactBlur('email')}
-            />
-            {publicContactErrors.email ? (
-              <Text
-                accessibilityRole="alert"
-                accessibilityLiveRegion="polite"
-                style={styles.publicContactError}
-              >
-                {publicContactErrors.email}
-              </Text>
-            ) : null}
-          </View>
+          <View style={styles.publicContactFieldRow}>
+            <View style={styles.publicContactField}>
+              <Text style={styles.publicContactLabel}>Correo electrónico</Text>
+              <TextInput
+                accessibilityLabel="Correo electrónico"
+                editable={!loading}
+                value={publicContact.email}
+                onChangeText={(value) => updatePublicContactField('email', value)}
+                placeholder="tu@email.com"
+                placeholderTextColor={theme.textSecondary}
+                style={[
+                  styles.publicContactInput,
+                  focusedContactField === 'email'
+                    ? styles.publicContactInputFocused
+                    : null,
+                  publicContactErrors.email ? styles.publicContactInputError : null,
+                ]}
+                autoCapitalize="none"
+                autoCorrect={false}
+                keyboardType="email-address"
+                textContentType="emailAddress"
+                onFocus={() => setFocusedContactField('email')}
+                onBlur={() => handleContactBlur('email')}
+              />
+              {publicContactErrors.email ? (
+                <Text
+                  accessibilityRole="alert"
+                  accessibilityLiveRegion="polite"
+                  style={styles.publicContactError}
+                >
+                  {publicContactErrors.email}
+                </Text>
+              ) : null}
+            </View>
 
-          <View style={styles.publicContactField}>
-            <Text style={styles.publicContactLabel}>Teléfono opcional</Text>
-            <TextInput
-              accessibilityLabel="Teléfono opcional"
-              editable={!loading}
-              value={publicContact.phone}
-              onChangeText={(value) => updatePublicContactField('phone', value)}
-              placeholder="+34 600 000 000"
-              placeholderTextColor={theme.textSecondary}
-              style={[
-                styles.publicContactInput,
-                focusedContactField === 'phone'
-                  ? styles.publicContactInputFocused
-                  : null,
-                publicContactErrors.phone ? styles.publicContactInputError : null,
-              ]}
-              keyboardType="phone-pad"
-              textContentType="telephoneNumber"
-              onFocus={() => setFocusedContactField('phone')}
-              onBlur={() => handleContactBlur('phone')}
-            />
-            {publicContactErrors.phone ? (
-              <Text
-                accessibilityRole="alert"
-                accessibilityLiveRegion="polite"
-                style={styles.publicContactError}
-              >
-                {publicContactErrors.phone}
-              </Text>
-            ) : null}
+            <View style={styles.publicContactField}>
+              <Text style={styles.publicContactLabel}>Teléfono opcional</Text>
+              <TextInput
+                accessibilityLabel="Teléfono opcional"
+                editable={!loading}
+                value={publicContact.phone}
+                onChangeText={(value) => updatePublicContactField('phone', value)}
+                placeholder="+34 600 000 000"
+                placeholderTextColor={theme.textSecondary}
+                style={[
+                  styles.publicContactInput,
+                  focusedContactField === 'phone'
+                    ? styles.publicContactInputFocused
+                    : null,
+                  publicContactErrors.phone ? styles.publicContactInputError : null,
+                ]}
+                keyboardType="phone-pad"
+                textContentType="telephoneNumber"
+                onFocus={() => setFocusedContactField('phone')}
+                onBlur={() => handleContactBlur('phone')}
+              />
+              {publicContactErrors.phone ? (
+                <Text
+                  accessibilityRole="alert"
+                  accessibilityLiveRegion="polite"
+                  style={styles.publicContactError}
+                >
+                  {publicContactErrors.phone}
+                </Text>
+              ) : null}
+            </View>
           </View>
         </View>
 
@@ -1247,112 +1288,70 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
           ? 'En el siguiente paso comprobaremos tu correo con un código para confirmar la cita.'
           : 'Revisa los datos antes de confirmar.';
 
-  const renderBookingHeader = () => (
-    <View style={styles.bookingHeader}>
-      <View style={styles.bookingHeaderContent}>
-        <AnimatedPressable
-          onPress={() => navigation.goBack()}
-          accessibilityRole="button"
-          accessibilityLabel="Volver a la pantalla anterior"
-          style={styles.backButton}
-        >
-          <Ionicons name="arrow-back" size={18} color={theme.textSecondary} />
-          {!isMobile ? <Text style={styles.backButtonText}>Volver</Text> : null}
-        </AnimatedPressable>
+  const renderBookingHeader = () => <BookingPublicHeader navigation={navigation} scrolled={headerScrolled} />;
 
-        <View style={styles.brandCluster}>
-          <StyledLogo size={isMobile ? 34 : 40} />
-          {!isMobile ? (
-            <View style={styles.brandDescriptor}>
-              <Text style={styles.brandDescriptorText}>Salud mental</Text>
-            </View>
-          ) : null}
-        </View>
-
-        <ThemeToggleButton size="sm" />
+  const renderSectionHeading = (step: number, title: string, subtitle?: string) => (
+    <View style={styles.sectionHeading}>
+      <View style={styles.sectionStepBadge}><Text style={styles.sectionStepBadgeText}>{step}</Text></View>
+      <View style={styles.sectionHeadingCopy}>
+        <Text accessibilityRole="header" aria-level={2} style={styles.sectionTitle}>{title}</Text>
+        {subtitle ? <Text style={styles.sectionSubtitle}>{subtitle}</Text> : null}
       </View>
     </View>
   );
 
   const renderScheduleSurface = () => (
-    <View style={[styles.mainSurface, isNarrowMobile ? styles.narrowSurface : null]}>
-      {!!optionsError && <Text accessibilityRole="alert" style={{ color: theme.error }}>{optionsError}</Text>}
-      <View style={styles.scheduleSection}>
-        <View style={styles.sectionHeading}>
-          <View style={styles.sectionStepBadge}>
-            <Text style={styles.sectionStepBadgeText}>1</Text>
+    <>
+      <View style={styles.mainSurface}>
+        <View style={styles.selectionColumns}>
+          <View style={styles.selectionColumn}>
+            {!!optionsError && <Text accessibilityRole="alert" style={{ color: theme.error }}>{optionsError}</Text>}
+            <BookingServiceSection heading={renderSectionHeading(1, 'Tipo de servicio')} options={bookingOptions} serviceId={selectedServiceId} selectedOptionId={selectedOptionId}
+              disabled={loading} onServiceSelect={handleServiceSelect} />
           </View>
-          <View style={styles.sectionHeadingCopy}>
-            <Text style={styles.sectionEyebrow}>FECHA Y HORA</Text>
-            <Text style={styles.sectionTitle}>Encuentra un momento que te venga bien</Text>
-            <Text style={styles.sectionSubtitle}>
-              La disponibilidad se consulta directamente en la agenda del profesional.
-            </Text>
+          <View style={[styles.selectionColumn, styles.modalityColumn]}>
+            <BookingModalitySection
+              headingMinHeight={new Set(bookingOptions.filter(option => option.isActive).map(option => option.serviceId)).size > 3 && !isMobile ? 36 : 24}
+              prices={serviceOptions} selectedType={sessionType} availableSessionTypes={availableSessionTypes}
+              duration={slotDuration} onSessionTypeChange={handleSessionTypeChange} disabled={loading} busy={loading}
+              bookingQuote={bookingQuote} quoteLoading={quoteLoading} quoteError={selectedServiceId ? quoteError : null}
+              quoteIsEstimated={quoteIsEstimated} officeLocation={officeLocation}
+            />
+            {serviceOptions.filter(option => option.modality === sessionType).length > 1 &&
+              <SimpleDropdown accessibilityLabel="Duración y precio del servicio" placeholder="Elige duración y precio"
+                value={selectedOptionId ?? null} disabled={loading} presentation="portal" portalAnimation="none" keyboardNavigation
+                options={serviceOptions.filter(option => option.modality === sessionType).map(option => ({ value: option.id, label: `${option.durationMinutes} min · ${formatPrivatePrice(option.priceCents)}` }))}
+                onSelect={id => { setSelectedOptionId(id); setOptionsError(''); }} />}
+            {sessionType === 'PHONE_CALL' && <View style={{ gap: 8 }}><Text style={{ color: theme.textPrimary }}>Tu especialista te llamará al número indicado a la hora de la cita.</Text><TextInput accessibilityLabel="Teléfono para esta cita" value={sessionPhone} onChangeText={setSessionPhone} keyboardType="phone-pad" placeholder="+34 600 000 000" placeholderTextColor={theme.textSecondary} style={{ color: theme.textPrimary, minHeight: 44, borderWidth: 1, borderColor: theme.border, borderRadius: 8, padding: 12 }} /></View>}
           </View>
         </View>
-
-        <View
-          style={[
-            styles.scheduleGrid,
-            width < 940 ? styles.scheduleGridStacked : null,
-          ]}
-        >
-          <CompactCalendarColumn
-            selectedDate={selectedDate}
-            onDateSelect={handleDateSelect}
-            disabled={loading}
-            busy={loading}
-          />
-          <View
-            style={[
-              styles.scheduleDivider,
-              width < 940 ? styles.scheduleDividerStacked : null,
-            ]}
-          />
-          <TimeSlotsColumn
-            availabilityKey={`${specialistId}:${selectedOptionId}:${sessionType}`}
-            selectedDate={selectedDate}
-            availableSlots={availableSlots}
-            selectedTime={selectedSlot?.startTime || null}
-            onTimeSelect={handleTimeSelect}
-            loading={loadingSlots}
-            disabled={loading}
-            busy={loading}
-            error={slotsError}
-            onRetry={handleRetrySlots}
-          />
+        {!!serviceOptions[0]?.serviceDescription && <View style={styles.serviceDetails} testID="booking-service-description">
+          <Text style={styles.serviceDetailsLabel}>Acerca de «{serviceOptions[0].serviceName ?? serviceOptions[0].name}»</Text>
+          <Text style={styles.serviceDetailsText}>{serviceOptions[0].serviceDescription}</Text>
+        </View>}
+      </View>
+      <View style={styles.mainSurface}>
+        {renderSectionHeading(3, 'Fecha y hora')}
+        <CompactCalendarColumn selectedDate={selectedDate} onDateSelect={handleDateSelect} disabled={loading || !selectedOption} busy={loading} />
+        <TimeSlotsColumn availabilityKey={`${specialistId}:${selectedOptionId}:${sessionType}`}
+          selectedDate={selectedDate} availableSlots={availableSlots} selectedTime={selectedSlot?.startTime || null}
+          onTimeSelect={handleTimeSelect} loading={loadingSlots} disabled={loading || !selectedOption} busy={loading}
+          error={slotsError} onRetry={handleRetrySlots} />
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <Ionicons name="globe-outline" size={16} color={theme.textSecondary} />
+          <Text style={styles.sectionSubtitle}>Horario de Madrid · Europe/Madrid</Text>
         </View>
       </View>
-      <BookingModalitySection
-        prices={bookingOptions}
-        selectedType={sessionType}
-        availableSessionTypes={availableSessionTypes}
-        duration={slotDuration}
-        onSessionTypeChange={handleSessionTypeChange}
-        disabled={loading}
-        busy={loading}
-        bookingQuote={bookingQuote}
-        quoteLoading={quoteLoading}
-        quoteError={quoteError}
-        quoteIsEstimated={quoteIsEstimated}
-        officeLocation={officeLocation}
-      />
-
-      <View style={{ paddingVertical: spacing.md, gap: spacing.md }}>
         {!isAnonymousBooking && !referralBooking && <PackageCoverage key={`${specialistId}:${packageRevision}`} specialistId={specialistId} firstVisitFreeApplied={bookingQuote?.firstVisitFreeApplied} optionId={selectedOptionId} value={patientPackageId} initialPackageId={patientPackageId} disabled={loading} onPay={id => navigation.navigate('PackagePayment', { patientPackageId: id })} onChange={selectPackageCoverage} />}
         {!!packagePaymentError && patientPackageId && <View style={{ gap: 8 }}><Text accessibilityRole="alert" style={{ color: theme.textSecondary }}>{packagePaymentError}</Text><Button variant="secondary" onPress={() => navigation.navigate('PackagePayment', { patientPackageId })}>Consultar pago del bono</Button></View>}
         {!referralBooking && <PublicPackageOffers specialistId={specialistId} anonymous={isAnonymousBooking} intentToken={bookingIntentToken} onAcquired={handlePackageAcquired} onPrivacy={() => navigation.navigate('LegalDocument', { documentKey: 'PRIVACY_POLICY' })} />}
-        <PrivateServicePicker options={bookingOptions} modality={sessionType} value={selectedOptionId} disabled={loading} onChange={id => { setSelectedOptionId(id); setOptionsError(''); }} />
-        {sessionType === 'PHONE_CALL' && <View style={{ gap: 8 }}><Text style={{ color: theme.textPrimary }}>Tu especialista te llamará al número indicado a la hora de la cita.</Text><TextInput accessibilityLabel="Teléfono para esta cita" value={sessionPhone} onChangeText={setSessionPhone} keyboardType="phone-pad" placeholder="+34 600 000 000" placeholderTextColor={theme.textSecondary} style={{ color: theme.textPrimary, minHeight: 44, borderWidth: 1, borderColor: theme.border, borderRadius: 8, padding: 12 }} /></View>}
-      </View>
-
       {bookingQuote && (!isAnonymousBooking || identityVerified || referralBooking) && <PaymentConditions key={`${bookingQuote.payment?.termsVersion}:${bookingQuote.payment?.fullInvoiceRequired}`} quote={bookingQuote} value={paymentAcceptance} onChange={setPaymentAcceptance} />}
       {needsExternalBilling && (!isAnonymousBooking || identityVerified || referralBooking) && <PackageBillingFields value={sessionBilling} onChange={setSessionBilling} disabled={loading} description="Se guardarán para la facturación de tus sesiones con este especialista." />}
-    </View>
+    </>
   );
 
   const renderProgressiveContact = () => {
-    if (!isAnonymousBooking || !selectedSlot) {
+    if (!isAnonymousBooking) {
       return null;
     }
 
@@ -1360,24 +1359,15 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
       <View
         ref={contactSectionRef}
         testID="booking-contact-section"
-        style={[styles.contactSection, isNarrowMobile ? styles.narrowSurface : null]}
+        style={styles.contactSection}
       >
-        <View style={styles.sectionHeading}>
-          <View style={styles.sectionStepBadge}>
-            <Text style={styles.sectionStepBadgeText}>3</Text>
-          </View>
-          <View style={styles.sectionHeadingCopy}>
-            <Text style={styles.sectionEyebrow}>TUS DATOS</Text>
-            <Text style={styles.sectionTitle}>¿Cómo podemos contactarte?</Text>
-            <Text style={styles.sectionSubtitle}>
-              Solo necesitamos lo imprescindible para gestionar esta cita.
-            </Text>
-          </View>
-        </View>
+        {renderSectionHeading(4, 'Tus datos de contacto', 'Solo necesitamos lo imprescindible para gestionar esta cita.')}
         {renderPublicContactCard()}
         <BookingConfirmationPanel
+          showSummary={!isDesktop}
           booking={bookingState}
-          duration={slotDuration}
+          duration={selectedOption ? slotDuration : null}
+          serviceName={serviceOptions[0]?.serviceName ?? serviceOptions[0]?.name}
           bookingQuote={bookingQuote}
           quoteLoading={quoteLoading}
           quoteError={quoteError}
@@ -1402,7 +1392,8 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
   const renderBookingSummary = (sticky: boolean, showAction = true) => (
     <ProfessionalInfoColumn
       specialist={specialist}
-      duration={slotDuration}
+      duration={selectedOption ? slotDuration : null}
+      serviceName={serviceOptions[0]?.serviceName ?? serviceOptions[0]?.name}
       booking={bookingState}
       availableSessionTypes={availableSessionTypes}
       onPrimaryAction={handlePrimaryAction}
@@ -1441,37 +1432,58 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
           <Text style={styles.mobileSpecialistEyebrow}>CITA CON</Text>
           <Text style={styles.mobileSpecialistName}>{specialistName}</Text>
           <Text style={styles.mobileSpecialistMeta}>
-            {title || 'Profesional de salud mental'} · {slotDuration} min
+            {title || 'Profesional de salud mental'}{selectedOption ? ` · ${slotDuration} min` : ''}
           </Text>
         </View>
-        <Text style={styles.mobileSpecialistPrice}>{mobileSpecialistPriceText}</Text>
+        {!isNarrowMobile && <Text style={styles.mobileSpecialistPrice}>{mobileSpecialistPriceText}</Text>}
       </View>
     </View>
   );
 
   const renderPageContent = () => (
-    <View style={[styles.pageContent, isNarrowMobile ? styles.narrowPageContent : null]}>
+    <View style={[styles.pageContent, isTablet && { paddingHorizontal: 24 }]}>
       <View style={styles.pageIntro}>
-        <Text style={styles.pageEyebrow}>RESERVA ONLINE</Text>
-        <Text style={styles.pageTitle}>Reserva tu cita</Text>
+        <AnimatedPressable onPress={() => navigation.goBack()} accessibilityRole="button"
+          accessibilityLabel="Volver a la pantalla anterior" hoverLift={false} style={styles.backLink}>
+          <Ionicons name="arrow-back" size={16} color={theme.primary} />
+          <Text style={styles.backButtonText}>Volver</Text>
+        </AnimatedPressable>
+        <Text accessibilityRole="header" style={styles.pageTitle}>Reserva tu sesión</Text>
         <Text style={styles.pageSubtitle}>
-          Elige la modalidad, la fecha y la hora. Te mostraremos siempre el resumen antes de confirmar.
+          Elige tu servicio, la modalidad y un momento para ti. Revisa los detalles antes de confirmar.
         </Text>
       </View>
 
-      {isMobile ? renderMobileProfessional() : null}
+      {!isDesktop ? renderMobileProfessional() : null}
 
       <View style={[styles.bookingLayout, !isDesktop ? styles.bookingLayoutStacked : null]}>
         <View style={styles.mainColumn}>
           {renderScheduleSurface()}
-          {isTablet && isAnonymousBooking ? renderBookingSummary(false, false) : null}
           {renderProgressiveContact()}
           {isMobile && sessionType === 'IN_PERSON' && hasOfficeCoordinates ? (
             <View style={styles.mobileLocationCard}>
               <BookingLocationMap officeLocation={officeLocation} height={150} />
             </View>
           ) : null}
-          {isTablet && !isAnonymousBooking ? renderBookingSummary(false) : null}
+          {!isDesktop && !isAnonymousBooking ? (
+            <View style={styles.mainSurface}>
+              {accountMessage && <Text accessibilityRole="alert" style={styles.sectionSubtitle}>{accountMessage}</Text>}
+              <BookingConfirmationPanel
+                showAction={isTablet}
+                booking={bookingState}
+                duration={selectedOption ? slotDuration : null}
+                serviceName={serviceOptions[0]?.serviceName ?? serviceOptions[0]?.name}
+                bookingQuote={bookingQuote}
+                quoteLoading={quoteLoading}
+                quoteError={quoteError}
+                actionLabel={primaryActionLabel}
+                actionHint={actionHint}
+                disabled={primaryActionDisabled}
+                loading={loading}
+                onConfirm={handlePrimaryAction}
+              >{null}</BookingConfirmationPanel>
+            </View>
+          ) : null}
         </View>
 
         {isDesktop ? (
@@ -1585,31 +1597,7 @@ const createLoadStyles = (
   StyleSheet.create({
     container: {
       flex: 1,
-      backgroundColor: theme.bg,
-    },
-    header: {
-      width: '100%',
-      maxWidth: 1240,
-      minHeight: 72,
-      alignSelf: 'center',
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      paddingHorizontal: spacing.lg,
-      borderBottomWidth: 1,
-      borderBottomColor: theme.borderLight,
-    },
-    backButton: {
-      minWidth: 96,
-      minHeight: 44,
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.xs,
-    },
-    backButtonText: {
-      color: theme.textSecondary,
-      fontFamily: theme.fontSansSemiBold,
-      fontSize: 14,
+      backgroundColor: theme.bgMuted,
     },
     stateCard: {
       width: '100%',
@@ -1617,7 +1605,7 @@ const createLoadStyles = (
       alignSelf: 'center',
       alignItems: 'center',
       gap: spacing.md,
-      marginTop: spacing.xxl,
+      marginTop: 112,
       padding: spacing.xl,
       borderWidth: 1,
       borderColor: theme.border,
@@ -1647,108 +1635,61 @@ const createStyles = (
   StyleSheet.create({
     container: {
       flex: 1,
-      backgroundColor: theme.bg,
+      backgroundColor: theme.bgMuted,
     },
-    bookingHeader: {
-      zIndex: 10,
-      borderBottomWidth: 1,
-      borderBottomColor: theme.borderLight,
-      backgroundColor: theme.bg,
-    },
-    bookingHeaderContent: {
-      width: '100%',
-      maxWidth: 1240,
-      minHeight: isMobile ? 62 : 72,
-      alignSelf: 'center',
+    backLink: {
+      alignSelf: 'flex-start',
       flexDirection: 'row',
       alignItems: 'center',
-      justifyContent: 'space-between',
-      gap: spacing.md,
-      paddingHorizontal: isMobile ? spacing.md : spacing.lg,
-    },
-    backButton: {
-      minWidth: isMobile ? 40 : 96,
-      minHeight: 40,
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: spacing.xs,
-      paddingHorizontal: isMobile ? 0 : spacing.md,
-      borderRadius: borderRadius.md,
-      backgroundColor: theme.bgCard,
-      borderWidth: 1,
-      borderColor: theme.border,
+      gap: 6,
+      minHeight: isMobile ? 44 : 32,
+      paddingRight: 12,
     },
     backButtonText: {
-      fontSize: 14,
-      fontFamily: theme.fontSansSemiBold,
-      color: theme.textSecondary,
-    },
-    brandCluster: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: spacing.sm,
-    },
-    brandDescriptor: {
-      minHeight: 26,
-      justifyContent: 'center',
-      paddingLeft: spacing.sm,
-      borderLeftWidth: 1,
-      borderLeftColor: theme.borderStrong,
-    },
-    brandDescriptorText: {
-      color: theme.textSecondary,
-      fontFamily: theme.fontSansMedium,
       fontSize: 12,
+      fontFamily: theme.fontSansSemiBold,
+      color: theme.primary,
     },
     pageScroll: {
       flex: 1,
     },
     pageScrollContent: {
       flexGrow: 1,
+      paddingTop: isMobile ? 68 : 80,
       paddingBottom: isMobile ? 0 : spacing.xxl,
     },
     successScrollContent: {
       flexGrow: 1,
+      paddingTop: 80,
     },
     pageContent: {
       width: '100%',
-      maxWidth: 1240,
+      maxWidth: 1680,
       alignSelf: 'center',
-      gap: isMobile ? spacing.md : spacing.lg,
-      paddingHorizontal: isMobile ? spacing.md : spacing.lg,
-      paddingTop: isMobile ? spacing.md : spacing.lg,
-    },
-    narrowPageContent: {
-      paddingHorizontal: spacing.sm,
+      gap: 12,
+      paddingHorizontal: isMobile ? 16 : 32,
+      paddingTop: 0,
     },
     pageIntro: {
       maxWidth: 720,
-      gap: 3,
-    },
-    pageEyebrow: {
-      color: theme.secondaryDark,
-      fontFamily: theme.fontSansSemiBold,
-      fontSize: 10,
-      letterSpacing: 1.25,
+      gap: 0,
     },
     pageTitle: {
       color: theme.textPrimary,
-      fontFamily: theme.fontHeading,
-      fontSize: isMobile ? 30 : 38,
-      lineHeight: isMobile ? 35 : 44,
+      fontFamily: theme.fontDisplay,
+      fontSize: isMobile ? 28 : 32,
+      lineHeight: isMobile ? 34 : 38,
     },
     pageSubtitle: {
       maxWidth: 650,
       color: theme.textSecondary,
       fontFamily: theme.fontSans,
-      fontSize: isMobile ? 13 : 14,
-      lineHeight: isMobile ? 19 : 21,
+      fontSize: 13,
+      lineHeight: 19,
     },
     bookingLayout: {
       flexDirection: 'row',
-      gap: spacing.lg,
+      gap: 24,
       alignItems: 'flex-start',
     },
     bookingLayoutStacked: {
@@ -1758,44 +1699,74 @@ const createStyles = (
       flex: 1,
       width: '100%',
       minWidth: 0,
-      gap: spacing.lg,
+      gap: 12,
     },
     summaryColumn: {
-      width: 340,
+      width: 380,
       flexShrink: 0,
       alignSelf: 'stretch',
     },
     mainSurface: {
       width: '100%',
-      gap: spacing.lg,
-      padding: isMobile ? spacing.md : spacing.lg,
+      gap: 10,
+      padding: 14,
       borderWidth: 1,
       borderColor: theme.border,
       borderRadius: borderRadius.xl,
       backgroundColor: theme.bgCard,
       shadowColor: theme.shadowCard,
-      shadowOffset: { width: 0, height: 12 },
+      shadowOffset: { width: 0, height: 4 },
       shadowOpacity: 1,
-      shadowRadius: 28,
-      elevation: 4,
+      shadowRadius: 16,
+      elevation: 1,
     },
-    narrowSurface: {
-      padding: spacing.sm,
+    selectionColumns: {
+      flexDirection: isMobile ? 'column' : 'row',
+      alignItems: 'stretch',
+      gap: 16,
     },
-    scheduleSection: {
-      gap: spacing.lg,
+    selectionColumn: {
+      flex: isMobile ? undefined : 1,
+      minWidth: 0,
+      width: isMobile ? '100%' : undefined,
+      gap: 10,
+    },
+    modalityColumn: {
+      borderLeftWidth: isMobile ? 0 : 1,
+      borderTopWidth: isMobile ? 1 : 0,
+      borderColor: theme.borderLight,
+      paddingLeft: isMobile ? 0 : 16,
+      paddingTop: isMobile ? 12 : 0,
+    },
+    serviceDetails: {
+      gap: 4,
+      borderTopWidth: 1,
+      borderTopColor: theme.borderLight,
+      paddingTop: 10,
+    },
+    serviceDetailsLabel: {
+      color: theme.textPrimary,
+      fontFamily: theme.fontSansSemiBold,
+      fontSize: 12,
+      lineHeight: 18,
+    },
+    serviceDetailsText: {
+      color: theme.textSecondary,
+      fontFamily: theme.fontSans,
+      fontSize: 12,
+      lineHeight: 18,
     },
     sectionHeading: {
       flexDirection: 'row',
-      alignItems: 'flex-start',
-      gap: spacing.md,
+      alignItems: 'center',
+      gap: 10,
     },
     sectionStepBadge: {
-      width: 34,
-      height: 34,
+      width: 24,
+      height: 24,
       alignItems: 'center',
       justifyContent: 'center',
-      borderRadius: 17,
+      borderRadius: 13,
       backgroundColor: theme.primary,
     },
     sectionStepBadgeText: {
@@ -1808,48 +1779,23 @@ const createStyles = (
       minWidth: 0,
       gap: 2,
     },
-    sectionEyebrow: {
-      color: theme.secondaryDark,
-      fontFamily: theme.fontSansSemiBold,
-      fontSize: 10,
-      letterSpacing: 1.15,
-    },
     sectionTitle: {
       color: theme.textPrimary,
-      fontFamily: theme.fontHeading,
-      fontSize: isMobile ? 19 : 21,
-      lineHeight: isMobile ? 24 : 27,
+      fontFamily: theme.fontDisplay,
+      fontSize: 18,
+      lineHeight: 24,
     },
     sectionSubtitle: {
       maxWidth: 600,
       color: theme.textSecondary,
       fontFamily: theme.fontSans,
-      fontSize: 11,
-      lineHeight: 17,
-    },
-    scheduleGrid: {
-      flexDirection: 'row',
-      alignItems: 'flex-start',
-      gap: spacing.lg,
-    },
-    scheduleGridStacked: {
-      flexDirection: 'column',
-    },
-    scheduleDivider: {
-      width: 1,
-      minHeight: 368,
-      alignSelf: 'stretch',
-      backgroundColor: theme.borderLight,
-    },
-    scheduleDividerStacked: {
-      width: '100%',
-      height: 1,
-      minHeight: 1,
+      fontSize: 12,
+      lineHeight: 18,
     },
     contactSection: {
       width: '100%',
-      gap: spacing.lg,
-      padding: isMobile ? spacing.md : spacing.lg,
+      gap: 10,
+      padding: 14,
       borderWidth: 1,
       borderColor: theme.border,
       borderRadius: borderRadius.xl,
@@ -1924,42 +1870,7 @@ const createStyles = (
     },
     publicContactCard: {
       width: '100%',
-      backgroundColor: isDark ? theme.bgElevated : theme.surfaceMuted,
-      borderRadius: borderRadius.lg,
-      borderWidth: 1,
-      borderColor: theme.borderLight,
-      padding: isMobile ? spacing.md : spacing.lg,
       gap: spacing.md,
-    },
-    publicContactHeader: {
-      flexDirection: 'row',
-      alignItems: 'flex-start',
-      gap: spacing.sm,
-    },
-    publicContactIcon: {
-      width: 34,
-      height: 34,
-      borderRadius: 17,
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: theme.primaryAlpha12,
-      borderWidth: 1,
-      borderColor: theme.primaryAlpha20,
-    },
-    publicContactTitleBlock: {
-      flex: 1,
-      gap: 2,
-    },
-    publicContactTitle: {
-      fontSize: 16,
-      fontFamily: theme.fontHeading,
-      color: theme.textPrimary,
-    },
-    publicContactSubtitle: {
-      fontSize: 12,
-      lineHeight: 17,
-      fontFamily: theme.fontSans,
-      color: theme.textSecondary,
     },
     publicContactFields: {
       gap: spacing.sm,
@@ -1973,10 +1884,9 @@ const createStyles = (
       gap: 6,
     },
     publicContactLabel: {
-      fontSize: 11,
-      fontFamily: theme.fontSansSemiBold,
+      fontSize: 13,
+      fontFamily: theme.fontSans,
       color: theme.textSecondary,
-      textTransform: 'uppercase',
     },
     publicContactInput: {
       minHeight: 46,
@@ -2079,7 +1989,7 @@ const createStyles = (
       shadowOffset: { width: 0, height: 10 },
       shadowOpacity: 1,
       shadowRadius: 24,
-      elevation: 4,
+      elevation: 1,
     },
     successIcon: {
       width: 56,
@@ -2092,9 +2002,9 @@ const createStyles = (
       borderColor: theme.success,
     },
     successTitle: {
-      fontSize: 28,
-      lineHeight: 32,
-      fontFamily: theme.fontHeading,
+      fontSize: 32,
+      lineHeight: 38,
+      fontFamily: theme.fontDisplay,
       color: theme.textPrimary,
     },
     successSubtitle: {

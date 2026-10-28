@@ -7,8 +7,11 @@ import type { BookingQuote } from '../../../services/sessionsService';
 import { BOOKING_SESSION_OPTIONS, formatBookingDate, getQuotePresentation, type BookingSelection } from './bookingPresentation';
 
 interface Props {
+  showSummary?: boolean;
+  showAction?: boolean;
   booking: BookingSelection;
-  duration: number;
+  duration: number | null;
+  serviceName?: string;
   bookingQuote: BookingQuote | null;
   quoteLoading: boolean;
   quoteError: string | null;
@@ -22,22 +25,23 @@ interface Props {
 
 /** The public booking's only action stays in the reading order after contact details. */
 export function BookingConfirmationPanel({
-  booking, duration, bookingQuote, quoteLoading, quoteError,
+  showSummary = true, showAction = true, booking, duration, serviceName, bookingQuote, quoteLoading, quoteError,
   actionLabel, actionHint, disabled, loading, onConfirm, children,
 }: Props) {
   const { theme } = useTheme();
   const quote = getQuotePresentation({ bookingQuote, quoteLoading, quoteError, quoteIsEstimated: true });
   const modality = BOOKING_SESSION_OPTIONS.find(option => option.type === booking.sessionType)?.label;
   const fields = [
-    ...(bookingQuote?.serviceName ? [{ label: 'Servicio', value: bookingQuote.serviceName }] : []),
+    ...((serviceName || bookingQuote?.serviceName) ? [{ label: 'Servicio', value: serviceName || bookingQuote?.serviceName }] : []),
     { label: 'Fecha', value: booking.selectedDate ? formatBookingDate(booking.selectedDate) : 'Por elegir' },
     { label: 'Hora', value: booking.selectedTime || 'Por elegir' },
-    { label: 'Duración', value: `${duration} min` },
+    { label: 'Duración', value: duration == null ? 'Por elegir' : `${duration} min` },
     { label: 'Total', value: quote.priceText },
   ];
 
   return (
     <View testID="booking-contact-confirmation" style={[styles.container, { borderColor: theme.border }]}>
+      {showSummary && <>
       <View style={styles.heading}>
         <Text accessibilityRole="header" style={[styles.title, { color: theme.textPrimary, fontFamily: theme.fontSansSemiBold }]}>Revisa tu cita</Text>
         <Text style={[styles.copy, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>{modality}</Text>
@@ -53,11 +57,12 @@ export function BookingConfirmationPanel({
       <Text accessibilityRole={quoteError ? 'alert' : undefined} style={[styles.copy, { color: quoteError ? theme.error : theme.textSecondary, fontFamily: theme.fontSans }]}>
         {quote.caption}{'\n'}Horario de Europe/Madrid
       </Text>
+      </>}
       {children}
-      <Button variant="primary" size="medium" onPress={onConfirm} disabled={disabled} loading={loading} fullWidth>
+      {showAction && <Button variant="primary" size="medium" onPress={onConfirm} disabled={disabled} loading={loading} fullWidth>
         {actionLabel}
-      </Button>
-      <Text style={[styles.hint, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>{actionHint}</Text>
+      </Button>}
+      {showAction && <Text style={[styles.hint, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>{actionHint}</Text>}
     </View>
   );
 }

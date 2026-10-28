@@ -72,10 +72,12 @@ jest.mock('../components', () => {
   const renderText = (value: string) => ReactMock.createElement(Text, null, value);
 
   return {
-    BookingModalitySection: ({ disabled, prices }: { disabled?: boolean; prices: Array<{ modality: string }> }) =>
+    BookingModalitySection: ({ disabled, prices, onSessionTypeChange }: { disabled?: boolean; prices: Array<{ modality: string }>; onSessionTypeChange: (type: string) => void }) =>
       ReactMock.createElement(ReactMock.Fragment, null,
         renderText(disabled ? 'modality-disabled' : 'modality'),
-        renderText(`modality-options:${prices.map(option => option.modality).join(',')}`)),
+        renderText(`modality-options:${prices.map(option => option.modality).join(',')}`),
+        ...[...new Set(prices.map(option => option.modality))].map(type => ReactMock.createElement(Pressable,
+          { key: type, onPress: disabled ? undefined : () => onSessionTypeChange(type) }, renderText(`choose-modality:${type}`)))),
     ProfessionalInfoColumn: ({ booking }: { booking: { selectedDate: string | null; selectedTime: string | null } }) =>
       renderText(`booking:${booking.selectedDate ?? 'none'}:${booking.selectedTime ?? 'none'}`),
     CompactCalendarColumn: ({
@@ -220,6 +222,51 @@ describe('BookingScreen initial slot preselection', () => {
     jest.clearAllMocks();
   });
 
+  it('selects a service across modalities and revalidates the date with its real option', async () => {
+    const base: PrivateServiceOption = { id: 'video', serviceId: 'therapy', serviceName: 'Terapia', name: 'Terapia', serviceDescription: 'Descripción publicada de terapia',
+      modality: 'VIDEO_CALL', durationMinutes: 60, priceCents: 6000, currency: 'EUR', isActive: true, isPublic: true,
+      isPreferred: true, version: 1, legacyDuration: false, legacyTariffId: null };
+    jest.mocked(loadPublicBookingOptions).mockResolvedValueOnce([base, { ...base, id: 'phone', serviceId: 'brief', serviceName: 'Llamada breve', serviceDescription: 'Descripción publicada de la llamada', modality: 'PHONE_CALL', durationMinutes: 30 }]);
+    mockedSessionsService.getAvailableSlots.mockResolvedValue([{ startTime: '10:00', endTime: '11:00', available: true }]);
+    render(<BookingScreen route={{ params: { ...route.params, optionId: 'video' } }} navigation={navigation} />);
+    await screen.findByText('slots:10:00:1');
+    expect(within(screen.getByTestId('booking-service-description')).getByText('Acerca de «Terapia»')).toBeTruthy();
+    fireEvent.press(screen.getByRole('radio', { name: /Llamada breve/ }));
+    await waitFor(() => expect(mockedSessionsService.getAvailableSlots).toHaveBeenLastCalledWith('specialist-1', route.params.initialDate, 'phone', undefined));
+    expect(screen.getByText('modality-options:PHONE_CALL')).toBeTruthy();
+    const description = within(screen.getByTestId('booking-service-description'));
+    expect(description.getByText('Acerca de «Llamada breve»')).toBeTruthy();
+    expect(description.getByText('Descripción publicada de la llamada')).toBeTruthy();
+    expect(screen.queryByText('Descripción publicada de terapia')).toBeNull();
+    expect(screen.getByLabelText('Teléfono para esta cita')).toBeTruthy();
+    expect(screen.getByText('slots:none:1')).toBeTruthy();
+    expect(mockedSessionsService.getBookingQuote).toHaveBeenLastCalledWith('specialist-1', 'PHONE_CALL', 30, 'phone', undefined);
+  });
+
+  it('requires an explicit duration when a different service has no compatible or preferred variant', async () => {
+    const base: PrivateServiceOption = { id: 'video', serviceId: 'therapy', serviceName: 'Terapia', name: 'Terapia',
+      modality: 'VIDEO_CALL', durationMinutes: 60, priceCents: 6000, currency: 'EUR', isActive: true, isPublic: true,
+      isPreferred: true, version: 1, legacyDuration: false, legacyTariffId: null };
+    jest.mocked(loadPublicBookingOptions).mockResolvedValueOnce([base,
+      { ...base, id: 'short', serviceId: 'other', serviceName: 'Seguimiento', durationMinutes: 30, isPreferred: false },
+      { ...base, id: 'long', serviceId: 'other', serviceName: 'Seguimiento', durationMinutes: 90, isPreferred: false },
+      { ...base, id: 'office', serviceId: 'other', serviceName: 'Seguimiento', modality: 'IN_PERSON', durationMinutes: 45, isPreferred: false }]);
+    mockedSessionsService.getAvailableSlots.mockResolvedValue([{ startTime: '10:00', endTime: '11:00', available: true }]);
+    render(<BookingScreen route={{ params: { ...route.params, optionId: 'video' } }} navigation={navigation} />);
+    await screen.findByText('slots:10:00:1');
+    mockedSessionsService.getAvailableSlots.mockClear();
+    fireEvent.press(screen.getByRole('radio', { name: /Seguimiento/ }));
+    expect(await screen.findByText('slots:none:0')).toBeTruthy();
+    expect(screen.getByLabelText('Duración y precio del servicio')).toBeTruthy();
+    expect(screen.getByText('calendar-disabled')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Confirmar cita' })).toBeDisabled();
+    expect(mockedSessionsService.getAvailableSlots).not.toHaveBeenCalled();
+    fireEvent.press(screen.getByText('choose-modality:IN_PERSON'));
+    await waitFor(() => expect(mockedSessionsService.getAvailableSlots).toHaveBeenLastCalledWith('specialist-1', route.params.initialDate, 'office', undefined));
+    expect(screen.queryByText('calendar-disabled')).toBeNull();
+    expect(mockedSessionsService.getBookingQuote).toHaveBeenLastCalledWith('specialist-1', 'IN_PERSON', 45, 'office', undefined);
+  });
+
   it('acquisition refreshes and selects coverage, consumes the intent and reloads the same option with its frozen duration', async () => {
     const offer: packageService.PackageOffer = { id:'offer', name:'Bono nuevo', serviceId:'base', serviceName:'General', sessions:5, totalCents:25000, currency:'EUR', version:1, isPublic:true, archivedAt:null, options:[{id:'VIDEO_CALL',modality:'VIDEO_CALL',durationMinutes:90}] };
     const snapshot = {...offer,paymentConditions:null};
@@ -267,6 +314,7 @@ describe('BookingScreen initial slot preselection', () => {
     fireEvent.changeText(screen.getByLabelText('Apellidos'),'Sintético');
     fireEvent.changeText(screen.getByLabelText('Correo electrónico'),'guest@example.invalid');
     fireEvent.press(screen.getByLabelText('Autorizar el uso de datos para gestionar la cita'));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Continuar con mi reserva' })).toBeEnabled());
     fireEvent.press(screen.getByText('Continuar con mi reserva'));
     await screen.findByLabelText('Código de verificación del correo');
     fireEvent.press(screen.getByText('Solicitar bono'));
@@ -484,7 +532,7 @@ describe('BookingScreen initial slot preselection', () => {
     );
   });
 
-  it('reveals anonymous contact data only after a valid time is selected', async () => {
+  it('shows contact from the start but requires a valid appointment and consent to continue', async () => {
     mockedUseAuth.mockReturnValue({
       isAuthenticated: false,
       user: null,
@@ -500,13 +548,15 @@ describe('BookingScreen initial slot preselection', () => {
       />
     );
 
-    expect(screen.queryByText('Tus datos de contacto')).toBeNull();
+    expect(await screen.findByLabelText('Nombre')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Continuar con mi reserva' })).toBeDisabled();
+    expect(screen.queryByText('Introduce tu nombre')).toBeNull();
 
     fireEvent.press(await screen.findByText('select-second-date'));
     await screen.findByText('select-slot');
     fireEvent.press(screen.getByText('select-slot'));
 
-    expect(await screen.findByText('Tus datos de contacto')).toBeTruthy();
+    expect(await screen.findByLabelText('Nombre')).toBeTruthy();
     const action = screen.getByRole('button', { name: 'Continuar con mi reserva' });
     expect(action).toBeDisabled();
     fireEvent.press(action);
@@ -563,7 +613,8 @@ describe('BookingScreen initial slot preselection', () => {
 
     fireEvent.press(screen.getByText('select-second-date'));
     await waitFor(() => {
-      expect(screen.queryByText('Tus datos de contacto')).toBeNull();
+      expect(screen.getByLabelText('Nombre')).toBeTruthy();
+      expect(screen.getByRole('button', { name: 'Continuar con mi reserva' })).toBeDisabled();
     });
 
     fireEvent.press(screen.getByText('select-slot'));

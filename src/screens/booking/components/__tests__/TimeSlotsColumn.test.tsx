@@ -42,7 +42,7 @@ describe('TimeSlotsColumn disabled slot UX', () => {
       />
     );
 
-    expect(screen.getByText('Elige la hora de inicio')).toBeTruthy();
+    expect(screen.getByText('Horarios disponibles')).toBeTruthy();
     expect(screen.queryByText('10:15')).toBeNull();
     expect(onTimeSelect).not.toHaveBeenCalled();
 
@@ -60,8 +60,7 @@ describe('TimeSlotsColumn disabled slot UX', () => {
       />
     );
 
-    expect(screen.getByText('Tu horario aparecerá aquí')).toBeTruthy();
-    expect(screen.getByText('Cuando marques un día, te mostraremos las horas disponibles.')).toBeTruthy();
+    expect(screen.getByText('Elige un día para ver los horarios disponibles.')).toBeTruthy();
   });
 
   it('offers a retry action when availability cannot be loaded', () => {

@@ -61,6 +61,9 @@ describe('ProfessionalInfoColumn', () => {
     view.rerender(<ProfessionalInfoColumn {...props} duration={5} />);
     expect(screen.getByLabelText('Duración: 5 min')).toBeTruthy();
     expect(screen.queryByLabelText('Duración: 37 min')).toBeNull();
+    view.rerender(<ProfessionalInfoColumn {...props} duration={null} serviceName="Seguimiento" />);
+    expect(screen.getByLabelText('Duración: Por elegir')).toBeTruthy();
+    expect(screen.getByLabelText('Servicio: Seguimiento')).toBeTruthy();
   });
 
   it('does not show a fallback price when booking quote failed', () => {
@@ -105,25 +108,25 @@ describe('ProfessionalInfoColumn', () => {
       />
     );
 
-    expect(screen.getAllByText('80€ / sesión').length).toBeGreaterThan(0);
-    expect(screen.getByText('Precio del profesional')).toBeTruthy();
+    expect(screen.getByText('80€')).toBeTruthy();
+    expect(screen.queryByText('80€ / sesión')).toBeNull();
     expect(screen.getByText('Precio publicado por el profesional.')).toBeTruthy();
     expect(
-      StyleSheet.flatten(screen.getByText('Precio del profesional').props.style).color,
+      StyleSheet.flatten(screen.getByText('Precio publicado por el profesional.').props.style).color,
     ).toBe(lightTheme.textSecondary);
   });
 
   it('only enables sticky positioning when the full summary fits in the viewport', () => {
     expect(
       canUseStickyBookingSummary({
-        contentHeight: 648,
+        contentHeight: 640,
         requested: true,
         viewportHeight: 768,
       }),
     ).toBe(true);
     expect(
       canUseStickyBookingSummary({
-        contentHeight: 649,
+        contentHeight: 641,
         requested: true,
         viewportHeight: 768,
       }),

@@ -1,8 +1,8 @@
-import React, { useMemo } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import { Calendar, DateData } from 'react-native-calendars';
+import React, { useEffect, useRef, useState } from 'react';
+import { Modal, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { Calendar } from 'react-native-calendars';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { spacing, borderRadius } from '../../../constants/colors';
+import { AnimatedPressable, type AnimatedPressableHandle } from '../../../components/common/AnimatedPressable';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { formatMadridDateKey, getMadridDateKey } from '../../../utils/madridTime';
 
@@ -15,210 +15,104 @@ interface CompactCalendarColumnProps {
   busy?: boolean;
 }
 
-export const CompactCalendarColumn: React.FC<CompactCalendarColumnProps> = ({
-  selectedDate,
-  onDateSelect,
-  availableDates,
-  minDate,
-  disabled = false,
-  busy = false,
-}) => {
+// Date-key arithmetic is independent of the browser timezone and DST transitions.
+export function shiftBookingDate(date: string, days: number): string {
+  const [year, month, day] = date.split('-').map(Number);
+  return new Date(Date.UTC(year, month - 1, day + days)).toISOString().slice(0, 10);
+}
+
+export function CompactCalendarColumn({ selectedDate, onDateSelect, minDate, disabled = false, busy = false }: CompactCalendarColumnProps) {
   const { theme, isDark } = useTheme();
-  const styles = useMemo(() => createStyles(theme, isDark), [theme, isDark]);
-  const today = minDate || getMadridDateKey();
-  const initialCalendarDate = selectedDate || today;
-  const calendarSurface = isDark ? theme.bgElevated : theme.bgCard;
-  const calendarBorder = isDark ? theme.borderLight : theme.border;
-  const calendarTheme = useMemo(
-    () => ({
-      backgroundColor: calendarSurface,
-      calendarBackground: calendarSurface,
-      monthTextColor: theme.textPrimary,
-      textMonthFontWeight: '700' as const,
-      textMonthFontSize: 17,
-      textSectionTitleColor: theme.textSecondary,
-      textDayHeaderFontWeight: '600' as const,
-      textDayHeaderFontSize: 11,
-      dayTextColor: theme.textPrimary,
-      textDayFontWeight: '500' as const,
-      textDayFontSize: 14,
-      todayTextColor: theme.secondaryDark,
-      todayBackgroundColor: 'transparent',
-      selectedDayBackgroundColor: theme.primary,
-      selectedDayTextColor: theme.textOnPrimary,
-      textDisabledColor: theme.textMuted,
-      arrowColor: theme.primary,
-      dotColor: theme.secondary,
-      selectedDotColor: theme.textOnPrimary,
-    }),
-    [
-      calendarSurface,
-      theme.primary,
-      theme.secondary,
-      theme.secondaryDark,
-      theme.textMuted,
-      theme.textOnPrimary,
-      theme.textPrimary,
-      theme.textSecondary,
-    ],
-  );
-  const calendarKey = isDark ? 'dark' : 'light';
-
-  const markedDates = useMemo(() => {
-    const dates: Record<string, object> = {};
-
-    availableDates?.forEach((date) => {
-      dates[date] = {
-        marked: true,
-        dotColor: theme.secondary,
-      };
-    });
-
-    if (selectedDate) {
-      dates[selectedDate] = {
-        ...(dates[selectedDate] ?? {}),
-        selected: true,
-        selectedColor: theme.primary,
-        selectedTextColor: theme.textOnPrimary,
-      };
+  const { width } = useWindowDimensions();
+  const count = width >= 1180 ? 7 : width >= 768 ? 5 : 3;
+  const today = minDate ?? getMadridDateKey();
+  const [start, setStart] = useState(selectedDate && selectedDate >= today ? selectedDate : today);
+  const [open, setOpen] = useState(false);
+  const triggerRef = useRef<AnimatedPressableHandle>(null);
+  const closeRef = useRef<AnimatedPressableHandle>(null);
+  const blocked = disabled || busy;
+  useEffect(() => {
+    if (selectedDate && selectedDate >= today) {
+      setStart(current => selectedDate < current || selectedDate > shiftBookingDate(current, count - 1) ? selectedDate : current);
     }
-
-    return dates;
-  }, [availableDates, selectedDate, theme.primary, theme.secondary, theme.textOnPrimary]);
-
-  const handleDayPress = (day: DateData) => {
-    if (disabled || busy) {
-      return;
-    }
-
-    onDateSelect(day.dateString);
+  }, [selectedDate, count, today]);
+  const close = () => {
+    setOpen(false);
+    setTimeout(() => triggerRef.current?.focus(), 0);
   };
-
-  return (
-    <View
-      accessibilityState={{ busy, disabled }}
-      pointerEvents={disabled || busy ? 'none' : 'auto'}
-      style={styles.container}
-    >
-      <View style={styles.heading}>
-        <View style={styles.iconShell}>
-          <Ionicons name="calendar-outline" size={17} color={theme.primary} />
-        </View>
-        <View style={styles.headingCopy}>
-          <Text style={styles.title}>Selecciona una fecha</Text>
-          <Text style={styles.subtitle}>Elige el día que mejor encaje contigo.</Text>
-        </View>
+  const select = (date: string) => {
+    if (blocked || date < today) return;
+    onDateSelect(date);
+    if (open) { setStart(date); close(); }
+  };
+  const text = { fontFamily: theme.fontSans, color: theme.textPrimary };
+  return <View style={styles.container} accessibilityState={{ disabled: blocked, busy }}>
+    <View style={styles.controls}>
+      <View style={styles.strip} accessibilityRole="radiogroup" accessibilityLabel="Fecha de la sesión">
+        <AnimatedPressable accessibilityRole="button" accessibilityLabel="Fechas anteriores" disabled={blocked || start <= today}
+          accessibilityState={{ disabled: blocked || start <= today }} hoverLift={false}
+          onPress={() => setStart(current => { const previous = shiftBookingDate(current, -count); return previous < today ? today : previous; })}
+          style={[styles.arrow, { backgroundColor: theme.primaryMuted, opacity: start <= today ? 0.4 : 1 }]}>
+          <Ionicons name="chevron-back" size={18} color={theme.textPrimary} />
+        </AnimatedPressable>
+        {Array.from({ length: count }, (_, index) => shiftBookingDate(start, index)).map(date => {
+          const selected = date === selectedDate;
+          return <AnimatedPressable key={date} accessibilityRole="radio" accessibilityLabel={formatMadridDateKey(date, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+            accessibilityState={{ checked: selected, disabled: blocked }} disabled={blocked} onPress={() => select(date)} hoverLift={false}
+            style={[styles.day, { borderColor: selected ? theme.primary : theme.borderLight, backgroundColor: selected ? theme.primary : theme.bgCard }]}>
+            <Text style={[text, styles.weekday, selected && { color: theme.textOnPrimary }]}>{formatMadridDateKey(date, { weekday: 'short' }).replace('.', '')}</Text>
+            <Text style={[text, styles.date, { fontFamily: theme.fontSansSemiBold }, selected && { color: theme.textOnPrimary }]}>{formatMadridDateKey(date, { day: 'numeric', month: 'short' }).replace('.', '')}</Text>
+          </AnimatedPressable>;
+        })}
+        <AnimatedPressable accessibilityRole="button" accessibilityLabel="Fechas siguientes" disabled={blocked} accessibilityState={{ disabled: blocked }} hoverLift={false}
+          onPress={() => setStart(current => shiftBookingDate(current, count))} style={[styles.arrow, { backgroundColor: theme.primaryMuted }]}>
+          <Ionicons name="chevron-forward" size={18} color={theme.textPrimary} />
+        </AnimatedPressable>
       </View>
-
-      <View style={styles.calendarShell}>
-        <Calendar
-          key={calendarKey}
-          current={initialCalendarDate}
-          initialDate={initialCalendarDate}
-          minDate={today}
-          onDayPress={handleDayPress}
-          markedDates={markedDates}
-          hideExtraDays
-          enableSwipeMonths
-          firstDay={1}
-          monthFormat="MMMM yyyy"
-          theme={calendarTheme}
-          style={[styles.calendar, { backgroundColor: calendarSurface }]}
-        />
-      </View>
-
-      <View style={styles.helperBanner}>
-        <Ionicons name="sparkles-outline" size={16} color={theme.secondaryDark} />
-        <Text style={styles.helperText}>
-          {selectedDate
-            ? formatMadridDateKey(selectedDate, {
-                weekday: 'long',
-                day: 'numeric',
-                month: 'long',
-              })
-            : 'Las fechas disponibles se actualizan al momento.'}
-        </Text>
-      </View>
+      <AnimatedPressable focusRef={triggerRef} accessibilityRole="button" accessibilityLabel="Ver calendario completo" accessibilityState={{ expanded: open, disabled: blocked }}
+        disabled={blocked} onPress={() => setOpen(true)} hoverLift={false} style={[styles.calendarTrigger, { backgroundColor: theme.primaryMuted }]}>
+        <Ionicons name="calendar-outline" size={20} color={theme.primary} />
+        <Text style={[text, { fontFamily: theme.fontSansSemiBold, fontSize: 12 }]}>Ver calendario completo</Text>
+      </AnimatedPressable>
     </View>
-  );
-};
+    <Modal visible={open} transparent animationType="none" onRequestClose={close} onShow={() => closeRef.current?.focus()}>
+      <View style={[styles.overlay, { backgroundColor: theme.overlay }]}>
+        <View accessibilityViewIsModal accessibilityLabel="Selecciona una fecha" style={[styles.dialog, { backgroundColor: theme.bgCard, borderColor: theme.border }]}>
+          <View style={styles.dialogHeading}>
+            <Text accessibilityRole="header" style={[text, { fontFamily: theme.fontDisplay, fontSize: 24 }]}>Selecciona una fecha</Text>
+            <AnimatedPressable focusRef={closeRef} accessibilityRole="button" accessibilityLabel="Cerrar calendario" onPress={close} style={styles.close}>
+              <Ionicons name="close" size={22} color={theme.textPrimary} />
+            </AnimatedPressable>
+          </View>
+          <ScrollView>
+            <Calendar key={isDark ? 'dark' : 'light'} current={selectedDate ?? start} initialDate={selectedDate ?? start} minDate={today}
+              onDayPress={day => select(day.dateString)} hideExtraDays enableSwipeMonths firstDay={1} monthFormat="MMMM yyyy"
+              disableAllTouchEventsForDisabledDays
+              markedDates={selectedDate ? { [selectedDate]: { selected: true, selectedColor: theme.primary, selectedTextColor: theme.textOnPrimary } } : {}}
+              theme={{ calendarBackground: theme.bgCard, monthTextColor: theme.textPrimary, textMonthFontFamily: theme.fontSansSemiBold,
+                textDayFontFamily: theme.fontSans, textDayHeaderFontFamily: theme.fontSans, textSectionTitleColor: theme.textSecondary,
+                dayTextColor: theme.textPrimary, todayTextColor: theme.primary, textDisabledColor: theme.textMuted, arrowColor: theme.primary,
+                selectedDayBackgroundColor: theme.primary, selectedDayTextColor: theme.textOnPrimary }} />
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
+  </View>;
+}
 
-const createStyles = (
-  theme: ReturnType<typeof useTheme>['theme'],
-  isDark: boolean,
-) => {
-  const calendarSurface = isDark ? theme.bgElevated : theme.bgCard;
-  const calendarBorder = isDark ? theme.borderLight : theme.border;
+const styles = StyleSheet.create({
+  container: { width: '100%', minWidth: 0 },
+  controls: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 12 },
+  strip: { flexDirection: 'row', alignItems: 'center', gap: 6, flexGrow: 1, flexShrink: 1, flexBasis: 480, minWidth: 0 },
+  arrow: { width: 44, minHeight: 48, alignItems: 'center', justifyContent: 'center', borderRadius: 12 },
+  day: { flex: 1, minWidth: 0, minHeight: 48, justifyContent: 'center', alignItems: 'center', paddingVertical: 6, gap: 2, borderWidth: 1, borderRadius: 12 },
+  weekday: { fontSize: 12, textTransform: 'capitalize' },
+  date: { fontSize: 13 },
+  calendarTrigger: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, minHeight: 44, paddingHorizontal: 12, borderRadius: 12 },
+  overlay: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 16 },
+  dialog: { width: '100%', maxWidth: 380, maxHeight: '90%', padding: 16, borderRadius: 20, borderWidth: 1 },
+  dialogHeading: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
+  close: { minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
+});
 
-  return StyleSheet.create({
-    container: {
-      flex: 1,
-      width: '100%',
-      minWidth: 0,
-      minHeight: 410,
-      gap: spacing.sm,
-    },
-    heading: {
-      minHeight: 42,
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.sm,
-    },
-    iconShell: {
-      width: 36,
-      height: 36,
-      alignItems: 'center',
-      justifyContent: 'center',
-      borderRadius: 18,
-      backgroundColor: theme.primaryAlpha12,
-    },
-    headingCopy: {
-      flex: 1,
-      gap: 1,
-    },
-    title: {
-      fontSize: 15,
-      fontFamily: theme.fontHeading,
-      color: theme.textPrimary,
-    },
-    subtitle: {
-      fontSize: 11,
-      lineHeight: 16,
-      fontFamily: theme.fontSans,
-      color: theme.textSecondary,
-    },
-    calendarShell: {
-      width: '100%',
-      minHeight: 306,
-      borderWidth: 1,
-      borderColor: isDark ? calendarBorder : theme.textMuted,
-      borderRadius: borderRadius.lg,
-      overflow: 'hidden',
-      backgroundColor: calendarSurface,
-    },
-    calendar: {
-      width: '100%',
-      minHeight: 294,
-      paddingBottom: spacing.xs,
-    },
-    helperBanner: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.xs,
-      borderRadius: borderRadius.lg,
-      borderWidth: 1,
-      borderColor: theme.border,
-      backgroundColor: isDark ? theme.bgElevated : theme.surfaceMuted,
-      paddingHorizontal: spacing.sm,
-      paddingVertical: spacing.sm,
-    },
-    helperText: {
-      flex: 1,
-      fontSize: 11,
-      lineHeight: 16,
-      fontFamily: theme.fontSans,
-      color: theme.textSecondary,
-    },
-  });
-};
 export default CompactCalendarColumn;

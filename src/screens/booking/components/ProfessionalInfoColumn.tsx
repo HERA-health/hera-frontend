@@ -31,7 +31,8 @@ import { BookingLocationMap } from './BookingLocationMap';
 
 interface ProfessionalInfoColumnProps {
   specialist: BookingSpecialist;
-  duration?: number;
+  duration?: number | null;
+  serviceName?: string;
   booking: BookingSelection;
   availableSessionTypes: SessionType[];
   onPrimaryAction: () => void;
@@ -51,7 +52,7 @@ interface ProfessionalInfoColumnProps {
 
 const STICKY_TOP_OFFSET = 24;
 const STICKY_BOTTOM_GUTTER = 24;
-const BOOKING_HEADER_HEIGHT = 72;
+const BOOKING_HEADER_HEIGHT = 80;
 
 export const canUseStickyBookingSummary = ({
   contentHeight,
@@ -74,6 +75,7 @@ export const canUseStickyBookingSummary = ({
 export const ProfessionalInfoColumn: React.FC<ProfessionalInfoColumnProps> = ({
   specialist,
   duration = specialist.sessionDuration ?? 60,
+  serviceName,
   booking,
   availableSessionTypes,
   onPrimaryAction,
@@ -124,7 +126,7 @@ export const ProfessionalInfoColumn: React.FC<ProfessionalInfoColumnProps> = ({
     })
       ? ({
           position: 'sticky',
-          top: STICKY_TOP_OFFSET,
+          top: BOOKING_HEADER_HEIGHT + STICKY_TOP_OFFSET,
         } as unknown as ViewStyle)
       : undefined;
 
@@ -154,29 +156,25 @@ export const ProfessionalInfoColumn: React.FC<ProfessionalInfoColumnProps> = ({
             <Text style={styles.profileEyebrow}>TU PROFESIONAL</Text>
             <Text style={styles.name}>{specialist.name}</Text>
             <Text style={styles.title}>{specialist.title || 'Profesional de salud mental'}</Text>
-            <Text style={styles.profilePrice}>{quote.pricePerSessionText}</Text>
-            {quoteIsEstimated && !quoteError ? (
-              <Text style={styles.estimatedPriceText}>Precio del profesional</Text>
+            {specialist.specializations?.length ? (
+              <View style={styles.tags}>
+                {specialist.specializations.slice(0, 3).map((specialization) => (
+                  <View key={specialization} style={styles.tag}>
+                    <Text style={styles.tagText}>{formatSpecialization(specialization)}</Text>
+                  </View>
+                ))}
+              </View>
             ) : null}
+
           </View>
         </View>
-
-        {specialist.specializations?.length ? (
-          <View style={styles.tags}>
-            {specialist.specializations.slice(0, 3).map((specialization) => (
-              <View key={specialization} style={styles.tag}>
-                <Text style={styles.tagText}>{formatSpecialization(specialization)}</Text>
-              </View>
-            ))}
-          </View>
-        ) : null}
       </View>
 
       <View style={styles.divider} />
 
       <View style={styles.summary}>
         <View style={styles.summaryHeading}>
-          <Text style={styles.summaryEyebrow}>RESUMEN DE LA CITA</Text>
+          <Text style={styles.summaryEyebrow}>Resumen de la cita</Text>
           {activeType ? (
             <View style={styles.modalityBadge}>
               <Ionicons name={activeType.icon} size={13} color={theme.secondaryDark} />
@@ -186,7 +184,7 @@ export const ProfessionalInfoColumn: React.FC<ProfessionalInfoColumnProps> = ({
         </View>
 
         <View style={styles.summaryRows}>
-          {!!bookingQuote?.serviceName && <SummaryRow icon="list-outline" label="Servicio" value={bookingQuote.serviceName} active />}
+          {!!(serviceName || bookingQuote?.serviceName) && <SummaryRow icon="list-outline" label="Servicio" value={serviceName || bookingQuote?.serviceName || ''} active />}
           <SummaryRow
             icon="calendar-outline"
             label="Fecha"
@@ -202,8 +200,8 @@ export const ProfessionalInfoColumn: React.FC<ProfessionalInfoColumnProps> = ({
           <SummaryRow
             icon="hourglass-outline"
             label="Duración"
-            value={`${duration} min`}
-            active
+            value={duration == null ? 'Por elegir' : `${duration} min`}
+            active={duration != null}
           />
           {booking.sessionType === 'IN_PERSON' ? (
             <SummaryRow
@@ -345,29 +343,30 @@ const createStyles = (
     container: {
       width: '100%',
       gap: spacing.md,
-      padding: spacing.lg,
+      padding: 14,
       borderWidth: 1,
       borderColor: theme.border,
       borderRadius: borderRadius.xl,
       backgroundColor: theme.bgCard,
       shadowColor: theme.shadowCard,
-      shadowOffset: { width: 0, height: 12 },
+      shadowOffset: { width: 0, height: 4 },
       shadowOpacity: 1,
-      shadowRadius: 28,
-      elevation: 4,
+      shadowRadius: 16,
+      elevation: 1,
     },
     profile: {
       gap: spacing.md,
     },
     profileRow: {
       flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.md,
+      alignItems: 'flex-start',
+      gap: 12,
     },
     avatar: {
-      width: 58,
-      height: 58,
-      borderRadius: 29,
+      width: 92,
+      height: 116,
+      flexShrink: 0,
+      borderRadius: 14,
     },
     avatarPlaceholder: {
       width: 58,
@@ -397,8 +396,8 @@ const createStyles = (
     },
     name: {
       color: theme.textPrimary,
-      fontFamily: theme.fontHeading,
-      fontSize: 21,
+      fontFamily: theme.fontDisplay,
+      fontSize: 20,
       lineHeight: 25,
     },
     title: {
@@ -407,19 +406,8 @@ const createStyles = (
       fontSize: 12,
       lineHeight: 17,
     },
-    profilePrice: {
-      marginTop: 3,
-      color: theme.textPrimary,
-      fontFamily: theme.fontSansSemiBold,
-      fontSize: 12,
-    },
-    estimatedPriceText: {
-      color: functionalMutedText,
-      fontFamily: theme.fontSans,
-      fontSize: 9,
-      lineHeight: 13,
-    },
     tags: {
+      marginTop: 8,
       flexDirection: 'row',
       gap: 6,
       flexWrap: 'wrap',
@@ -450,9 +438,9 @@ const createStyles = (
     },
     summaryEyebrow: {
       color: functionalMutedText,
-      fontFamily: theme.fontSansSemiBold,
-      fontSize: 9,
-      letterSpacing: 1.05,
+      fontFamily: theme.fontDisplay,
+      fontSize: 18,
+      lineHeight: 24,
     },
     modalityBadge: {
       flexDirection: 'row',
@@ -472,7 +460,7 @@ const createStyles = (
       gap: spacing.xs,
     },
     summaryRow: {
-      minHeight: 40,
+      minHeight: 32,
       flexDirection: 'row',
       alignItems: 'center',
       gap: spacing.xs,
@@ -489,13 +477,13 @@ const createStyles = (
       width: 58,
       color: functionalMutedText,
       fontFamily: theme.fontSansMedium,
-      fontSize: 11,
+      fontSize: 12,
     },
     summaryValue: {
       flex: 1,
       color: theme.textPrimary,
       fontFamily: theme.fontSansSemiBold,
-      fontSize: 12,
+      fontSize: 13,
       textAlign: 'right',
     },
     summaryValueMuted: {
@@ -524,8 +512,8 @@ const createStyles = (
     totalCaption: {
       color: theme.textSecondary,
       fontFamily: theme.fontSans,
-      fontSize: 10,
-      lineHeight: 15,
+      fontSize: 12,
+      lineHeight: 18,
     },
     totalCaptionError: {
       color: theme.error,
@@ -534,9 +522,10 @@ const createStyles = (
     totalValue: {
       minWidth: 88,
       color: theme.textPrimary,
-      fontFamily: theme.fontHeading,
-      fontSize: 25,
-      lineHeight: 29,
+      fontFamily: theme.fontDisplay,
+      fontSize: 28,
+      lineHeight: 34,
+      flexShrink: 1,
       textAlign: 'right',
     },
     conditions: {
@@ -556,8 +545,8 @@ const createStyles = (
       flex: 1,
       color: theme.textSecondary,
       fontFamily: theme.fontSans,
-      fontSize: 10,
-      lineHeight: 15,
+      fontSize: 12,
+      lineHeight: 18,
     },
     accountNotice: {
       flexDirection: 'row',
@@ -580,8 +569,8 @@ const createStyles = (
     actionHint: {
       color: functionalMutedText,
       fontFamily: theme.fontSans,
-      fontSize: 10,
-      lineHeight: 15,
+      fontSize: 12,
+      lineHeight: 18,
       textAlign: 'center',
     },
   });

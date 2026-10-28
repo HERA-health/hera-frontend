@@ -50,8 +50,8 @@ export const TimeSlotsColumn: React.FC<TimeSlotsColumnProps> = ({
   const { theme, isDark } = useTheme();
   const { width } = useWindowDimensions();
   const styles = useMemo(
-    () => createStyles(theme, isDark, width < 940),
-    [isDark, theme, width],
+    () => createStyles(theme, isDark),
+    [isDark, theme],
   );
   const headingSubtitle = selectedDate
     ? formatDate(selectedDate)
@@ -97,13 +97,9 @@ export const TimeSlotsColumn: React.FC<TimeSlotsColumnProps> = ({
 
   if (!selectedDate) {
     return (
-      <View accessibilityState={{ busy, disabled }} style={styles.container}>
-        <ColumnHeading subtitle={headingSubtitle} />
-        <EmptyState
-          icon="calendar-clear-outline"
-          title="Tu horario aparecerá aquí"
-          description="Cuando marques un día, te mostraremos las horas disponibles."
-        />
+      <View accessibilityState={{ busy, disabled }} style={styles.pendingDate}>
+        <Ionicons name="time-outline" size={18} color={theme.primary} />
+        <Text style={styles.pendingText}>Elige un día para ver los horarios disponibles.</Text>
       </View>
     );
   }
@@ -127,6 +123,7 @@ export const TimeSlotsColumn: React.FC<TimeSlotsColumnProps> = ({
 
       <View accessibilityRole="radiogroup" accessibilityLabel="Horarios disponibles">
         <CompactTimeSlotPicker
+          columns={width < 768 ? 2 : 3}
           slots={availableSlots}
           selectedTime={selectedTime}
           resetKey={`${availabilityKey}-${selectedDate}-${availableSlots[0]?.endTime}`}
@@ -167,11 +164,8 @@ const ColumnHeading: React.FC<{ subtitle: string }> = ({ subtitle }) => {
 
   return (
     <View style={styles.heading}>
-      <View style={styles.iconShell}>
-        <Ionicons name="time-outline" size={17} color={theme.primary} />
-      </View>
       <View style={styles.headingCopy}>
-        <Text style={styles.title}>Elige la hora de inicio</Text>
+        <Text style={styles.title}>Horarios disponibles</Text>
         <Text style={styles.subtitle}>{subtitle}</Text>
       </View>
     </View>
@@ -208,8 +202,10 @@ const EmptyState: React.FC<EmptyStateProps> = ({
       ) : icon ? (
         <Ionicons name={icon} size={32} color={theme.textSecondary} />
       ) : null}
-      <Text style={styles.emptyTitle}>{title}</Text>
-      <Text style={styles.emptyDescription}>{description}</Text>
+      <View style={{ flex: 1, minWidth: 0, gap: 4 }}>
+        <Text style={styles.emptyTitle}>{title}</Text>
+        <Text style={styles.emptyDescription}>{description}</Text>
+      </View>
       {action ? (
         <AnimatedPressable
           onPress={action}
@@ -230,34 +226,42 @@ const EmptyState: React.FC<EmptyStateProps> = ({
 const createStyles = (
   theme: ReturnType<typeof useTheme>['theme'],
   isDark: boolean,
-  stacked = false,
 ) =>
   StyleSheet.create({
     container: {
-      flexGrow: 1,
+      flexGrow: 0,
       flexShrink: 0,
-      flexBasis: stacked ? 'auto' : 0,
+      flexBasis: 'auto',
       width: '100%',
       minWidth: 0,
       gap: spacing.sm,
     },
     heading: {
-      minHeight: 42,
+      minHeight: 24,
       flexDirection: 'row',
       alignItems: 'center',
       gap: spacing.sm,
     },
-    iconShell: {
-      width: 36,
-      height: 36,
+    pendingDate: {
+      minHeight: 44,
+      flexDirection: 'row',
       alignItems: 'center',
-      justifyContent: 'center',
-      borderRadius: 18,
-      backgroundColor: theme.primaryAlpha12,
+      gap: 8,
+    },
+    pendingText: {
+      flex: 1,
+      color: theme.textSecondary,
+      fontFamily: theme.fontSans,
+      fontSize: 13,
+      lineHeight: 19,
     },
     headingCopy: {
       flex: 1,
-      gap: 1,
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      alignItems: 'center',
+      columnGap: 10,
+      rowGap: 2,
     },
     title: {
       color: theme.textPrimary,
@@ -267,8 +271,8 @@ const createStyles = (
     subtitle: {
       color: theme.textSecondary,
       fontFamily: theme.fontSans,
-      fontSize: 11,
-      lineHeight: 16,
+      fontSize: 12,
+      lineHeight: 18,
     },
     slotButton: {
       width: '100%',
@@ -283,9 +287,9 @@ const createStyles = (
       paddingHorizontal: spacing.sm,
       paddingVertical: spacing.sm,
       borderWidth: 1,
-      borderColor: theme.textSecondary,
+      borderColor: theme.borderLight,
       borderRadius: borderRadius.md,
-      backgroundColor: isDark ? theme.bgElevated : theme.surfaceMuted,
+      backgroundColor: theme.bgCard,
     },
     slotButtonDisabled: {
       backgroundColor: theme.bgMuted,
@@ -307,14 +311,16 @@ const createStyles = (
       color: theme.textOnPrimary,
     },
     emptyState: {
-      minHeight: 190,
+      minHeight: 64,
+      flexDirection: 'row',
+      flexWrap: 'wrap',
       alignItems: 'center',
       justifyContent: 'center',
       gap: spacing.sm,
       paddingHorizontal: spacing.md,
-      paddingVertical: spacing.lg,
+      paddingVertical: spacing.md,
       borderWidth: 1,
-      borderStyle: 'dashed',
+
       borderColor: theme.borderStrong,
       borderRadius: borderRadius.lg,
       backgroundColor: isDark ? theme.bgElevated : theme.surfaceMuted,
@@ -323,15 +329,15 @@ const createStyles = (
       color: theme.textPrimary,
       fontFamily: theme.fontHeading,
       fontSize: 15,
-      textAlign: 'center',
+      textAlign: 'left',
     },
     emptyDescription: {
-      maxWidth: 260,
+      maxWidth: 460,
       color: theme.textSecondary,
       fontFamily: theme.fontSans,
       fontSize: 11,
       lineHeight: 17,
-      textAlign: 'center',
+      textAlign: 'left',
     },
     retryButton: {
       minHeight: 44,

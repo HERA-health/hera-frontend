@@ -25,6 +25,16 @@ describe('BookingModalitySection in-person location', () => {
     jest.clearAllMocks();
   });
 
+  it('keeps a single modality as a checked radio without clearing the existing selection', () => {
+    const onSessionTypeChange = jest.fn();
+    render(<BookingModalitySection selectedType="VIDEO_CALL" availableSessionTypes={['VIDEO_CALL']}
+      duration={60} onSessionTypeChange={onSessionTypeChange} />);
+    const option = screen.getByRole('radio');
+    expect(option.props.accessibilityState.checked).toBe(true);
+    fireEvent.press(option);
+    expect(onSessionTypeChange).not.toHaveBeenCalled();
+  });
+
   it('shows the public consultation address when in-person is selected', () => {
     render(
       <BookingModalitySection

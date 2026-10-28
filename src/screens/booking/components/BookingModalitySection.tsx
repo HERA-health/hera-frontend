@@ -1,8 +1,7 @@
-import { formatPrivatePrice } from '../../../utils/privateTariff';
 import { type PrivateServiceOption } from '../../../services/privateCatalogService';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import React, { useMemo } from 'react';
-import { StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
 import { AnimatedPressable } from '../../../components/common/AnimatedPressable';
 import { borderRadius, spacing } from '../../../constants/colors';
@@ -15,11 +14,11 @@ import type {
 import {
   BOOKING_SESSION_OPTIONS,
   formatOfficeLocation,
-  getQuotePresentation,
 } from './bookingPresentation';
 
 interface BookingModalitySectionProps {
   prices?: PrivateServiceOption[];
+  headingMinHeight?: number;
   selectedType: SessionType;
   availableSessionTypes: SessionType[];
   duration: number;
@@ -34,20 +33,15 @@ interface BookingModalitySectionProps {
 }
 
 export const BookingModalitySection: React.FC<BookingModalitySectionProps> = ({
-  prices = [],
   selectedType,
+  headingMinHeight = 24,
   availableSessionTypes,
-  duration,
   onSessionTypeChange,
-  bookingQuote = null,
-  quoteLoading = false,
   quoteError = null,
-  quoteIsEstimated = false,
   officeLocation,
   disabled = false,
   busy = false,
 }) => {
-  const { width } = useWindowDimensions();
   const { theme, isDark } = useTheme();
   const styles = useMemo(
     () => createStyles(theme, isDark),
@@ -57,41 +51,24 @@ export const BookingModalitySection: React.FC<BookingModalitySectionProps> = ({
     () => BOOKING_SESSION_OPTIONS.filter(({ type }) => availableSessionTypes.includes(type)),
     [availableSessionTypes],
   );
-  const quote = getQuotePresentation({
-    bookingQuote,
-    quoteLoading,
-    quoteError,
-    quoteIsEstimated,
-  });
   const formattedOfficeLocation = officeLocation
     ? formatOfficeLocation(officeLocation)
     : null;
   const showOfficeLocation = selectedType === 'IN_PERSON';
-  const isCompact = width < 520;
 
   return (
     <View
       accessibilityState={{ busy, disabled }}
       style={styles.section}
     >
-      <View style={[styles.headingRow, isCompact && { flexWrap: 'wrap' }]}>
+      <View style={[styles.headingRow, { minHeight: headingMinHeight }]}>
         <View style={styles.stepBadge}>
           <Text style={styles.stepBadgeText}>2</Text>
         </View>
-        <View style={[styles.headingCopy, isCompact && { flexBasis: '75%' }]}>
-          <Text style={styles.eyebrow}>MODALIDAD</Text>
-          <Text style={styles.title}>¿Cómo prefieres tener tu sesión?</Text>
+        <View style={styles.headingCopy}>
+          <Text accessibilityRole="header" aria-level={2} style={styles.title}>Modalidad de consulta</Text>
         </View>
-        <View style={[styles.metrics, isCompact && { flexBasis: '100%', paddingLeft: 44 }]}>
-          <View style={styles.metric}>
-            <Ionicons name="time-outline" size={15} color={theme.secondaryDark} />
-            <Text style={styles.metricText}>{duration} min</Text>
-          </View>
-          <View style={styles.metric}>
-            <Ionicons name="wallet-outline" size={15} color={theme.secondaryDark} />
-            <Text style={styles.metricText}>{quote.priceText}</Text>
-          </View>
-        </View>
+
       </View>
 
       {options.length > 0 ? (
@@ -103,12 +80,12 @@ export const BookingModalitySection: React.FC<BookingModalitySectionProps> = ({
         >
           {options.map((option) => {
             const selected = option.type === selectedType;
-            const modalityPrices = prices.filter(p => p.modality === option.type).map(p => p.priceCents);
 
             return (
               <AnimatedPressable
                 key={option.type}
-                onPress={() => onSessionTypeChange(option.type)}
+                onPress={() => { if (!selected) onSessionTypeChange(option.type); }}
+                hoverLift={false}
                 disabled={disabled || busy}
                 accessibilityRole="radio"
                 accessibilityLabel={`${option.label}. ${option.description}`}
@@ -118,7 +95,6 @@ export const BookingModalitySection: React.FC<BookingModalitySectionProps> = ({
                 }}
                 style={[
                   styles.option,
-                  isCompact ? styles.optionCompact : null,
                   disabled || busy ? styles.optionDisabled : null,
                   selected ? styles.optionSelected : null,
                 ]}
@@ -132,7 +108,7 @@ export const BookingModalitySection: React.FC<BookingModalitySectionProps> = ({
                   <Ionicons
                     name={option.icon}
                     size={19}
-                    color={selected ? theme.textOnPrimary : theme.primary}
+                    color={theme.primary}
                   />
                 </View>
                 <View style={styles.optionCopy}>
@@ -150,7 +126,7 @@ export const BookingModalitySection: React.FC<BookingModalitySectionProps> = ({
                       selected ? styles.optionDescriptionSelected : null,
                     ]}
                   >
-                    {modalityPrices.length ? (new Set(modalityPrices).size > 1 ? 'Desde ' : '') + formatPrivatePrice(Math.min(...modalityPrices)) : option.description}
+                    {option.description}
                   </Text>
                 </View>
                 <View
@@ -175,7 +151,7 @@ export const BookingModalitySection: React.FC<BookingModalitySectionProps> = ({
             color={theme.warningAmber}
           />
           <Text style={styles.unavailableText}>
-            Este profesional no tiene modalidades de reserva activas.
+            Selecciona un servicio para ver sus modalidades.
           </Text>
         </View>
       )}
@@ -233,23 +209,19 @@ const createStyles = (
 ) =>
   StyleSheet.create({
     section: {
-      gap: spacing.md,
-      paddingBottom: spacing.lg,
-      borderBottomWidth: 1,
-      borderBottomColor: theme.borderLight,
+      gap: 10,
     },
     headingRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: spacing.md,
-      flexWrap: 'wrap',
+      gap: 10,
     },
     stepBadge: {
-      width: 34,
-      height: 34,
+      width: 24,
+      height: 24,
       alignItems: 'center',
       justifyContent: 'center',
-      borderRadius: 17,
+      borderRadius: 13,
       backgroundColor: theme.primary,
     },
     stepBadgeText: {
@@ -258,85 +230,48 @@ const createStyles = (
       fontSize: 13,
     },
     headingCopy: {
-      flex: 1,
+      flexShrink: 1,
       minWidth: 0,
-      gap: 2,
-    },
-    eyebrow: {
-      color: theme.secondaryDark,
-      fontFamily: theme.fontSansSemiBold,
-      fontSize: 10,
-      letterSpacing: 1.15,
     },
     title: {
       color: theme.textPrimary,
-      fontFamily: theme.fontHeading,
-      fontSize: 21,
-      lineHeight: 27,
-    },
-    metrics: {
-      flexDirection: 'row',
-      gap: spacing.xs,
-      flexWrap: 'wrap',
-    },
-    metric: {
-      minHeight: 34,
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 6,
-      paddingHorizontal: spacing.sm,
-      borderWidth: 1,
-      borderColor: theme.border,
-      borderRadius: borderRadius.full,
-      backgroundColor: isDark ? theme.bgElevated : theme.surfaceMuted,
-    },
-    metricText: {
-      color: theme.textSecondary,
-      fontFamily: theme.fontSansMedium,
-      fontSize: 12,
+      fontFamily: theme.fontDisplay,
+      fontSize: 18,
+      lineHeight: 24,
     },
     options: {
-      flexDirection: 'row',
-      gap: spacing.sm,
-      flexWrap: 'wrap',
+      gap: 8,
     },
     option: {
       minWidth: 0,
-      minHeight: 72,
-      flex: 1,
-      flexBasis: 240,
-      flexShrink: 1,
+      minHeight: 54,
       flexDirection: 'row',
       alignItems: 'center',
-      gap: spacing.sm,
-      paddingHorizontal: spacing.md,
-      paddingVertical: spacing.sm,
+      gap: 10,
+      paddingHorizontal: 10,
+      paddingVertical: 8,
       borderWidth: 1,
-      borderColor: theme.textSecondary,
-      borderRadius: borderRadius.lg,
-      backgroundColor: isDark ? theme.bgElevated : theme.bgCard,
+      borderColor: theme.borderLight,
+      borderRadius: 12,
+      backgroundColor: theme.bgCard,
     },
     optionSelected: {
-      borderColor: theme.primary,
-      backgroundColor: theme.primary,
-    },
-    optionCompact: {
-      width: '100%',
-      flexBasis: '100%',
+      borderColor: theme.primaryAlpha20,
+      backgroundColor: theme.primaryMuted,
     },
     optionDisabled: {
       opacity: 0.72,
     },
     optionIcon: {
-      width: 40,
-      height: 40,
+      width: 32,
+      height: 32,
       alignItems: 'center',
       justifyContent: 'center',
-      borderRadius: 20,
+      borderRadius: 16,
       backgroundColor: theme.primaryAlpha12,
     },
     optionIconSelected: {
-      backgroundColor: theme.primaryLight,
+      backgroundColor: theme.primaryAlpha12,
     },
     optionCopy: {
       flex: 1,
@@ -345,20 +280,20 @@ const createStyles = (
     optionTitle: {
       color: theme.textPrimary,
       fontFamily: theme.fontSansSemiBold,
-      fontSize: 14,
+      fontSize: 13,
+      lineHeight: 18,
     },
     optionTitleSelected: {
-      color: theme.textOnPrimary,
+      color: theme.textPrimary,
     },
     optionDescription: {
       color: theme.textSecondary,
       fontFamily: theme.fontSans,
-      fontSize: 11,
-      lineHeight: 16,
+      fontSize: 12,
+      lineHeight: 17,
     },
     optionDescriptionSelected: {
-      color: theme.textOnPrimary,
-      opacity: 0.82,
+      color: theme.textSecondary,
     },
     radio: {
       width: 20,
@@ -370,13 +305,13 @@ const createStyles = (
       borderRadius: 10,
     },
     radioSelected: {
-      borderColor: theme.textOnPrimary,
+      borderColor: theme.primary,
     },
     radioDot: {
       width: 8,
       height: 8,
       borderRadius: 4,
-      backgroundColor: theme.textOnPrimary,
+      backgroundColor: theme.primary,
     },
     unavailable: {
       minHeight: 54,
@@ -395,6 +330,7 @@ const createStyles = (
       lineHeight: 18,
     },
     locationNotice: {
+      width: '100%',
       minHeight: 64,
       flexDirection: 'row',
       alignItems: 'center',
@@ -448,6 +384,7 @@ const createStyles = (
       lineHeight: 16,
     },
     quoteError: {
+      width: '100%',
       flexDirection: 'row',
       alignItems: 'center',
       gap: spacing.xs,

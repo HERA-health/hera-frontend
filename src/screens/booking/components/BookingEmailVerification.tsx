@@ -16,12 +16,12 @@ interface Props {
 export function BookingEmailVerification({ email, code, codeLength, busy, onChange, onRestart }: Props) {
   const { theme } = useTheme();
   const shortCode = codeLength === 6;
-  return <View testID="booking-email-verification" style={styles.container}>
+  return <View testID="booking-email-verification" style={[styles.container, { backgroundColor: theme.secondaryAlpha12, borderColor: theme.borderLight }]}>
     <View style={styles.heading}>
       <Ionicons name="mail-outline" size={21} color={theme.secondaryDark} />
-      <Text accessibilityRole="header" style={[styles.title, { color: theme.textPrimary, fontFamily: theme.fontSansSemiBold }]}>Un último paso</Text>
+      <Text accessibilityRole="header" aria-level={2} style={[styles.title, { color: theme.textPrimary, fontFamily: theme.fontDisplay }]}>Un último paso</Text>
     </View>
-    <Text style={[styles.copy, { color: theme.textSecondary }]}>Para comprobar que el correo es tuyo y enviarte los detalles de la cita, introduce el código enviado a <Text style={{ fontFamily: theme.fontSansSemiBold, color: theme.textPrimary }}>{email}</Text>.</Text>
+    <Text style={[styles.copy, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>Para comprobar que el correo es tuyo y enviarte los detalles de la cita, introduce el código enviado a <Text style={{ fontFamily: theme.fontSansSemiBold, color: theme.textPrimary }}>{email}</Text>.</Text>
     <Text style={[styles.label, { color: theme.textPrimary }]}>Código de {codeLength} {shortCode ? 'dígitos' : 'caracteres'}</Text>
     <TextInput
       accessibilityLabel="Código de verificación del correo"
@@ -39,9 +39,9 @@ export function BookingEmailVerification({ email, code, codeLength, busy, onChan
 }
 
 const styles = StyleSheet.create({
-  container: { gap: 10, width: '100%', marginBottom: 12 },
+  container: { gap: 10, width: '100%', marginBottom: 12, padding: 16, borderWidth: 1, borderRadius: 14 },
   heading: { flexDirection: 'row', gap: 8, alignItems: 'center' },
-  title: { fontSize: 18 },
+  title: { fontSize: 24, lineHeight: 30 },
   copy: { fontSize: 13, lineHeight: 20 },
   label: { fontSize: 13, marginTop: 4 },
   input: { width: '100%', minHeight: 54, borderWidth: 1, borderRadius: 12, paddingHorizontal: 14, fontSize: 26, letterSpacing: 7, textAlign: 'center' },
