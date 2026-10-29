@@ -5,6 +5,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Image,
   Platform,
+  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -23,6 +24,7 @@ import { useOptionalProfessionalTour } from '../onboarding/professionalTourConte
 import { TourTarget } from '../onboarding/TourTarget';
 import { ProfessionalQuickSearch } from './ProfessionalQuickSearch';
 import { NavigationControl } from './NavigationControl';
+import { LegalNoticeItem } from '../legal/LegalNoticeItem';
 
 const ROUTE_TITLES: Record<string, { title: string; eyebrow?: string }> = {
   ProfessionalHome: { title: 'Inicio' },
@@ -56,7 +58,7 @@ export function ProfessionalTopBar({
   currentRoute,
   onOpenMobileSidebar,
 }: ProfessionalTopBarProps): React.ReactElement {
-  const { width } = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
   const isDesktop = width >= 1040;
   const isCompact = !isDesktop;
   const isBilling = currentRoute === 'ProfessionalBilling';
@@ -79,6 +81,7 @@ export function ProfessionalTopBar({
     unreadSupport,
     supportStatus,
     refreshAttention,
+    legalNotices,
   } = useProfessionalWorkspace();
   const tour = useOptionalProfessionalTour();
   const [openMenu, setOpenMenu] = useState<OpenMenu>(null);
@@ -110,10 +113,12 @@ export function ProfessionalTopBar({
     };
   }, [openMenu]);
 
+  const sentLegalNotices = legalNotices?.items.filter(notice => notice.notifiedAt && notice.kind !== 'EDITORIAL') ?? [];
   const attentionCount = (homeData?.pendingRequests.total ?? 0)
     + (homeData?.draftInvoices ?? 0)
     + actionableProfileItems.length
-    + unreadSupport;
+    + unreadSupport
+    + sentLegalNotices.length;
   const attentionSourcesReady = homeStatus === 'ready'
     && supportStatus === 'ready'
     && profileStatus === 'ready'
@@ -301,35 +306,40 @@ export function ProfessionalTopBar({
           />
           {openMenu === 'attention' ? (
             <Popover align="right" width={340} trailingControls={1}>
-              <PopoverHeading
-                title="Centro de atención"
-                subtitle={attentionCount > 0
-                  ? `${attentionCount} elementos pendientes`
-                  : attentionSourcesReady
-                    ? 'Todo al día'
-                    : attentionHasRefreshError
-                      ? 'No se pudo actualizar'
-                      : 'Comprobando pendientes'}
-              />
-              {!attentionSourcesReady ? (
-                <WorkspaceStatusNotice
-                  failed={attentionHasRefreshError}
-                  onRetry={() => { void Promise.all([refreshAttention(), refreshProfile()]); }}
+              <ScrollView style={{ maxHeight: Math.max(0, height - 144) }}>
+                <PopoverHeading
+                  title="Centro de atención"
+                  subtitle={attentionCount > 0
+                    ? attentionCount === 1 ? '1 elemento pendiente' : `${attentionCount} elementos pendientes`
+                    : attentionSourcesReady
+                      ? 'Todo al día'
+                      : attentionHasRefreshError
+                        ? 'No se pudo actualizar'
+                        : 'Comprobando pendientes'}
                 />
-              ) : null}
-              {attentionCount === 0 && attentionSourcesReady ? <AllClear automation={homeData?.automation ?? null} /> : null}
-              {(homeData?.pendingRequests.total ?? 0) > 0 ? (
-                <MenuRow icon="calendar-outline" title={`${homeData?.pendingRequests.total} solicitudes de cita`} subtitle="Revisar en Agenda" onPress={() => { trackAttentionAction('session_requests'); navigateSimple('ProfessionalSessions'); }} tone="warning" />
-              ) : null}
-              {(homeData?.draftInvoices ?? 0) > 0 ? (
-                <MenuRow icon="document-text-outline" title={`${homeData?.draftInvoices} facturas por revisar o enviar`} subtitle="Continuar en Facturación" onPress={() => { trackAttentionAction('draft_invoices'); navigateSimple('ProfessionalBilling'); }} />
-              ) : null}
-              {actionableProfileItems.length > 0 ? (
-                <MenuRow icon="shield-checkmark-outline" title={`${actionableProfileItems.length} pasos de activación`} subtitle="Completar perfil profesional" onPress={() => { trackAttentionAction('profile'); navigateSimple('ProfessionalProfile'); }} tone="warning" />
-              ) : null}
-              {unreadSupport > 0 ? (
-                <MenuRow icon="chatbubble-ellipses-outline" title={unreadSupport === 1 ? '1 respuesta nueva de soporte' : `${unreadSupport} respuestas nuevas de soporte`} onPress={() => { trackAttentionAction('support'); navigateProfessionalSection(navigation, 'ProfessionalHelp', { section: 'help' }); closeAfterNavigation(); }} />
-              ) : null}
+                {!attentionSourcesReady ? (
+                  <WorkspaceStatusNotice
+                    failed={attentionHasRefreshError}
+                    onRetry={() => { void Promise.all([refreshAttention(), refreshProfile()]); }}
+                  />
+                ) : null}
+                {attentionCount === 0 && attentionSourcesReady ? <AllClear automation={homeData?.automation ?? null} /> : null}
+                {(homeData?.pendingRequests.total ?? 0) > 0 ? (
+                  <MenuRow icon="calendar-outline" title={`${homeData?.pendingRequests.total} solicitudes de cita`} subtitle="Revisar en Agenda" onPress={() => { trackAttentionAction('session_requests'); navigateSimple('ProfessionalSessions'); }} tone="warning" />
+                ) : null}
+                {(homeData?.draftInvoices ?? 0) > 0 ? (
+                  <MenuRow icon="document-text-outline" title={`${homeData?.draftInvoices} facturas por revisar o enviar`} subtitle="Continuar en Facturación" onPress={() => { trackAttentionAction('draft_invoices'); navigateSimple('ProfessionalBilling'); }} />
+                ) : null}
+                {actionableProfileItems.length > 0 ? (
+                  <MenuRow icon="shield-checkmark-outline" title={`${actionableProfileItems.length} pasos de activación`} subtitle="Completar perfil profesional" onPress={() => { trackAttentionAction('profile'); navigateSimple('ProfessionalProfile'); }} tone="warning" />
+                ) : null}
+                {unreadSupport > 0 ? (
+                  <MenuRow icon="chatbubble-ellipses-outline" title={unreadSupport === 1 ? '1 respuesta nueva de soporte' : `${unreadSupport} respuestas nuevas de soporte`} onPress={() => { trackAttentionAction('support'); navigateProfessionalSection(navigation, 'ProfessionalHelp', { section: 'help' }); closeAfterNavigation(); }} />
+                ) : null}
+                {legalNotices ? sentLegalNotices.map(notice => (
+                  <LegalNoticeItem key={notice.id} notice={notice} onDismissed={legalNotices.onDismissed} onDocumentOpened={closeAfterNavigation} />
+                )) : null}
+              </ScrollView>
             </Popover>
           ) : null}
         </View>

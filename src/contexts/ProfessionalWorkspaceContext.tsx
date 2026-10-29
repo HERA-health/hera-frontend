@@ -11,6 +11,7 @@ import React, {
 } from 'react';
 import { AppState, Platform, type AppStateStatus } from 'react-native';
 import { useAuth } from './AuthContext';
+import type { LegalNotice } from '../services/legalService';
 import {
   dashboardService,
   subscribeProfessionalHomeChanges,
@@ -23,12 +24,18 @@ import {
 
 export type ProfessionalWorkspaceResourceStatus = 'loading' | 'ready' | 'stale' | 'error';
 
+interface WorkspaceLegalNotices {
+  items: LegalNotice[];
+  onDismissed: (id: string) => void;
+}
+
 const HOME_ROUTE = 'ProfessionalHome';
 const ACTIVE_REFRESH_MS = 60_000;
 const RESUME_FRESHNESS_MS = 30_000;
 const ATTENTION_FRESHNESS_MS = 15_000;
 
 interface ProfessionalWorkspaceContextValue {
+  legalNotices?: WorkspaceLegalNotices;
   homeData: ProfessionalHomeData | null;
   homeStatus: ProfessionalWorkspaceResourceStatus;
   homeError: string | null;
@@ -47,6 +54,7 @@ const ProfessionalWorkspaceContext = createContext<ProfessionalWorkspaceContextV
 interface ProfessionalWorkspaceProviderProps {
   children: ReactNode;
   currentRoute: string;
+  legalNotices?: WorkspaceLegalNotices;
 }
 
 const isWebDocumentVisible = (): boolean => (
@@ -59,6 +67,7 @@ const isWebDocumentVisible = (): boolean => (
 export function ProfessionalWorkspaceProvider({
   children,
   currentRoute,
+  legalNotices,
 }: ProfessionalWorkspaceProviderProps): React.ReactElement {
   const { user } = useAuth();
   const initialHome = dashboardService.getCachedProfessionalHome();
@@ -262,6 +271,7 @@ export function ProfessionalWorkspaceProvider({
   return (
     <ProfessionalWorkspaceContext.Provider
       value={{
+        legalNotices,
         homeData,
         homeStatus,
         homeError,

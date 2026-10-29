@@ -1,4 +1,3 @@
-import { LegalNoticeBanner } from '../components/legal/LegalNoticeBanner';
 import { SESSION_PAYMENTS_VISIBLE } from '../config/sessionPayments';
 import { subscribeLegalUpdate } from '../services/legalEvents';
 import { hasPendingClinicalPinReset, subscribeClinicalPinReset } from '../services/clinicalPinResetIntent';
@@ -948,9 +947,12 @@ export function RootNavigator() {
     return (
       <Stack.Navigator
         layout={({ children, state }) => (
-          <ProfessionalWorkspaceProvider key={user?.id} currentRoute={professionalRoute}>
+          <ProfessionalWorkspaceProvider key={user?.id} currentRoute={professionalRoute}
+            legalNotices={{
+              items: legalStatus?.notices ?? [],
+              onDismissed: id => setLegalStatus(current => current ? { ...current, notices: current.notices?.filter(notice => notice.id !== id) } : current),
+            }}>
             <ProfessionalClinicWorkspaceProvider>
-              <LegalNoticeBanner notices={legalStatus?.notices ?? []} onDismissed={id => setLegalStatus(current => current ? { ...current, notices: current.notices?.filter(n => n.id !== id) } : current)} />
               {children}
             </ProfessionalClinicWorkspaceProvider>
           </ProfessionalWorkspaceProvider>
