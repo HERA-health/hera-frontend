@@ -67,7 +67,7 @@ export function RegisterScreen() {
   const [localError, setLocalError] = useState('');
   const [legalDocuments, setLegalDocuments] = useState<LegalDocumentContent[]>([]);
   const [legalRevision, setLegalRevision] = useState(0);
-  useEffect(() => { let active = true; setTermsAccepted(false); setLegalDocuments([]); getLegalCatalog().then(docs => { if (active) setLegalDocuments(docs); }).catch(() => { if (active) setLocalError('No se pudieron cargar las condiciones. Reintenta.'); }); return () => { active = false; }; }, [legalRevision]);
+  useEffect(() => { let active = true; setTermsAccepted(false); setLegalDocuments([]); getLegalCatalog(mapFrontendUserTypeToBackend(userType)).then(docs => { if (active) setLegalDocuments(docs); }).catch(() => { if (active) setLocalError('No se pudieron cargar las condiciones. Reintenta.'); }); return () => { active = false; }; }, [legalRevision, userType]);
   const currentProofs = (keys: ReturnType<typeof getRequiredRegistrationDocumentKeys>) => keys.map(documentKey => { const doc = legalDocuments.find(item => item.key === documentKey); if (!doc) throw new Error('Espera a que se carguen los documentos.'); return { documentKey, version: doc.version, contentHash: doc.contentHash }; });
 
   useEffect(() => {
@@ -452,7 +452,7 @@ export function RegisterScreen() {
               </Text>
               {userType === 'professional' ? (
                 <>
-                  {' '}y las{' '}
+                  {' (incluidas las condiciones de comisiones del Directorio) y las '}
                   <Text style={[styles.inlineLink, { color: theme.primary }]} onPress={openProfessionalTerms}>
                     condiciones profesionales
                   </Text>

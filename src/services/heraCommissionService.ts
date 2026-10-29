@@ -1,3 +1,4 @@
+import type { AgreementState } from './commissionAgreementStatus';
 import api from './api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Crypto from 'expo-crypto';
@@ -9,9 +10,9 @@ export interface Page<T> { items: T[]; hasMore: boolean }
 export type Mode = 'LIVE' | 'SIMULATION';
 export type Origin = 'HERA_DIRECTORY' | 'SPECIALIST_OWN' | 'SPECIALIST_INVITED' | 'PROFESSIONAL_REFERRAL' | 'COLLABORATION' | 'UNKNOWN';
 export interface Terms { accrualPolicy?: "COLLECTION_V1" | "COMPLETION_V1"; id: string; operatorKey: string; mode: Mode; contractText: string; fiscalTreatment: string; operatorName: string; operatorTaxId: string; operatorAddress: string; beneficiary: string; iban: string; paymentInstructions?: string | null; effectiveAt: string }
-export interface Acceptance { id: string; termsId: string; acceptedAt: string; terminatedAt: string | null; terms: Terms }
+export interface Acceptance { legalAcceptedAt?: string | null; economicCoverageStartsAt?: string; id: string; termsId: string; acceptedAt: string; terminatedAt: string | null; terms: Terms }
 export interface Balance { payableCents?: number; appliedCents?: number; paymentPendingCents?: number; unbilledCents?: number; id: string; specialistId: string; specialistName: string; operatorKey: string; mode: Mode; revision: number; estimatedCents: number; accruedCents: number; undocumentedCents: number; documentedCents: number; pendingCents: number; overdueCents: number; receivedCents: number; creditCents: number; issueCount: number }
-export interface Configuration { mode: Mode | 'OFF'; scale: number[]; terms: Terms | null; canAccept: boolean; accounts: Array<{ id: string; mode: Mode; operatorKey: string; acceptances: Acceptance[] }> }
+export interface Configuration extends AgreementState { mode: Mode | 'OFF'; scale: number[]; terms: Terms | null; canAccept: boolean; accounts: Array<{ id: string; mode: Mode; operatorKey: string; acceptances: Acceptance[] }> }
 export interface Period { id: string; month: string; revision: number; status: 'OPEN' | 'PREPARED' | 'CLOSED'; baseCents: number; closedAt: string | null }
 export interface Entry { id: string; baseCents: number; economicAt: string; recognizedAt: string; reason: string; documentLine: { documentId: string } | null; snapshot: { sessionId: string; sessionDate?: string; position: number | null; rateBps: number | null } }
 export interface Document { id: string; rootId: string; originalId: string | null; invoiceNumber: string; storageStatus: 'PENDING' | 'FAILED' | 'READY'; kind: 'ORDINARY' | 'DIFFERENCE' | 'REPLACEMENT'; baseCents: number; taxCents: number; withholdingCents: number; totalCents: number; fileName: string; issuedAt?: string; actorId?: string }
@@ -131,10 +132,12 @@ export interface DecisionPreview { recognized?: CorrectionFacts; proposal?: Corr
  patientReference: string; sessionDate: string; position: number | null; baseCents: number | null; rateBps: number;
  commissionCents: number; reason: string; periodEffect: string; rectificationRequired: boolean; message: string;
 }
-export interface AdminMonthRow { verificationStatus?: string; specialistId: string; specialistName: string; contact: string; accountId: string | null; accepted: boolean; summary: MonthSummary | null }
-export interface AdminMonthFilter { month: string; mode: Mode; operatorKey: string; page: number; search?: string; specialistId?: string; missingAcceptance?: boolean }
+export interface AdminMonthRow extends AgreementState { verificationStatus?: string; specialistId: string; specialistName: string; contact: string; accountId: string | null; accepted: boolean; summary: MonthSummary | null }
+export interface AdminMonthFilter { acceptanceStatus?: AgreementState['acceptanceStatus']; eligibilityStatus?: AgreementState['eligibilityStatus']; month: string; mode: Mode; operatorKey: string; page: number; search?: string; specialistId?: string; missingAcceptance?: boolean }
 export const month = async (id: string, admin: boolean, month: string) => (await api.get<MonthSummary>(`${path(id,admin)}/months/${month}`)).data;
 export const statement = async (id: string, admin: boolean, month: string) => (await api.get<ArrayBuffer>(`${path(id,admin)}/months/${month}/pdf`,{responseType:'arraybuffer'})).data;
 export const decisionPreview = async (id: string, issueId: string) => (await api.get<DecisionPreview>(`${path(id,true)}/issues/${encodeURIComponent(issueId)}/preview`)).data;
 export const adminMonth = async (params: AdminMonthFilter) => (await api.get<{items:AdminMonthRow[];hasMore:boolean;month:string;totals:{specialistCount:number;countedSessions:number;netCents:number}}>(`${root}/admin/months`,{params})).data;
 export const exportMonth = async (params: AdminMonthFilter) => (await api.get<ArrayBuffer>(`${root}/admin/months/export`,{params,responseType:'arraybuffer'})).data;
+
+export { agreementLabel, type AgreementState } from './commissionAgreementStatus';

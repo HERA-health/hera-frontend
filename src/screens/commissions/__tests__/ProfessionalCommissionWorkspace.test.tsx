@@ -7,7 +7,7 @@ import * as service from '../../../services/heraCommissionService';
 
 let mockFocused = true;
 jest.mock('@react-navigation/native', () => ({ useNavigation: () => ({ navigate: jest.fn() }), useFocusEffect: (effect: React.EffectCallback) => require('react').useEffect(() => mockFocused ? effect() : undefined, [effect, mockFocused]) }));
-jest.mock('../../../services/heraCommissionService', () => ({ cachedConfiguration: jest.fn(), configuration: jest.fn(), detail: jest.fn(), sessions: jest.fn(), accept: jest.fn(), decide: jest.fn(), period: jest.fn(), fiscal: jest.fn(), download: jest.fn(), month: jest.fn(), statement: jest.fn(), decisionPreview: jest.fn() }));
+jest.mock('../../../services/heraCommissionService', () => ({ agreementLabel: jest.requireActual('../../../services/commissionAgreementStatus').agreementLabel, cachedConfiguration: jest.fn(), configuration: jest.fn(), detail: jest.fn(), sessions: jest.fn(), accept: jest.fn(), decide: jest.fn(), period: jest.fn(), fiscal: jest.fn(), download: jest.fn(), month: jest.fn(), statement: jest.fn(), decisionPreview: jest.fn() }));
 jest.mock('../../../services/professionalService', () => ({ getProfessionalSessionDetail: jest.fn() }));
 const terms: service.Terms = { id: 'terms', operatorKey: 'operator', operatorName: 'Titular de prueba', mode: 'LIVE', contractText: 'Acuerdo completo de prueba', fiscalTreatment: 'Texto fiscal de prueba', operatorTaxId: '', operatorAddress: '', beneficiary: '', iban: '', effectiveAt: '2026-01-01' };
 const acceptance: service.Acceptance = { id: 'acceptance', termsId: terms.id, terms, acceptedAt: '2026-01-01', terminatedAt: null };
@@ -59,6 +59,15 @@ it('selects the current real operator, keeps simulation separate and requires se
  expect(initialCommissionAccount({ ...config, accounts: [other, simulation, account] })).toBe('account');
  expect(initialCommissionAccount({ ...config, terms: null, accounts: [other, account] })).toBeUndefined();
  expect(initialCommissionAccount({ ...config, accounts: [simulation, account] })).toBe('account');
+});
+
+it('a real linkage incident explains the accepted contract and never asks for a second commission checkbox', async () => {
+ jest.mocked(service.configuration).mockResolvedValue({ ...config, accounts: [], canAccept: true, acceptanceStatus: 'LINKAGE_REQUIRED', eligibilityStatus: 'PENDING_ELIGIBILITY' });
+ const view = render(<ProfessionalCommissionWorkspace onOpen={jest.fn()} onBack={jest.fn()} />);
+ await view.findAllByText('Condiciones aceptadas. Vinculación económica pendiente de revisión');
+ expect(view.queryByText('He leído y acepto esta versión de las condiciones y su tratamiento fiscal')).toBeNull();
+ expect(view.queryByText('Aceptar condiciones')).toBeNull();
+ expect(service.accept).not.toHaveBeenCalled();
 });
 
 

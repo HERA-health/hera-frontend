@@ -2,7 +2,7 @@ import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useTheme } from '../../contexts/ThemeContext';
-import type { adminMonth } from '../../services/heraCommissionService';
+import { agreementLabel, type adminMonth } from '../../services/heraCommissionService';
 import { Button, money } from './CommissionElements';
 
 type Row = Awaited<ReturnType<typeof adminMonth>>['items'][number];
@@ -35,7 +35,7 @@ export function AdminCommissionTable({ rows, width, onOpen }: {
       const summary = row.summary;
       const notices = [
         ...(row.verificationStatus && row.verificationStatus !== 'VERIFIED' ? ['Verificación pendiente · Historial disponible'] : []),
-        ...(!row.accepted ? ['Condiciones pendientes de aceptación'] : []),
+        ...(row.acceptanceStatus ? [agreementLabel(row)] : !row.accepted ? ['Condiciones pendientes de aceptación'] : []),
         ...(summary?.unknownSessions ? [`${summary.unknownSessions} sesiones por calcular`] : []),
         ...(summary?.issues.some(issue => issue.status === 'OPEN') ? ['Solicitudes pendientes'] : []),
       ];

@@ -1,0 +1,33 @@
+import React from 'react';
+import { fireEvent, render, waitFor } from '@testing-library/react-native';
+import { LegalNoticeBanner } from '../LegalNoticeBanner';
+import { dismissLegalNotice, type LegalNotice } from '../../../services/legalService';
+const mockNavigate = jest.fn();
+jest.mock('@react-navigation/native', () => ({ useNavigation: () => ({ navigate: mockNavigate }) }));
+jest.mock('../../../services/legalService', () => ({ dismissLegalNotice: jest.fn() }));
+jest.mock('../../../contexts/ThemeContext', () => ({ useTheme: () => ({ theme: require('../../../constants/theme').lightTheme }) }));
+const notice: LegalNotice = { id: 'own-notice', documentKey: 'PRIVACY_POLICY', version: 'next', title: 'Privacidad', summary: 'Información sobre proveedores', kind: 'PRIVACY_INFORMATION', requiresExplicitAcceptance: false, notifiedAt: null, appliesAt: null };
+beforeEach(() => jest.clearAllMocks());
+test('opens the announced version and persists dismissal without accepting a document', async () => {
+  jest.mocked(dismissLegalNotice).mockResolvedValue();
+  const onDismissed = jest.fn();
+  const view = render(<LegalNoticeBanner notices={[notice]} onDismissed={onDismissed} />);
+  expect(view.getByText('Esta actualización no requiere una nueva aceptación.')).toBeTruthy();
+  fireEvent.press(view.getByText('Leer documento'));
+  expect(mockNavigate).toHaveBeenCalledWith('LegalDocument', { documentKey: 'PRIVACY_POLICY', version: 'next' });
+  fireEvent.press(view.getByText('Cerrar aviso'));
+  await waitFor(() => expect(onDismissed).toHaveBeenCalledWith('own-notice'));
+  expect(dismissLegalNotice).toHaveBeenCalledWith('own-notice');
+  view.rerender(<LegalNoticeBanner notices={[]} onDismissed={onDismissed} />);
+  expect(view.queryByText('Cerrar aviso')).toBeNull();
+});
+test('a failed dismissal keeps the notice and can be retried', async () => {
+  jest.mocked(dismissLegalNotice).mockRejectedValueOnce(new Error('offline')).mockResolvedValueOnce();
+  const onDismissed = jest.fn();
+  const view = render(<LegalNoticeBanner notices={[{ ...notice, kind: 'EXPLICIT', requiresExplicitAcceptance: true }]} onDismissed={onDismissed} />);
+  fireEvent.press(view.getByText('Cerrar aviso'));
+  await view.findByText('No se pudo cerrar el aviso. Puedes reintentar.');
+  expect(onDismissed).not.toHaveBeenCalled();
+  fireEvent.press(view.getByText('Cerrar aviso'));
+  await waitFor(() => expect(onDismissed).toHaveBeenCalledTimes(1));
+});

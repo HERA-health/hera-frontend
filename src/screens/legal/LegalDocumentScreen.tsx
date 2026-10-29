@@ -1,3 +1,4 @@
+import { useAuth } from '../../contexts/AuthContext';
 import React, { useEffect, useState } from 'react';
 import { getLegalCatalog, getLegalDocument } from '../../services/legalService';
 import { Button } from '../../components/common/Button';
@@ -16,21 +17,24 @@ export function LegalDocumentScreen() {
   const navigation = useNavigation<AppNavigationProp>();
   const route = useRoute<LegalDocumentRoute>();
   const { theme, isDark } = useTheme();
+  const { user } = useAuth();
+  const audience = user?.type === 'professional' ? 'PROFESSIONAL' : user?.type === 'clinic' ? 'CLINIC' : 'CLIENT';
   const [document, setDocument] = useState(LEGAL_DOCUMENTS[route.params.documentKey]);
+  const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [retry, setRetry] = useState(0);
   const version = route.params.version;
   useEffect(() => {
     let active = true;
-    setLoadError(false);
-    const request = version ? getLegalDocument(route.params.documentKey, version) : getLegalCatalog().then(docs => {
+    setLoadError(false); setLoading(true);
+    const request = version ? getLegalDocument(route.params.documentKey, version) : getLegalCatalog(audience).then(docs => {
       const doc = docs.find(item => item.key === route.params.documentKey);
       if (!doc) throw new Error('Documento no disponible');
       return doc;
     });
-    request.then(doc => { if (active) setDocument(doc); }).catch(() => { if (active) setLoadError(true); });
+    request.then(doc => { if (active) { setDocument(doc); setLoading(false); } }).catch(() => { if (active) { setLoadError(true); setLoading(false); } });
     return () => { active = false; };
-  }, [route.params.documentKey, version, retry]);
+  }, [route.params.documentKey, version, retry, audience]);
 
   const goBack = () => {
     if (navigation.canGoBack()) {
@@ -41,7 +45,7 @@ export function LegalDocumentScreen() {
     navigation.navigate('Landing');
   };
 
-  if ((version && document.version !== version) || document.key !== route.params.documentKey || loadError) return <View style={{ padding: 24 }}><Text>{loadError ? 'No se pudo cargar esta versión.' : 'Cargando documento…'}</Text><Button onPress={() => setRetry(v => v + 1)}>Reintentar</Button><Button onPress={goBack}>Volver</Button></View>;
+  if (loading || (version && document.version !== version) || document.key !== route.params.documentKey || loadError) return <View style={{ padding: 24 }}><Text>{loadError ? 'No se pudo cargar esta versión.' : 'Cargando documento…'}</Text><Button onPress={() => setRetry(v => v + 1)}>Reintentar</Button><Button onPress={goBack}>Volver</Button></View>;
 
   return (
     <ScrollView
