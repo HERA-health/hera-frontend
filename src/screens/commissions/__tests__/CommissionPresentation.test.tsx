@@ -15,14 +15,17 @@ jest.mock('@react-navigation/native', () => ({
 jest.mock('../../../services/heraCommissionService', () => ({ patient: jest.fn(), invitation: jest.fn() }));
 beforeEach(() => jest.clearAllMocks());
 
-it('keeps the example folded and explicitly distinguishes it from real balances', () => {
+it('keeps the explanation folded and shows only commission percentages without price examples', () => {
   const view = render(<CommissionExplanation />);
-  expect(view.queryByText('16 €')).toBeNull();
+  expect(view.queryByText('20%')).toBeNull();
   expect(view.getByRole('button', { name: 'Cómo se calculan las comisiones' })).toHaveAccessibilityState({ expanded: false });
   fireEvent.press(view.getByRole('button', { name: 'Cómo se calculan las comisiones' }));
-  expect(view.getByText(/No es tu tarifa ni un importe que tengas que pagar/)).toBeTruthy();
-  expect(view.getByText('Ejemplo: base de 80 €')).toBeTruthy();
-  for (const value of ['20%', '10%', '5%', '16 €', '8 €', '4 €']) expect(view.getByText(value)).toBeTruthy();
+  for (const value of ['20%', '10%', '5%']) expect(view.getByText(value)).toBeTruthy();
+  expect(view.queryByText(/€/)).toBeNull();
+  expect(view.queryByText(/ejemplo/i)).toBeNull();
+  for (const [session, rate] of [['1.ª sesión', '20%'], ['2.ª y 3.ª', '10%'], ['4.ª y siguientes', '5%']]) {
+    expect(view.getByLabelText(`${session}: comisión del ${rate}.`)).toBeTruthy();
+  }
   expect(view.getByText('Pacientes propios: sin comisión HERA')).toBeTruthy();
   expect(view.queryByText(/Las gratuitas, canceladas/)).toBeNull();
   fireEvent.press(view.getByRole('button', { name: 'Qué cuenta y qué queda fuera' }));
@@ -30,7 +33,7 @@ it('keeps the example folded and explicitly distinguishes it from real balances'
   fireEvent.press(view.getByRole('button', { name: 'Ocultar detalles del cálculo' }));
   expect(view.queryByText(/Las gratuitas, canceladas/)).toBeNull();
   fireEvent.press(view.getByRole('button', { name: 'Cómo se calculan las comisiones' }));
-  expect(view.queryByText('16 €')).toBeNull();
+  expect(view.queryByText('20%')).toBeNull();
 });
 
 it('names the compact information button and opens the commission screen', () => {

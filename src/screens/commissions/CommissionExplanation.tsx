@@ -6,9 +6,9 @@ import type { Terms } from '../../services/heraCommissionService';
 import { Button, CommissionDisclosure, WorkflowHint } from './CommissionElements';
 
 const tiers = [
-  { session: '1.ª sesión', rate: '20%', example: '16 €' },
-  { session: '2.ª y 3.ª', rate: '10%', example: '8 €' },
-  { session: '4.ª y siguientes', rate: '5%', example: '4 €' },
+  { session: '1.ª sesión', rate: '20%' },
+  { session: '2.ª y 3.ª', rate: '10%' },
+  { session: '4.ª y siguientes', rate: '5%' },
 ];
 
 export function CommissionExplanation({ terms, simulation, initiallyOpen = false }: { terms?: Terms | null; simulation?: boolean; initiallyOpen?: boolean }) {
@@ -30,19 +30,17 @@ export function CommissionExplanation({ terms, simulation, initiallyOpen = false
       </View>
     </View>
 
-    {simulation ? <Text style={label}>SIMULACIÓN · Estos importes no generan deuda.</Text> : null}
+    {simulation ? <Text style={label}>SIMULACIÓN · Las comisiones simuladas no generan deuda.</Text> : null}
 
-    <WorkflowHint>Ejemplo orientativo con una sesión de 80 € de base. No es tu tarifa ni un importe que tengas que pagar. {completed?'La comisión se calcula sobre la base completa de la sesión realizada, con independencia del cobro.':'Tu comisión se calcula con el precio y los cobros reales de cada sesión, según tu acuerdo anterior.'}</WorkflowHint>
+    <WorkflowHint>{completed?'La comisión se calcula sobre la base completa de la sesión realizada, con independencia del cobro.':'Tu comisión se calcula con el precio y los cobros reales de cada sesión, según tu acuerdo anterior.'}</WorkflowHint>
     <View style={[styles.table, { borderColor: theme.border }]}>
       <View style={[styles.row, { backgroundColor: theme.bg }]}>
         <Text style={[label, styles.session]}>Sesión con el mismo paciente</Text>
         <Text style={[label, styles.rate]}>Comisión</Text>
-        <Text style={[label, styles.example]}>Ejemplo: base de 80 €</Text>
       </View>
-      {tiers.map(tier => <View key={tier.session} accessible accessibilityLabel={`${tier.session}: comisión del ${tier.rate}. Ejemplo con 80 euros de base: ${tier.example} de comisión antes de impuestos; no es tu saldo.`} style={[styles.row, { borderTopWidth: 1, borderTopColor: theme.border }]}>
+      {tiers.map(tier => <View key={tier.session} accessible accessibilityLabel={`${tier.session}: comisión del ${tier.rate}.`} style={[styles.row, { borderTopWidth: 1, borderTopColor: theme.border }]}>
         <Text style={[body, styles.session]}>{tier.session}</Text>
         <View style={styles.rate}><Text style={{ color: theme.textPrimary, fontFamily: theme.fontHeading, fontSize: 25, lineHeight: 32 }}>{tier.rate}</Text></View>
-        <Text style={[body, styles.example, { fontFamily: theme.fontSansSemiBold, fontSize: 17 }]}>{tier.example}</Text>
       </View>)}
     </View>
 
@@ -54,7 +52,7 @@ export function CommissionExplanation({ terms, simulation, initiallyOpen = false
       </View>
     </View>
 
-    <WorkflowHint>La base es el precio después de descuentos y sin impuestos. Los importes de la tabla no incluyen los impuestos ni las retenciones de HERA.</WorkflowHint>
+    <WorkflowHint>La base es el precio después de descuentos y sin impuestos. La comisión no incluye los impuestos ni las retenciones de HERA.</WorkflowHint>
     {terms ? <WorkflowHint>Fiscalidad de HERA: {terms.fiscalTreatment}</WorkflowHint> : null}
 
     <Button variant="outline" size="small" style={{ alignSelf: 'flex-start' }} accessibilityState={{ expanded: details }} icon={<Ionicons name={details ? 'chevron-up' : 'chevron-down'} size={15} color={theme.textSecondary} />} iconPosition="right" onPress={() => setDetails(v => !v)}>{details ? 'Ocultar detalles del cálculo' : 'Qué cuenta y qué queda fuera'}</Button>
@@ -75,7 +73,6 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 13, gap: 8 },
   session: { flex: 1.5, minWidth: 0 },
   rate: { flex: 1, minWidth: 0, textAlign: 'center', alignItems: 'center' },
-  example: { flex: 1, minWidth: 0, textAlign: 'right' },
   rule: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, padding: 13, borderRadius: 10 },
   details: { borderTopWidth: 1, paddingTop: 14, gap: 10 },
 });
