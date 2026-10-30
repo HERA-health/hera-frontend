@@ -151,33 +151,35 @@ describe('PublicSpecialistsScreen', () => {
     mockedUseRoute.mockReturnValue({ params: undefined } as ReturnType<typeof useRoute>);
   });
 
-  it('applies experience and age separately, waits for Apply and resets drafts with filters', async () => {
-    mockedDirectory.mockResolvedValue({items: [specialist], total: 1, page: 1, pageSize: 12, hasMore: false});
+  it.each([1536, 390])('omits age and experience filters at width %i and keeps specialists with missing experience visible', async width => {
+    act(() => ReactNative.Dimensions.set({ window: { width, height: 864, scale: 1, fontScale: 1 } }));
+    mockedDirectory.mockResolvedValue({ items: [{ ...specialist, yearsInPractice: null }], total: 1, page: 1, pageSize: 12, hasMore: false });
     render(<PublicSpecialistsScreen />);
     await screen.findByText(specialist.name);
-    fireEvent.press(screen.getByLabelText('Experiencia mínima'));
-    fireEvent.press(screen.getByText('Al menos 5 años'));
-    await waitFor(() => expect(mockedDirectory).toHaveBeenLastCalledWith(expect.objectContaining({minExperienceYears: 5, page: 1})));
-    const calls = mockedDirectory.mock.calls.length;
-    fireEvent.changeText(screen.getByLabelText('Edad mínima'), '55');
-    fireEvent.changeText(screen.getByLabelText('Edad máxima'), '35');
-    expect(mockedDirectory).toHaveBeenCalledTimes(calls);
-    fireEvent.press(screen.getByLabelText('Aplicar filtro de edad'));
-    expect(screen.getByText('La edad máxima debe ser igual o mayor que la mínima.')).toBeTruthy();
-    expect(mockedDirectory).toHaveBeenCalledTimes(calls);
-    fireEvent.changeText(screen.getByLabelText('Edad mínima'), '35');
-    fireEvent.changeText(screen.getByLabelText('Edad máxima'), '55');
-    fireEvent.press(screen.getByLabelText('Aplicar filtro de edad'));
-    await waitFor(() => expect(mockedDirectory).toHaveBeenLastCalledWith(expect.objectContaining({minExperienceYears: 5, minAge: 35, maxAge: 55, page: 1})));
-    fireEvent.press(screen.getByLabelText('Quitar filtro: Edad: 35–55 años'));
-    expect(screen.getByLabelText('Edad mínima').props.value).toBe('');
-    await waitFor(() => expect(mockedDirectory).toHaveBeenLastCalledWith(expect.objectContaining({minAge: undefined, maxAge: undefined, minExperienceYears: 5})));
-    fireEvent.changeText(screen.getByLabelText('Edad máxima'), '40');
-    fireEvent.press(screen.getByLabelText('Aplicar filtro de edad'));
-    await waitFor(() => expect(mockedDirectory).toHaveBeenLastCalledWith(expect.objectContaining({minAge: undefined, maxAge: 40})));
-    fireEvent.press(screen.getByLabelText('Limpiar filtros'));
-    expect(screen.getByLabelText('Edad máxima').props.value).toBe('');
-    await waitFor(() => expect(mockedDirectory).toHaveBeenLastCalledWith(expect.objectContaining({minAge: undefined, maxAge: undefined, minExperienceYears: undefined})));
+
+    const isMobile = width < 720;
+    if (isMobile) fireEvent.press(screen.getByRole('button', { name: 'Filtros' }));
+    expect(screen.getByText('Idioma de las sesiones')).toBeTruthy();
+    expect(screen.queryByText('Experiencia mínima')).toBeNull();
+    expect(screen.queryByLabelText('Experiencia mínima')).toBeNull();
+    expect(screen.queryByText('Edad del especialista')).toBeNull();
+    expect(screen.queryByLabelText('Edad mínima')).toBeNull();
+    expect(screen.queryByLabelText('Edad máxima')).toBeNull();
+    expect(screen.queryByLabelText('Aplicar filtro de edad')).toBeNull();
+    expect(screen.queryByText('Solo especialistas que publican su edad.')).toBeNull();
+
+    fireEvent.press(screen.getByText('Cualquiera ▾'));
+    fireEvent.press(screen.getByRole('radio', { name: 'Árabe' }));
+    await waitFor(() => expect(mockedDirectory).toHaveBeenLastCalledWith(expect.objectContaining({ language: 'arabic', page: 1 })));
+    if (isMobile) fireEvent.press(screen.getByText('Ver especialistas'));
+    fireEvent.press(screen.getByRole('button', { name: 'Limpiar filtros' }));
+    await waitFor(() => expect(mockedDirectory).toHaveBeenLastCalledWith(expect.objectContaining({ language: undefined, page: 1 })));
+    expect(screen.getByText(specialist.name)).toBeTruthy();
+    for (const [filters] of mockedDirectory.mock.calls) {
+      expect(filters).not.toHaveProperty('minExperienceYears');
+      expect(filters).not.toHaveProperty('minAge');
+      expect(filters).not.toHaveProperty('maxAge');
+    }
   });
 
   it.each([

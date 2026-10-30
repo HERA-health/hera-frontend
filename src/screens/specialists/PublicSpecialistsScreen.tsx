@@ -57,11 +57,6 @@ const MODALITY_OPTIONS: Array<{ label: string; value: specialistsService.PublicS
 
 type RatingFilter = 4 | 4.5;
 type PriceFilter = 50 | 60 | 80;
-const EXPERIENCE_OPTIONS = [
-  { label: 'Cualquiera', value: 0 },
-  ...[1, 3, 5, 10, 15].map(value => ({ label: `Al menos ${value} ${value === 1 ? 'año' : 'años'}`, value })),
-];
-
 const RATING_OPTIONS: ReadonlyArray<{ label: string; value: RatingFilter }> = [
   { label: '4,5 o más', value: 4.5 },
   { label: '4 o más', value: 4 },
@@ -85,9 +80,6 @@ const SORT_OPTIONS: ReadonlyArray<{
 ];
 
 type DirectoryFilters = {
-  minExperienceYears?: number;
-  minAge?: number;
-  maxAge?: number;
   language?: string;
   religion?: string;
   q: string;
@@ -137,9 +129,6 @@ export const PublicSpecialistsScreen: React.FC = () => {
   const gridColumns = gridWidth >= 740 ? 2 : 1;
   const compactCards = (gridWidth - (gridColumns - 1) * 20) / gridColumns >= 460;
   const [queryInput, setQueryInput] = useState('');
-  const [minAgeInput, setMinAgeInput] = useState('');
-  const [maxAgeInput, setMaxAgeInput] = useState('');
-  const [ageError, setAgeError] = useState<string | undefined>();
   const [searchError, setSearchError] = useState<string | undefined>();
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [filters, setFilters] = useState<DirectoryFilters>(() =>
@@ -148,7 +137,6 @@ export const PublicSpecialistsScreen: React.FC = () => {
   const [headerScrolled, setHeaderScrolled] = useState(false);
   const headerScrolledRef = useRef(false);
   const requestFilters = useMemo<specialistsService.PublicSpecialistDirectoryFilters>(() => ({
-    minExperienceYears: filters.minExperienceYears, minAge: filters.minAge, maxAge: filters.maxAge,
     q: filters.q || undefined, language: filters.language, religion: filters.religion,
     professionalType: filters.professionalType ?? undefined, modality: filters.modality ?? undefined,
     specialties: filters.specialties.length ? filters.specialties : undefined,
@@ -254,23 +242,7 @@ export const PublicSpecialistsScreen: React.FC = () => {
     }));
   }, [queryInput]);
 
-  const clearAgeFilter = () => {
-    setMinAgeInput(''); setMaxAgeInput(''); setAgeError(undefined);
-    setFilters(current => ({ ...current, minAge: undefined, maxAge: undefined }));
-  };
-  const applyAgeFilter = () => {
-    const min = minAgeInput.trim(); const max = maxAgeInput.trim();
-    if ([min, max].some(value => value !== '' && (!/^\d+$/.test(value) || !Number.isSafeInteger(Number(value))))) {
-      setAgeError('Indica edades enteras iguales o mayores que 0.'); return;
-    }
-    if (min !== '' && max !== '' && Number(min) > Number(max)) {
-      setAgeError('La edad máxima debe ser igual o mayor que la mínima.'); return;
-    }
-    setAgeError(undefined);
-    setFilters(current => ({ ...current, minAge: min === '' ? undefined : Number(min), maxAge: max === '' ? undefined : Number(max) }));
-  };
   const clearFilters = useCallback(() => {
-    setMinAgeInput(''); setMaxAgeInput(''); setAgeError(undefined);
     setQueryInput('');
     setSearchError(undefined);
     setFilters(INITIAL_FILTERS);
@@ -280,10 +252,6 @@ export const PublicSpecialistsScreen: React.FC = () => {
     () => PROFESSIONAL_TYPE_OPTIONS.map(option => ({ label: option.label, value: option.id })), []
   );
   const activeFilters: Array<{ key: string; label: string; remove: () => void }> = [];
-  if (filters.minExperienceYears !== undefined) activeFilters.push({ key: 'experience', label: `${filters.minExperienceYears}+ años de experiencia`, remove: () => setFilters(current => ({ ...current, minExperienceYears: undefined })) });
-  if (filters.minAge !== undefined || filters.maxAge !== undefined) activeFilters.push({ key: 'age',
-    label: filters.minAge !== undefined && filters.maxAge !== undefined ? `Edad: ${filters.minAge}–${filters.maxAge} años`
-      : filters.minAge !== undefined ? `Edad: desde ${filters.minAge} años` : `Edad: hasta ${filters.maxAge} años`, remove: clearAgeFilter });
   if (filters.q) activeFilters.push({ key: 'q', label: `«${filters.q}»`, remove: () => { setQueryInput(''); setSearchError(undefined); setFilters(current => ({ ...current, q: '' })); } });
   if (filters.language) activeFilters.push({ key: 'language', label: optionLabel(profileOptions?.languages ?? [], filters.language), remove: () => setFilters(current => ({ ...current, language: undefined })) });
   if (filters.religion) activeFilters.push({ key: 'religion', label: optionLabel(profileOptions?.religions ?? [], filters.religion), remove: () => setFilters(current => ({ ...current, religion: undefined })) });
@@ -294,7 +262,7 @@ export const PublicSpecialistsScreen: React.FC = () => {
   filters.specialties.forEach(value => activeFilters.push({ key: `specialty-${value}`, label: PROFESSIONAL_SPECIALTY_OPTIONS.find(option => option.value === value)?.label ?? value, remove: () => setFilters(current => ({ ...current, specialties: current.specialties.filter(item => item !== value) })) }));
   filters.approaches.forEach(value => activeFilters.push({ key: `approach-${value}`, label: PROFESSIONAL_THERAPEUTIC_APPROACH_OPTIONS.find(option => option.value === value)?.label ?? value, remove: () => setFilters(current => ({ ...current, approaches: current.approaches.filter(item => item !== value) })) }));
   const activeFilterCount = activeFilters.length;
-  const hasActiveFilters = activeFilterCount > 0 || Boolean(queryInput || minAgeInput || maxAgeInput);
+  const hasActiveFilters = activeFilterCount > 0 || Boolean(queryInput);
   const textStyle = { color: theme.textSecondary, fontFamily: theme.fontSans };
   const fieldLabel = { color: theme.textPrimary, fontFamily: theme.fontSansSemiBold, fontSize: 13, lineHeight: 19 };
   const filterMenuWidth = Math.min(520, width - 80);
@@ -364,26 +332,6 @@ export const PublicSpecialistsScreen: React.FC = () => {
         <SimpleDropdown options={RATING_OPTIONS} value={filters.minRating} onSelect={minRating => setFilters(current => ({ ...current, minRating }))}
           placeholder="Valoración" accessibilityLabel="Valoración" compact presentation="portal" keyboardNavigation selectionIndicator="checkbox"
           onClear={() => setFilters(current => ({ ...current, minRating: null }))} />
-      </View>
-      <View style={styles.filterField}>
-        <Text style={fieldLabel}>Experiencia mínima</Text>
-        <SimpleDropdown options={EXPERIENCE_OPTIONS} value={filters.minExperienceYears ?? 0}
-          onSelect={value => setFilters(current => ({ ...current, minExperienceYears: value || undefined }))}
-          placeholder="Cualquiera" accessibilityLabel="Experiencia mínima" compact presentation="portal" keyboardNavigation selectionIndicator="radio" />
-      </View>
-      <View style={styles.filterField}>
-        <Text style={fieldLabel}>Edad del especialista</Text>
-        <View style={styles.ageFields}>
-          <Input label="Desde" accessibilityLabel="Edad mínima" placeholder="Sin mínimo" keyboardType="number-pad"
-            value={minAgeInput} onChangeText={value => { setMinAgeInput(value); setAgeError(undefined); }}
-            containerStyle={styles.ageInput} style={styles.ageInputText} onSubmitEditing={applyAgeFilter} />
-          <Input label="Hasta" accessibilityLabel="Edad máxima" placeholder="Sin máximo" keyboardType="number-pad"
-            value={maxAgeInput} onChangeText={value => { setMaxAgeInput(value); setAgeError(undefined); }}
-            containerStyle={styles.ageInput} style={styles.ageInputText} onSubmitEditing={applyAgeFilter} />
-        </View>
-        {ageError ? <Text accessibilityRole="alert" style={[styles.hint, { color: theme.error, fontFamily: theme.fontSans }]}>{ageError}</Text> : null}
-        <Text style={[styles.hint, textStyle]}>Solo especialistas que publican su edad.</Text>
-        <Button variant="outline" size="small" accessibilityLabel="Aplicar filtro de edad" onPress={applyAgeFilter}>Aplicar</Button>
       </View>
       {profileOptions?.religionEnabled ? <>
         <Pressable accessibilityRole="button" accessibilityState={{ expanded: moreFiltersOpen }}
@@ -530,9 +478,6 @@ export const PublicSpecialistsScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  ageFields: { flexDirection: 'row', gap: 8 },
-  ageInput: { flex: 1, minWidth: 0, marginBottom: 0 },
-  ageInputText: { fontSize: 13, minWidth: 0 },
   container: { flex: 1 },
   scrollContent: { paddingTop: 78, paddingBottom: 56 },
   desktopPadding: { paddingHorizontal: 32 },
