@@ -154,8 +154,12 @@ export interface ProfessionalSessionDetail extends Session {
 }
 
 export interface Client {
+  activity?: 'ACTIVE' | 'INACTIVE' | 'NO_SESSIONS';
+  sessionCount?: number;
+  nextSessionDate?: string | null;
+  lastValidSessionAt?: string | null;
   billingReadiness?: BillingReadiness;
-  heraOrigin?: { origin: string; status: string };
+  heraOrigin?: { origin: string; status?: string };
   accountLinkStatus?: string | null;
   id: string;
   userId: string | null;

@@ -1,3 +1,4 @@
+import { ManagedSessionPatientSelector } from '../../components/professional/ManagedSessionPatientSelector';
 import { paymentMethodOptions, readInvoicePayment, legacyPaymentLabel } from '../../utils/invoicePayment';
 import { getProfessionalSessionDetail } from '../../services/professionalService';
 import { navigateProfessionalSection } from '../../navigation/professionalNavigation';
@@ -36,7 +37,7 @@ import {
   Invoice,
   InvoiceKind,
 } from '../../services/billingService';
-import { getProfessionalClients, Client } from '../../services/professionalService';
+import { getProfessionalClientDetail, Client } from '../../services/professionalService';
 
 // ============================================================================
 // TYPES
@@ -54,11 +55,6 @@ interface LineItem {
   durationMinutes: number;
   unitPrice: string;
 }
-
-type InvoiceClientOption = Client & {
-  name: string;
-  email: string;
-};
 
 // ============================================================================
 // STRINGS
@@ -149,21 +145,19 @@ const formatDateForDisplay = (date: Date): string => {
   return `${dd}/${mm}/${yyyy}`;
 };
 
-const getClientDisplayName = (client?: InvoiceClientOption | Client | null): string => {
-  const namedClient = client as InvoiceClientOption | null | undefined;
+const getClientDisplayName = (client?: Client | null): string => {
   return (
     client?.displayName ||
-    namedClient?.name ||
     client?.user?.name ||
     [client?.firstName, client?.lastName].filter(Boolean).join(' ') ||
     'Paciente'
   );
 };
 
-const getClientEmail = (client?: InvoiceClientOption | Client | null): string =>
+const getClientEmail = (client?: Client | null): string =>
   client?.primaryEmail || client?.user?.email || client?.email || '';
 
-const formatRecipientAddress = (client?: InvoiceClientOption | Client | null): string => {
+const formatRecipientAddress = (client?: Client | null): string => {
   const location = [client?.billingPostalCode, client?.billingCity, client?.billingCountry]
     .filter(Boolean)
     .join(' ');
@@ -171,7 +165,7 @@ const formatRecipientAddress = (client?: InvoiceClientOption | Client | null): s
   return [client?.billingAddress, location].filter(Boolean).join(', ');
 };
 
-const hasCompleteBillingData = (client?: InvoiceClientOption | Client | null): boolean =>
+const hasCompleteBillingData = (client?: Client | null): boolean =>
   client?.billingDataComplete ??
   Boolean(
     client?.billingFullName &&
@@ -230,7 +224,12 @@ export const CreateInvoiceScreen: React.FC<CreateInvoiceScreenProps> = ({
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [billingConfig, setBillingConfig] = useState<FullBillingConfig | null>(null);
-  const [clients, setClients] = useState<InvoiceClientOption[]>([]);
+  const [clients, setClients] = useState<Client[]>([]);
+  const [patientSelectorOpen, setPatientSelectorOpen] = useState(false);
+  const [clientDetailError, setClientDetailError] = useState('');
+  const [clientDetail, setClientDetail] = useState<Client | null>(null);
+  const [clientDetailLoading, setClientDetailLoading] = useState(false);
+  const [clientDetailAttempt, setClientDetailAttempt] = useState(0);
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const [invoiceKind, setInvoiceKind] = useState<InvoiceKind>('SIMPLIFIED');
   const [lineItems, setLineItems] = useState<LineItem[]>([createDefaultLineItem()]);
@@ -255,9 +254,20 @@ export const CreateInvoiceScreen: React.FC<CreateInvoiceScreenProps> = ({
     return billingConfig.tariffs.filter((t) => t.isActive);
   }, [billingConfig]);
 
+  useFocusEffect(useCallback(() => {
+    if (!selectedClientId) return;
+    let active = true; setClientDetailError(''); setClientDetailLoading(true);
+    void getProfessionalClientDetail(selectedClientId, 1).then(client => {
+      if (!active) return;
+      if (!client) { setClientDetailError('La ficha seleccionada no está disponible.'); return; }
+      setClientDetail(client);
+    }).catch(() => { if (active) setClientDetailError('No se pudieron consultar los datos del paciente.'); })
+      .finally(() => { if (active) setClientDetailLoading(false); });
+    return () => { active = false; };
+  }, [selectedClientId, clientDetailAttempt]));
   const selectedClient = useMemo(
-    () => clients.find((client) => client.id === selectedClientId) ?? null,
-    [clients, selectedClientId],
+    () => clientDetail?.id === selectedClientId ? clientDetail : clients.find((client) => client.id === selectedClientId) ?? null,
+    [clientDetail, clients, selectedClientId],
   );
 
   const specialistBillingReady = useMemo(
@@ -350,25 +360,11 @@ export const CreateInvoiceScreen: React.FC<CreateInvoiceScreenProps> = ({
     [],
   );
 
-  const loadClientsOnly = useCallback(async () => {
-    const clientsData = await getProfessionalClients();
-    const mappedClients = clientsData.map((client) => ({
-      ...client,
-      name: getClientDisplayName(client),
-      email: getClientEmail(client),
-    }));
-    setClients(mappedClients);
-    return mappedClients;
-  }, []);
-
   // ── Data loading ──
   const loadInitialData = useCallback(async () => {
     try {
       setLoading(true);
-      const [config] = await Promise.all([
-        billingService.getConfig(),
-        loadClientsOnly(),
-      ]);
+      const config = await billingService.getConfig();
 
       setBillingConfig(config);
 
@@ -472,7 +468,7 @@ export const CreateInvoiceScreen: React.FC<CreateInvoiceScreenProps> = ({
     } finally {
       setLoading(false);
     }
-  }, [invoiceId, invoiceNumberForKind, loadClientsOnly, sessionContext]);
+  }, [invoiceId, invoiceNumberForKind, sessionContext]);
 
   useEffect(() => {
     loadInitialData();
@@ -485,17 +481,6 @@ export const CreateInvoiceScreen: React.FC<CreateInvoiceScreenProps> = ({
 
     setInvoiceNumberPreview(invoiceNumberForKind(invoiceKind, billingConfig));
   }, [billingConfig, invoiceKind, invoiceNumberForKind, isEditing]);
-
-  useFocusEffect(
-    useCallback(() => {
-      if (loading) {
-        return undefined;
-      }
-
-      void loadClientsOnly();
-      return undefined;
-    }, [loadClientsOnly, loading]),
-  );
 
   // ── Line item handlers ──
   const updateLineItem = useCallback((id: string, field: keyof LineItem, value: string | number) => {
@@ -535,6 +520,7 @@ export const CreateInvoiceScreen: React.FC<CreateInvoiceScreenProps> = ({
   // ── Save / Send ──
   const handleSave = useCallback(
     async (andSend: boolean) => {
+      if (clientDetailLoading || clientDetailError) return;
       if (!selectedClientId) {
         showAppAlert(appAlert, 'Error', STRINGS.validationNoClient);
         return;
@@ -662,6 +648,8 @@ export const CreateInvoiceScreen: React.FC<CreateInvoiceScreenProps> = ({
     },
     [
       selectedClientId,
+      clientDetailLoading,
+      clientDetailError,
       lineItems,
       ivaIncluded,
       sessionAgreement,
@@ -799,7 +787,7 @@ export const CreateInvoiceScreen: React.FC<CreateInvoiceScreenProps> = ({
               variant="outline"
               size="small"
               onPress={() => handleSave(false)}
-              disabled={saving}
+              disabled={saving || clientDetailLoading || !!clientDetailError}
               fullWidth
             >
               {STRINGS.saveDraft}
@@ -810,7 +798,7 @@ export const CreateInvoiceScreen: React.FC<CreateInvoiceScreenProps> = ({
               variant="primary"
               size="small"
               onPress={() => handleSave(true)}
-              disabled={saving}
+              disabled={saving || clientDetailLoading || !!clientDetailError}
               loading={saving}
               icon={<Ionicons name="send" size={14} color={theme.textOnPrimary} />}
               fullWidth
@@ -824,11 +812,6 @@ export const CreateInvoiceScreen: React.FC<CreateInvoiceScreenProps> = ({
   );
 
   const renderClientSection = () => {
-    const clientOptions: DropdownOption<string>[] = clients.map((c) => ({
-      label: getClientDisplayName(c),
-      value: c.id,
-      subtitle: getClientEmail(c),
-    }));
     const billingStatusLabel = clientBillingReady ? 'Datos completos' : 'Pendientes';
     const billingHeadline = clientBillingReady
       ? 'Paciente listo para factura completa'
@@ -846,32 +829,30 @@ export const CreateInvoiceScreen: React.FC<CreateInvoiceScreenProps> = ({
         {sessionContext ? (
           <View style={styles.selectedClientInfo}>
             <Text style={styles.selectedClientName}>
-              {selectedClient?.name || 'Paciente de la sesión'}
+              {selectedClient ? getClientDisplayName(selectedClient) : 'Paciente de la sesión'}
             </Text>
             <Text style={styles.selectedClientEmail}>
-              {selectedClient?.email || STRINGS.clientLockedHint}
+              {selectedClient ? getClientEmail(selectedClient) : STRINGS.clientLockedHint}
             </Text>
             <Text style={styles.clientLockedHint}>{STRINGS.clientLockedHint}</Text>
           </View>
         ) : (
           <>
             <View style={{ zIndex: 1000 }}>
-              <SimpleDropdown
-                options={clientOptions}
-                value={selectedClientId}
-                onSelect={setSelectedClientId}
-                placeholder={STRINGS.clientPlaceholder}
-                maxHeight={250}
-              />
+              <ManagedSessionPatientSelector remote clients={clients} selectedClient={selectedClient} selectedClientId={selectedClientId ?? ''}
+                open={patientSelectorOpen} onOpenChange={setPatientSelectorOpen} onSelect={setSelectedClientId}
+                onSelectClient={client => setClients(previous => [client, ...previous.filter(p => p.id !== client.id)])} />
             </View>
             {selectedClient ? (
               <View style={styles.selectedClientInfo}>
-                <Text style={styles.selectedClientName}>{selectedClient.name}</Text>
-                <Text style={styles.selectedClientEmail}>{selectedClient.email}</Text>
+                <Text style={styles.selectedClientName}>{getClientDisplayName(selectedClient)}</Text>
+                <Text style={styles.selectedClientEmail}>{getClientEmail(selectedClient)}</Text>
               </View>
             ) : null}
           </>
         )}
+        {clientDetailLoading && <Text style={styles.clientLockedHint}>Consultando datos del paciente…</Text>}
+        {!!clientDetailError && <View><Text accessibilityRole="alert" style={styles.clientLockedHint}>{clientDetailError}</Text><Button variant="ghost" onPress={() => setClientDetailAttempt(v => v + 1)}>Reintentar datos del paciente</Button></View>}
         {invoiceKind === 'FULL' && selectedClient ? (
           <View
             style={[

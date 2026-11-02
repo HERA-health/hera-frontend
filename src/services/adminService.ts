@@ -1,3 +1,4 @@
+import type { PatientActivitySummary } from './patientDirectoryService';
 import { Platform } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import { api } from './api';
@@ -79,6 +80,7 @@ export interface PaginatedResponse<T> {
 }
 
 export interface SpecialistFullDetail {
+  patientActivity?: PatientActivitySummary;
   id: string;
   specialization: string;
   description: string;

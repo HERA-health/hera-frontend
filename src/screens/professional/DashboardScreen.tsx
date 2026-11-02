@@ -1,3 +1,4 @@
+import { PatientActivityCount } from '../../components/professional/PatientActivityCount';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -97,7 +98,7 @@ export function DashboardScreen() {
     { key: 'income', label: 'Ingresos cobrados', helper: 'Cobros menos devoluciones', icon: 'wallet-outline' },
     { key: 'completed', label: 'Sesiones completadas', helper: 'Sesiones atendidas', icon: 'calendar-outline' },
     { key: 'newPatients', label: 'Pacientes nuevos', helper: 'Primera sesión completada', icon: 'person-add-outline' },
-    { key: 'activePatients', label: 'Pacientes activos', helper: 'Atendidos en el periodo', icon: 'people-outline' },
+    { key: 'attendedPatients', label: 'Pacientes atendidos en el período', helper: 'Personas únicas en el período', icon: 'people-outline' },
   ];
   const visible = !loading && !error ? data : null;
   return <View style={styles.screen} onLayout={event => setAvailableWidth(event.nativeEvent.layout.width)}>
@@ -120,6 +121,7 @@ export function DashboardScreen() {
             value={period.month} onSelect={month => changePeriod({ period: 'month', year: period.year, month })} /></View>}
         </View>
       </View>
+      <PatientActivityCount />
       <View style={styles.periodLine}>
         <Text style={styles.periodLabel}>{periodLabel}{visible?.period.inProgress ? ' · En curso' : ''}</Text>
         <Text style={styles.caption}>Comparación con el {period.period === 'month' ? 'mes' : 'año'} anterior completo</Text>

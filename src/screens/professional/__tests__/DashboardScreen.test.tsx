@@ -1,3 +1,4 @@
+jest.mock('../../../services/patientDirectoryService', () => ({ getPatientActivity: jest.fn(async () => ({ activePatients: 17, windowDays: 60, cutoff: '2026-08-19T12:00:00Z', computedAt: '2026-10-18T12:00:00Z', stale: false, unavailable: false })) }));
 import React from 'react';
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import { DashboardScreen } from '../DashboardScreen';
@@ -41,8 +42,8 @@ jest.mock('../../../services/statisticsService', () => ({ getStatistics: jest.fn
 const fixture: StatisticsData = {
   period: { period: 'month', year: 2026, month: 10, timeZone: 'Europe/Madrid', start: '2026-09-30T22:00:00Z', end: '2026-10-31T23:00:00Z',
     previousStart: '2026-08-31T22:00:00Z', previousEnd: '2026-09-30T22:00:00Z', inProgress: true, generatedAt: '2026-10-18T12:00:00Z', currentYear: 2026 },
-  current: { income: 1240, completed: 18, newPatients: 6, activePatients: 24 },
-  previous: { income: 1000, completed: 15, newPatients: 4, activePatients: 22 },
+  current: { income: 1240, completed: 18, newPatients: 6, activePatients: 24, attendedPatients: 24 },
+  previous: { income: 1000, completed: 15, newPatients: 4, activePatients: 22, attendedPatients: 22 },
   series: [{ key: '2026-10-01', income: 80, completed: 2, newPatients: 1, recurrentPatients: 1 }],
   origins: { directory: 2, own: 2, referrals: 1, other: 1 }, activity: { completed: 18, pending: 4, cancelled: 2, noShow: 1 },
   weekdays: [1, 2, 3, 4, 5, 6, 7].map(day => ({ day, count: day === 7 ? 2 : 0 })),
@@ -53,7 +54,7 @@ beforeEach(() => { jest.mocked(getStatistics).mockReset().mockResolvedValue(fixt
 it('renders all planned blocks and preserves secondary information', async () => {
   const view = render(<DashboardScreen />);
   await waitFor(() => expect(view.getByText('Ingresos cobrados')).toBeTruthy());
-  for (const label of ['Pacientes nuevos', 'Pacientes activos', 'Ingresos y sesiones', 'Origen de tus pacientes', 'Actividad de sesiones', 'Evolución de pacientes', 'Valoraciones', 'Sesiones por día', 'Domingo', 'No asistidas']) expect(view.getByText(label)).toBeTruthy();
+  for (const label of ['Pacientes nuevos', 'Pacientes atendidos en el período', 'Ingresos y sesiones', 'Origen de tus pacientes', 'Actividad de sesiones', 'Evolución de pacientes', 'Valoraciones', 'Sesiones por día', 'Domingo', 'No asistidas']) expect(view.getByText(label)).toBeTruthy();
   expect(view.getByText('Sin reseñas en este periodo.')).toBeTruthy();
   expect(view.getByText('↗ +24%')).toBeTruthy();
   fireEvent.press(view.getByLabelText('1 de octubre: 80,00 € cobrados · 2 sesiones completadas'));

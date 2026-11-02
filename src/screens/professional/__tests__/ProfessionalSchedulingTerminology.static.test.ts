@@ -34,16 +34,16 @@ describe('professional scheduling patient terminology', () => {
 
   it('uses operational copy instead of managed patient terminology', () => {
     expect(source).toContain('paciente de tu consulta');
-    expect(source).toContain('pacientes activos de tu consulta');
+    expect(source).toContain('fichas disponibles de tu consulta');
     expect(source).not.toContain('paciente gestionado');
     expect(source).not.toContain('pacientes gestionados');
     expect(source).not.toContain('Paciente gestionado');
     expect(source).not.toContain('Pacientes gestionados');
   });
 
-  it('loads all active visible patients for professional scheduling', () => {
-    expect(source).toContain("source: 'ALL'");
-    expect(source).toContain("lifecycle: 'ACTIVE'");
+  it('loads open private records without requiring recent attendance', () => {
+    expect(source).toContain("getPatientDirectory");
+    expect(source).toContain("archive: 'OPEN'");
     expect(source).not.toContain("source: 'MANAGED',");
   });
 

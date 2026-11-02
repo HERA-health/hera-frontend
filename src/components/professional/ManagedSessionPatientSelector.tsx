@@ -1,3 +1,4 @@
+import { usePatientDirectory } from '../../hooks/usePatientDirectory';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -19,6 +20,8 @@ const PATIENT_RESULT_LIMIT = 50;
 
 interface ManagedSessionPatientSelectorProps {
   clients: Client[];
+  remote?: boolean;
+  onSelectClient?: (client: Client) => void;
   selectedClient: Client | null;
   selectedClientId: string;
   open: boolean;
@@ -79,6 +82,8 @@ export function ManagedSessionPatientAvatar({
 
 export function ManagedSessionPatientSelector({
   clients,
+  remote = false,
+  onSelectClient,
   selectedClient,
   selectedClientId,
   open,
@@ -93,6 +98,7 @@ export function ManagedSessionPatientSelector({
   const rootRef = useRef<View>(null);
   const searchInputRef = useRef<TextInput>(null);
   const [search, setSearch] = useState('');
+  const directory = usePatientDirectory({ q: search, archive: 'OPEN' }, remote && open);
 
   const filteredClients = useMemo(() => {
     const query = search.trim().toLocaleLowerCase('es-ES');
@@ -104,7 +110,7 @@ export function ManagedSessionPatientSelector({
       return name.includes(query) || email.includes(query);
     });
   }, [clients, search]);
-  const visibleClients = filteredClients.slice(0, PATIENT_RESULT_LIMIT);
+  const visibleClients = remote ? directory.items : filteredClients.slice(0, PATIENT_RESULT_LIMIT);
   const hiddenResultCount = filteredClients.length - visibleClients.length;
 
   const close = useCallback(() => {
@@ -156,12 +162,12 @@ export function ManagedSessionPatientSelector({
   const selectedEmail = getManagedSessionClientEmail(selectedClient);
   const triggerTitle = selectedClient
     ? getManagedSessionClientName(selectedClient)
-    : clients.length
+    : remote || clients.length
       ? 'Selecciona un paciente'
       : 'No hay pacientes disponibles';
   const triggerSubtitle = selectedClient
     ? selectedEmail || 'Sin email'
-    : clients.length
+    : remote || clients.length
       ? placeholderSubtitle
       : emptySubtitle;
 
@@ -176,13 +182,13 @@ export function ManagedSessionPatientSelector({
       <AnimatedPressable
           testID="managed-session-client-selector"
           onPress={handleToggle}
-          disabled={clients.length === 0}
+          disabled={!remote && clients.length === 0}
           hoverLift={false}
           pressScale={0.99}
           accessibilityLabel={selectedClient
             ? `Seleccionar paciente. Actual: ${getManagedSessionClientName(selectedClient)}`
             : 'Seleccionar paciente'}
-          accessibilityState={{ expanded: open, disabled: clients.length === 0 }}
+          accessibilityState={{ expanded: open, disabled: !remote && clients.length === 0 }}
           style={[
             componentStyles.trigger,
             {
@@ -203,7 +209,7 @@ export function ManagedSessionPatientSelector({
             <Ionicons
               name={open ? 'chevron-up-outline' : 'chevron-down-outline'}
               size={17}
-              color={clients.length === 0 ? theme.textMuted : theme.primary}
+              color={!remote && clients.length === 0 ? theme.textMuted : theme.primary}
             />
           </View>
       </AnimatedPressable>
@@ -251,6 +257,7 @@ export function ManagedSessionPatientSelector({
                   <AnimatedPressable
                     key={client.id}
                     onPress={() => {
+                      onSelectClient?.(client);
                       onSelect(client.id);
                       close();
                     }}
@@ -281,12 +288,15 @@ export function ManagedSessionPatientSelector({
                     {active ? <Ionicons name="checkmark-circle" size={20} color={theme.primary} /> : null}
                   </AnimatedPressable>
                 );
-              }) : (
+              }) : (!remote || (!directory.loading && !directory.error)) ? (
                 <Text style={componentStyles.emptyText}>
-                  No hay pacientes activos de tu consulta con esa búsqueda.
+                  No hay fichas disponibles de tu consulta con esa búsqueda.
                 </Text>
-              )}
-              {hiddenResultCount > 0 ? (
+              ) : null}
+              {remote && directory.loading && <Text style={componentStyles.resultHint}>Cargando fichas…</Text>}
+              {remote && directory.error && <AnimatedPressable onPress={directory.refresh} accessibilityRole="button"><Text accessibilityRole="alert" style={componentStyles.errorText}>{directory.error} Reintentar</Text></AnimatedPressable>}
+              {remote && directory.hasMore && <AnimatedPressable disabled={directory.loading} onPress={directory.loadMore} accessibilityRole="button"><Text style={componentStyles.resultHint}>Cargar más fichas</Text></AnimatedPressable>}
+              {!remote && hiddenResultCount > 0 ? (
                 <Text style={componentStyles.resultHint}>
                   Hay {hiddenResultCount} resultados más. Escribe para acotar la búsqueda.
                 </Text>

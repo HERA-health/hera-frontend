@@ -1,3 +1,5 @@
+const mockDirectoryRead = jest.fn();
+jest.mock('../../../services/patientDirectoryService', () => ({ getPatientDirectory: (...args: unknown[]) => mockDirectoryRead(...args) }));
 let mockFocused = true;
 const mockNavigate = jest.fn();
 const mockDispatch = jest.fn();
@@ -200,6 +202,8 @@ describe('ManagedSessionSchedulerModal buffer override UX', () => {
   });
 
   beforeEach(() => {
+    mockDirectoryRead.mockReset();
+    mockDirectoryRead.mockResolvedValue({ items: [client, secondClient], pageInfo: { nextPage: null } });
     mockFocused = true;
     mockNavigate.mockClear();
     mockDispatch.mockClear();
@@ -278,10 +282,10 @@ describe('ManagedSessionSchedulerModal buffer override UX', () => {
 
     expect(screen.getByTestId('managed-session-client-selector').props.accessibilityState.expanded).toBe(true);
     expect(screen.getByPlaceholderText('Buscar por nombre o email')).toBeTruthy();
-    expect(screen.getByText('Sara Herrer')).toBeTruthy();
+    expect(await screen.findByText('Sara Herrer')).toBeTruthy();
     expect(screen.getByText('Fecha')).toBeTruthy();
 
-    fireEvent.press(screen.getByText('Sara Herrer'));
+    fireEvent.press(await screen.findByText('Sara Herrer'));
 
     expect(screen.queryByPlaceholderText('Buscar por nombre o email')).toBeNull();
     expect(screen.getByText('sara@example.com')).toBeTruthy();
@@ -345,7 +349,7 @@ describe('ManagedSessionSchedulerModal buffer override UX', () => {
     expect(createButton.props.accessibilityState.disabled).toBe(true);
 
     fireEvent.press(screen.getByTestId('managed-session-client-selector'));
-    fireEvent.press(screen.getByText('Sara Herrer'));
+    fireEvent.press(await screen.findByText('Sara Herrer'));
 
     expect(screen.getByText('sara@example.com')).toBeTruthy();
     await waitFor(() => expect(screen.getByRole('button', { name: 'Crear cita' }).props.accessibilityState.disabled).toBe(false));
@@ -429,6 +433,7 @@ describe('ManagedSessionSchedulerModal buffer override UX', () => {
       },
     }));
 
+    mockDirectoryRead.mockResolvedValueOnce({ items: manyClients.slice(0, 50), pageInfo: { nextPage: 2 } }).mockResolvedValueOnce({ items: [manyClients[54]], pageInfo: { nextPage: null } });
     render(
       <ManagedSessionSchedulerModal
         visible
@@ -444,10 +449,10 @@ describe('ManagedSessionSchedulerModal buffer override UX', () => {
 
     fireEvent.press(screen.getByTestId('managed-session-client-selector'));
     expect(screen.queryByText('Paciente 55')).toBeNull();
-    expect(screen.getByText('Hay 5 resultados más. Escribe para acotar la búsqueda.')).toBeTruthy();
+    expect(await screen.findByText('Cargar más fichas')).toBeTruthy();
 
     fireEvent.changeText(screen.getByPlaceholderText('Buscar por nombre o email'), 'paciente55@');
-    expect(screen.getByText('Paciente 55')).toBeTruthy();
+    expect(await screen.findByText('Paciente 55')).toBeTruthy();
   });
 
   it('shows the buffer warning and resubmits with an explicit override', async () => {
@@ -1030,12 +1035,12 @@ describe('ManagedSessionSchedulerModal buffer override UX', () => {
     const view = render(<ManagedSessionSchedulerModal {...input} />);
     await screen.findByText('Reducida');
     fireEvent.press(screen.getByTestId('managed-session-client-selector'));
-    fireEvent.press(screen.getByText('Lucia Gomez'));
+    fireEvent.press(await screen.findByText('Lucia Gomez'));
     await waitFor(() => expect(getManagedBookingQuote).toHaveBeenLastCalledWith(expect.objectContaining({ clientId: client.id, optionId: reduced.id, duration: 50 })));
     fireEvent.press(screen.getByText('General'));
     await waitFor(() => expect(getManagedBookingQuote).toHaveBeenLastCalledWith(expect.objectContaining({ optionId: base.id })));
     fireEvent.press(screen.getByTestId('managed-session-client-selector'));
-    fireEvent.press(screen.getByText('Sara Herrer'));
+    fireEvent.press(await screen.findByText('Sara Herrer'));
     await waitFor(() => expect(getManagedBookingQuote).toHaveBeenLastCalledWith(expect.objectContaining({ clientId: secondClient.id, optionId: base.id })));
     view.unmount();
     jest.mocked(loadPrivateCatalog).mockResolvedValueOnce(catalog);

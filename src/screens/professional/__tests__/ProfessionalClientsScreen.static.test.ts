@@ -12,7 +12,7 @@ describe('ProfessionalClientsScreen private patient boundary', () => {
 
   it('keeps API access inside services and excludes clinic patient integrations', () => {
     expect(source).not.toMatch(/\bapi\.(get|post|patch|put|delete)\b/);
-    expect(source).toContain('professionalService.getProfessionalClients({ provenance: sourceFilter, lifecycle: lifecycleFilter })');
+    expect(source).toContain('getPatientDirectory({ provenance: sourceFilter, archive:');
     expect(source).not.toContain('listProfessionalClinicPatients');
     expect(source).not.toContain('ProfessionalClinicPatientDetail');
     expect(source).not.toContain('clinicPatientId');
@@ -29,9 +29,9 @@ describe('ProfessionalClientsScreen private patient boundary', () => {
   });
 
   it('keeps patient origin as a compact filter with clear labels', () => {
-    expect(source).toContain('professionalService.getProfessionalClients({ provenance: sourceFilter, lifecycle: lifecycleFilter })');
+    expect(source).toContain('getPatientDirectory({ provenance: sourceFilter, archive:');
     expect(source).toContain('placeholder="Origen"');
-    expect(source).toContain('placeholder="Estado"');
+    expect(source).toContain('placeholder="Archivo"');
     expect(source).toContain('<SimpleDropdown');
     expect(source).toContain('options={FILTERS}');
     expect(source).toContain('options={LIFECYCLE_FILTERS}');

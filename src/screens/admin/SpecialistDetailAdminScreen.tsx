@@ -1,3 +1,4 @@
+import { PatientActivityCount } from '../../components/professional/PatientActivityCount';
 import { AdminCommissionSummary } from '../commissions/CommissionLinks';
 import React, { ComponentProps, useCallback, useEffect, useMemo, useState } from 'react';
 import {
@@ -534,6 +535,7 @@ export function SpecialistDetailAdminScreen({ route, navigation }: Props) {
               <Text style={styles.patientHint}>Personas únicas vinculadas</Text>
             </View>
           </View>
+          {specialist.patientActivity && <PatientActivityCount value={specialist.patientActivity} />}
           <Text style={styles.patientHint}>Pacientes vinculados históricamente, incluidos los archivados. No es la cartera activa.</Text>
           <AnimatedPressable accessibilityRole="button" accessibilityLabel="Cómo se cuentan los pacientes" accessibilityState={{ expanded: patientInfoOpen }} tabIndex={0} onPress={() => setPatientInfoOpen(v => !v)}
             onKeyDown={event => { if (event.key === ' ' || event.key === 'Enter') { event.preventDefault(); if (!event.repeat) setPatientInfoOpen(v => !v); } }}

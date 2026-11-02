@@ -1,3 +1,4 @@
+import { getPatientDirectory } from '../../services/patientDirectoryService';
 import { getPayment, paymentAmount, cancelPayment, type SessionPayment } from '../../services/sessionPaymentService';
 import { openSessionMeeting } from '../../utils/openSessionMeeting';
 import { navigateProfessionalSection } from '../../navigation/professionalNavigation';
@@ -235,10 +236,7 @@ export function ProfessionalSessionsScreen() {
   const loadSchedulableClients = useCallback(async (): Promise<professionalService.Client[]> => {
     try {
       setLoadingSchedulableClients(true);
-      const clients = await professionalService.getProfessionalClients({
-        source: 'ALL',
-        lifecycle: 'ACTIVE',
-      });
+      const { items: clients } = await getPatientDirectory({ archive: 'OPEN' });
       setSchedulableClients(clients);
       return clients;
     } catch {

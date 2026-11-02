@@ -4,7 +4,7 @@ import { getErrorMessage } from '../constants/errors';
 
 export type StatisticsPeriod = { period: 'month'; year: number; month: number } | { period: 'year'; year: number };
 const count = z.number().int().nonnegative();
-const kpis = z.object({ income: z.number(), completed: count, newPatients: count, activePatients: count }).strict();
+const kpis = z.object({ income: z.number(), completed: count, newPatients: count, activePatients: count, attendedPatients: count }).strict();
 export const statisticsSchema = z.object({
   period: z.object({ period: z.enum(['month', 'year']), year: z.number().int(), month: z.number().int().min(1).max(12).optional(),
     timeZone: z.literal('Europe/Madrid'), start: z.iso.datetime(), end: z.iso.datetime(), previousStart: z.iso.datetime(), previousEnd: z.iso.datetime(),
@@ -20,7 +20,7 @@ export type StatisticsData = z.infer<typeof statisticsSchema>;
 
 export async function getStatistics(period: StatisticsPeriod): Promise<StatisticsData> {
   try {
-    const response = await api.get('/dashboard/statistics', { params: period });
+    const response = await api.get('/dashboard/statistics', { params: { ...period, schemaVersion: '2' } });
     return statisticsSchema.parse(response.data.data);
   } catch (error: unknown) {
     if (error instanceof z.ZodError) throw new Error('No se pudieron interpretar las estadísticas. Vuelve a intentarlo.');

@@ -143,7 +143,7 @@ const getInitialClientId = (clients: Client[], initialClientId?: string | null):
 
 export function ManagedSessionSchedulerModal({
   visible,
-  clients,
+  clients: suppliedClients,
   initialClientId,
   editingSessionId,
   initialValues,
@@ -169,6 +169,8 @@ export function ManagedSessionSchedulerModal({
       }
     }
   }, [focused]);
+  const [directorySelection, setDirectorySelection] = useState<Client | null>(null);
+  const clients = useMemo(() => directorySelection && !suppliedClients.some(c => c.id === directorySelection.id) ? [...suppliedClients, directorySelection] : suppliedClients, [suppliedClients, directorySelection]);
   const { theme } = useTheme();
   const { width, height } = useWindowDimensions();
   const [clientId, setClientId] = useState('');
@@ -613,6 +615,8 @@ export function ManagedSessionSchedulerModal({
             {showClientSelector ? (
               <ManagedSessionPatientSelector
                 clients={clients}
+                remote
+                onSelectClient={setDirectorySelection}
                 selectedClient={selectedClient}
                 selectedClientId={clientId}
                 open={visible && clientSelectorOpen}

@@ -1,10 +1,11 @@
+import { usePatientDirectory } from '../../hooks/usePatientDirectory';
 import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Modal, ScrollView, Switch, Text, TextInput, View } from 'react-native';
 import * as Crypto from 'expo-crypto';
 import { useTheme } from '../../contexts/ThemeContext';
 import { Button } from '../common/Button';
 import { getErrorMessage, getErrorCode } from '../../constants/errors';
-import { getProfessionalClients, type Client } from '../../services/professionalService';
+
 import { acquirePackage, quotePackage, packagePrice, packageModality, type PackageOffer, type PackageQuote, type PatientPackage } from '../../services/packageService';
 import { PackagePaymentConditions } from './PackagePaymentConditions';
 import type { PackagePaymentAcceptance } from '../../services/packagePaymentService';
@@ -14,9 +15,10 @@ export function PackageAcquisition({ offer, clientId: presetClientId, specialist
   offer: PackageOffer; clientId?: string; specialistId?: string; professional?: boolean; bookingIntentToken?: string; onClose: () => void; onAcquired: (row: PatientPackage) => void;
 }) {
   const { theme } = useTheme();
-  const [clients, setClients] = useState<Client[]>([]);
+
   const [clientId, setClientId] = useState(presetClientId);
   const [search, setSearch] = useState('');
+  const directory = usePatientDirectory({ q: search, archive: 'OPEN' }, professional && !presetClientId);
   const [quote, setQuote] = useState<PackageQuote>();
   const [paymentAcceptance, setPaymentAcceptance] = useState<PackagePaymentAcceptance>();
   const [billing, setBilling] = useState(emptyPackageBilling);
@@ -27,7 +29,6 @@ export function PackageAcquisition({ offer, clientId: presetClientId, specialist
   const [error, setError] = useState('');
   const command = useRef(Crypto.randomUUID());
   const submission = useRef<Parameters<typeof acquirePackage>[0] | undefined>(undefined);
-  useEffect(() => { if (professional && !presetClientId) void getProfessionalClients('ALL').then(setClients).catch(e => setError(getErrorMessage(e, 'No se pudieron cargar los pacientes.'))); }, [professional, presetClientId]);
   useEffect(() => { setQuote(undefined); submission.current = undefined; command.current = Crypto.randomUUID(); }, [clientId, paid, date, billing]);
   const review = async () => {
     setBusy(true); setError('');
@@ -73,7 +74,13 @@ export function PackageAcquisition({ offer, clientId: presetClientId, specialist
         {conditionsChanged && <Text accessibilityRole="alert" style={text}>Las condiciones del bono han cambiado. Revisa estos datos actualizados antes de confirmar.</Text>}
         {professional && !presetClientId && <View style={{ gap: 8 }}>
           <TextInput accessibilityLabel="Buscar paciente" placeholder="Buscar paciente" placeholderTextColor={theme.textMuted} style={field} value={search} onChangeText={setSearch} editable={!busy} />
-          {clients.filter(c => (c.displayName ?? c.user?.name ?? '').toLocaleLowerCase().includes(search.toLocaleLowerCase())).slice(0, 15).map(c => <Button key={c.id} variant={clientId === c.id ? 'primary' : 'ghost'} disabled={busy || Boolean(submission.current)} onPress={() => setClientId(c.id)}>{c.displayName ?? c.user?.name ?? 'Paciente'}</Button>)}
+          {directory.items.map(c => <Button key={c.id} variant={clientId === c.id ? 'primary' : 'ghost'} disabled={busy || Boolean(submission.current)} onPress={() => setClientId(c.id)}>{c.displayName ?? c.user?.name ?? 'Paciente'}</Button>)}
+        </View>}
+        {professional && !presetClientId && <View>
+          {directory.loading && <ActivityIndicator color={theme.primary} />}
+          {!directory.loading && !directory.error && directory.items.length === 0 && <Text style={text}>No hay fichas disponibles con esa búsqueda.</Text>}
+          {!!directory.error && <Button variant="ghost" onPress={directory.refresh}>{directory.error} Reintentar</Button>}
+          {directory.hasMore && <Button disabled={directory.loading} variant="ghost" onPress={directory.loadMore}>Cargar más fichas</Button>}
         </View>}
         <Text style={text}>{quote?.payment?.mode === 'ONLINE'
           ? professional ? 'Al confirmar, se creará la factura y se enviará al paciente. Para reservar por su cuenta deberá tener el cobro confirmado; puedes seguir agendando manualmente.' : 'Al confirmar, se creará tu bono y su factura. Continuarás al pago y podrás reservar cuando confirmemos el cobro.'

@@ -1,3 +1,5 @@
+import { getPatientDirectory, activityLabels, type ActivityFilter } from '../../services/patientDirectoryService';
+import { PatientActivityCount } from '../../components/professional/PatientActivityCount';
 import { patientOriginLabel } from '../../utils/patientProvenance';
 import { CommissionInfoLink } from '../commissions/CommissionLinks';
 import { useGeneralRateLimit, useRateLimitRecovery } from '../../hooks/useGeneralRateLimit';
@@ -60,7 +62,7 @@ const FILTERS: Array<{ label: string; value: SourceFilter }> = [
 ];
 
 const LIFECYCLE_FILTERS: Array<{ label: string; value: LifecycleFilter }> = [
-  { label: 'Activos', value: 'ACTIVE' },
+  { label: 'No archivados', value: 'ACTIVE' },
   { label: 'Archivados', value: 'ARCHIVED' },
   { label: 'Todos', value: 'ALL' },
 ];
@@ -188,6 +190,11 @@ export function ProfessionalClientsScreen() {
   const [error, setError] = useState<string | null>(null);
   const [sourceFilter, setSourceFilter] = useState<SourceFilter>('ALL');
   const [lifecycleFilter, setLifecycleFilter] = useState<LifecycleFilter>('ACTIVE');
+  const [activityFilter, setActivityFilter] = useState<ActivityFilter>('ALL');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [nextPage, setNextPage] = useState<number | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const moreInFlight = useRef(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [modalVisible, setModalVisible] = useState(false);
   const [sessionModalVisible, setSessionModalVisible] = useState(false);
@@ -218,8 +225,9 @@ export function ProfessionalClientsScreen() {
       ? formErrors.email
       : undefined;
 
+  useEffect(() => { const timer = setTimeout(() => setDebouncedSearch(searchQuery.trim()), 300); return () => clearTimeout(timer); }, [searchQuery]);
   const loadClients = useCallback(async (afterMutation = false) => {
-    const key = JSON.stringify([sourceFilter, lifecycleFilter]);
+    const key = JSON.stringify([sourceFilter, lifecycleFilter, activityFilter, debouncedSearch]);
     if (clientsInFlight.current === key) {
       if (afterMutation) clientsMutationPending.current = true;
       return;
@@ -229,10 +237,12 @@ export function ProfessionalClientsScreen() {
     try {
       setLoading(true);
       setError(null);
-      const data = await professionalService.getProfessionalClients({ provenance: sourceFilter, lifecycle: lifecycleFilter });
+      const response = await getPatientDirectory({ provenance: sourceFilter, archive: lifecycleFilter === 'ACTIVE' ? 'OPEN' : lifecycleFilter, activity: activityFilter, q: debouncedSearch });
+      const data = response.items;
       if (sequence !== clientsRequestSequence.current || clientsMutationPending.current) return;
       setClientsDataKey(key);
       setClients(data);
+      setNextPage(response.pageInfo.nextPage);
     } catch (loadError: unknown) {
       if (sequence === clientsRequestSequence.current) setError(getErrorMessage(loadError, 'No se pudo cargar tu base de pacientes'));
     } finally {
@@ -246,7 +256,7 @@ export function ProfessionalClientsScreen() {
         }
       }
     }
-  }, [lifecycleFilter, sourceFilter]);
+  }, [lifecycleFilter, sourceFilter, activityFilter, debouncedSearch]);
   loadClientsRef.current = loadClients;
 
   const loadClinicalAccessStatus = useCallback(async (sessionToken?: string | null) => {
@@ -294,27 +304,20 @@ export function ProfessionalClientsScreen() {
     !loading && !error && !modalVisible && !sessionModalVisible && !isAppAlertVisible,
   );
 
-  const hasCurrentClientsData = clientsDataKey === JSON.stringify([sourceFilter, lifecycleFilter]);
-  const filteredClients = useMemo(() => {
-    const query = searchQuery.trim().toLowerCase();
-
-    return (hasCurrentClientsData ? clients : []).filter((client) => {
-      if (!query) {
-        return true;
-      }
-
-      const haystacks = [
-        client.displayName,
-        client.primaryEmail,
-        client.primaryPhone,
-        client.user?.email,
-      ]
-        .filter(Boolean)
-        .map((value) => value!.toLowerCase());
-
-      return haystacks.some((value) => value.includes(query));
-    });
-  }, [clients, hasCurrentClientsData, searchQuery]);
+  const hasCurrentClientsData = clientsDataKey === JSON.stringify([sourceFilter, lifecycleFilter, activityFilter, debouncedSearch]);
+  const filteredClients = hasCurrentClientsData ? clients : [];
+  const loadMore = async () => {
+    if (!hasCurrentClientsData || loading || !nextPage || moreInFlight.current) return;
+    moreInFlight.current = true; setLoadingMore(true);
+    const sequence = clientsRequestSequence.current;
+    try {
+      const response = await getPatientDirectory({ page: nextPage, provenance: sourceFilter, archive: lifecycleFilter === 'ACTIVE' ? 'OPEN' : lifecycleFilter, activity: activityFilter, q: debouncedSearch });
+      if (sequence !== clientsRequestSequence.current) return;
+      setClients(previous => [...previous, ...response.items.filter(row => !previous.some(p => p.id === row.id))]);
+      setNextPage(response.pageInfo.nextPage); setError(null);
+    } catch (failure) { if (sequence === clientsRequestSequence.current) setError(getErrorMessage(failure, 'No se pudieron cargar más fichas.')); }
+    finally { moreInFlight.current = false; setLoadingMore(false); }
+  };
 
   const resetForm = () => {
     setForm(emptyForm);
@@ -677,13 +680,8 @@ export function ProfessionalClientsScreen() {
 
   const renderClientCard = (client: professionalService.Client) => {
     const consentTone = getConsentTone(client, theme);
-    const sessionCount = client.sessions?.length || 0;
-    const nextSession = client.sessions
-      ?.filter((session) => new Date(session.date).getTime() > Date.now())
-      .sort((left, right) => new Date(left.date).getTime() - new Date(right.date).getTime())[0];
-    const nextSessionValue = nextSession
-      ? formatDate(nextSession.date, { day: 'numeric', month: 'short' })
-      : 'Sin cita';
+    const sessionCount = client.sessionCount ?? 0;
+    const nextSessionValue = client.nextSessionDate ? formatDate(client.nextSessionDate, { day: 'numeric', month: 'short' }) : 'Sin cita';
 
     return (
       <Card
@@ -708,6 +706,7 @@ export function ProfessionalClientsScreen() {
           </View>
 
           <View style={stylesForTheme.clientHeaderInfo}>
+            {client.activity && <Text style={{ color: theme.textSecondary, fontFamily: theme.fontSans }}>{activityLabels[client.activity]}</Text>}
             <View style={stylesForTheme.badgeRow}>
               <Text style={[stylesForTheme.sourceBadgeText, { color: theme.textSecondary }]}>{patientOriginLabel(client.heraOrigin?.origin)}</Text>
               {client.archivedAt ? (
@@ -767,7 +766,7 @@ export function ProfessionalClientsScreen() {
               >
                 <Ionicons name="calendar-outline" size={13} color={theme.textMuted} />
                 <Text style={[stylesForTheme.quickFactText, { color: theme.textSecondary }]} numberOfLines={1}>
-                  {nextSession ? 'Próx. ' : ''}
+                  {client.nextSessionDate ? 'Próx. ' : ''}
                   <Text style={[stylesForTheme.quickFactValue, { color: theme.textPrimary }]}>
                     {nextSessionValue}
                   </Text>
@@ -863,7 +862,12 @@ export function ProfessionalClientsScreen() {
             <CommissionInfoLink compact />
           </View>
 
+          <PatientActivityCount />
           <View style={stylesForTheme.filtersBar}>
+            <View style={[stylesForTheme.filterDropdown, isDesktop && stylesForTheme.filterDropdownDesktop]}>
+              <Text style={[stylesForTheme.contextLabel, { color: theme.textSecondary }]}>Actividad</Text>
+              <SimpleDropdown options={[{label:'Todas',value:'ALL'}, {label:'Activos · últimos 60 días',value:'ACTIVE'}, {label:'Inactivos',value:'INACTIVE'}, {label:'Sin primera sesión',value:'NO_SESSIONS'}]} value={activityFilter} onSelect={setActivityFilter} maxHeight={220} />
+            </View>
             <View style={[stylesForTheme.filterDropdown, isDesktop && stylesForTheme.filterDropdownDesktop]}>
               <Text style={[stylesForTheme.contextLabel, { color: theme.textSecondary }]}>Origen</Text>
               <SimpleDropdown
@@ -875,12 +879,12 @@ export function ProfessionalClientsScreen() {
               />
             </View>
             <View style={[stylesForTheme.filterDropdown, isDesktop && stylesForTheme.filterDropdownDesktop]}>
-              <Text style={[stylesForTheme.contextLabel, { color: theme.textSecondary }]}>Estado</Text>
+              <Text style={[stylesForTheme.contextLabel, { color: theme.textSecondary }]}>Archivo</Text>
               <SimpleDropdown
                 options={LIFECYCLE_FILTERS}
                 value={lifecycleFilter}
                 onSelect={setLifecycleFilter}
-                placeholder="Estado"
+                placeholder="Archivo"
                 maxHeight={180}
               />
             </View>
@@ -904,7 +908,7 @@ export function ProfessionalClientsScreen() {
           fill
           style={[stylesForTheme.fullWidthTourTarget, stylesForTheme.gridTourTarget]}
         >
-          {loading ? (
+          {loading && filteredClients.length === 0 ? (
             <View style={stylesForTheme.loadingState}>
               <ActivityIndicator size="large" color={theme.primary} />
               <Text style={[stylesForTheme.loadingText, { color: theme.textSecondary }]}>
@@ -929,7 +933,12 @@ export function ProfessionalClientsScreen() {
               </Text>
             </Card>
           ) : (
-            <View style={stylesForTheme.clientsGrid}>{renderClientGrid()}</View>
+            <View><Text style={{ color: theme.textSecondary }}>{filteredClients.length} fichas cargadas</Text>
+              {loading && <ActivityIndicator accessibilityLabel="Actualizando fichas" color={theme.primary} />}
+              <View style={stylesForTheme.clientsGrid}>{renderClientGrid()}</View>
+              {error && <Button variant="ghost" onPress={() => { void loadClients(); }}>Reintentar</Button>}
+              {nextPage && <Button loading={loadingMore} onPress={() => { void loadMore(); }}>Cargar más fichas</Button>}
+            </View>
           )}
         </TourTarget>
       </ScrollView>

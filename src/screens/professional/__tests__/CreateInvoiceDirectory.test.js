@@ -1,0 +1,36 @@
+import React from 'react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { CreateInvoiceScreen } from '../CreateInvoiceScreen';
+import { getProfessionalClientDetail } from '../../../services/professionalService';
+import { getPatientDirectory } from '../../../services/patientDirectoryService';
+jest.mock('@react-navigation/native', () => ({ useFocusEffect: effect => { const ReactModule=require('react');ReactModule.useEffect(effect,[effect]); } }));
+jest.mock('../../../contexts/ThemeContext', () => ({ useTheme: () => ({theme: require('../../../constants/theme').lightTheme,isDark:false}) }));
+jest.mock('../../../components/common/alert',()=>({useAppAlert:()=>({}),showAppAlert:jest.fn()}));
+jest.mock('../../../services/professionalService',()=>({getProfessionalClientDetail:jest.fn(),getProfessionalSessionDetail:jest.fn()}));
+jest.mock('../../../services/patientDirectoryService',()=>({getPatientDirectory:jest.fn()}));
+jest.mock('../../../services/billingService',()=>({billingService:{getConfig:jest.fn(async()=>({applyVat:false,tariffs:[],fiscalName:'Profesional',fiscalNif:'TEST',fiscalAddress:'Madrid'}))}}));
+const patient={id:'new-inactive',source:'MANAGED',userId:null,displayName:'Paciente fuera de primera página',user:{id:null,name:'Paciente fuera de primera página',email:'synthetic@example.invalid',userType:'CLIENT'}};
+beforeEach(()=>{getPatientDirectory.mockReset().mockResolvedValue({items:[patient],pageInfo:{nextPage:null}});getProfessionalClientDetail.mockReset();});
+it('loads the directory on demand and fiscal details only for the selected patient',async()=>{
+ getProfessionalClientDetail.mockResolvedValue({...patient,billingDataComplete:true,billingFullName:'Nombre fiscal',billingTaxId:'TEST',billingAddress:'Dirección',billingPostalCode:'28001',billingCity:'Madrid',billingCountry:'España'});
+ render(<CreateInvoiceScreen route={{params:{},name:'CreateInvoice',key:'invoice'}} navigation={{navigate:jest.fn(),goBack:jest.fn()}} />);
+ await screen.findByText('Nueva factura');expect(getProfessionalClientDetail).not.toHaveBeenCalled();expect(getPatientDirectory).not.toHaveBeenCalled();
+ fireEvent.press(screen.getByTestId('managed-session-client-selector'));
+ fireEvent.press(await screen.findByLabelText('Paciente fuera de primera página, synthetic@example.invalid'));
+ await waitFor(()=>expect(getProfessionalClientDetail).toHaveBeenCalledWith(patient.id,1));
+ fireEvent.press(screen.getByText('Completa'));
+ expect(await screen.findByText('Datos completos')).toBeTruthy();
+ expect(getProfessionalClientDetail).toHaveBeenCalledTimes(1);
+ expect(getPatientDirectory).toHaveBeenCalledTimes(1);
+});
+it('blocks saving while selected details fail and provides retry',async()=>{
+ getProfessionalClientDetail.mockRejectedValueOnce(Error('offline')).mockResolvedValueOnce(patient);
+ render(<CreateInvoiceScreen route={{params:{},name:'CreateInvoice',key:'invoice'}} navigation={{navigate:jest.fn(),goBack:jest.fn()}} />);
+ await screen.findByText('Nueva factura');fireEvent.press(screen.getByTestId('managed-session-client-selector'));
+ fireEvent.press(await screen.findByLabelText('Paciente fuera de primera página, synthetic@example.invalid'));
+ expect(await screen.findByText('No se pudieron consultar los datos del paciente.')).toBeTruthy();
+ expect(screen.getByRole('button',{name:'Guardar borrador'})).toBeDisabled();
+ fireEvent.press(screen.getByText('Reintentar datos del paciente'));
+ await waitFor(()=>expect(getProfessionalClientDetail).toHaveBeenCalledTimes(2));
+ await waitFor(()=>expect(screen.queryByText('No se pudieron consultar los datos del paciente.')).toBeNull());
+});

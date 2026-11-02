@@ -1,3 +1,4 @@
+jest.mock('../../../services/patientDirectoryService', () => ({ getPatientDirectory: jest.fn().mockResolvedValue({ items: [], pageInfo: { nextPage: null } }) }));
 import React from 'react';
 jest.mock('../../../services/packagePaymentService', () => ({ storePackagePaymentAccess: jest.fn() }));
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';

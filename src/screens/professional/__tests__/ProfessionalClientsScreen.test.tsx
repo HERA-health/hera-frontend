@@ -1,3 +1,10 @@
+import type { DirectoryFilters } from '../../../services/patientDirectoryService';
+const mockDirectoryRead = jest.fn<Promise<professionalService.Client[]>, [DirectoryFilters]>();
+jest.mock('../../../services/patientDirectoryService', () => ({
+  getPatientDirectory: (filters: DirectoryFilters) => mockDirectoryRead(filters).then(items => ({ items, pageInfo: { nextPage: null } })),
+  activityLabels: { ACTIVE: 'Activo · últimos 60 días', INACTIVE: 'Inactivo', NO_SESSIONS: 'Sin primera sesión' },
+}));
+jest.mock('../../../components/professional/PatientActivityCount', () => ({ PatientActivityCount: () => null }));
 import React from 'react';
 import { View } from 'react-native';
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
@@ -43,31 +50,31 @@ jest.mock('../../../services/clinicalService', () => ({
 
 beforeEach(() => {
   mockIsFocused = true;
-  jest.mocked(professionalService.getProfessionalClients).mockReset();
+  mockDirectoryRead.mockReset();
   jest.mocked(professionalService.createManagedClientSession).mockReset();
 });
 
 it('requests acquisition categories instead of account types when changing the origin filter', async () => {
-  const getClients = jest.mocked(professionalService.getProfessionalClients);
+  const getClients = mockDirectoryRead;
   getClients.mockResolvedValue([]);
   const view = render(<View><ProfessionalClientsScreen /></View>);
-  await waitFor(() => expect(getClients).toHaveBeenLastCalledWith({ provenance: 'ALL', lifecycle: 'ACTIVE' }));
-  fireEvent.press(view.getByText('Todos'));
+  await waitFor(() => expect(getClients).toHaveBeenLastCalledWith({ provenance: 'ALL', archive: 'OPEN', activity: 'ALL', q: '' }));
+  fireEvent.press(view.getAllByText('Todos')[0]);
   expect(view.queryByText('Autoregistrados')).toBeNull();
   expect(view.queryByText('Añadidos por mí')).toBeNull();
   fireEvent.press(view.getByText('Directorio HERA'));
-  await waitFor(() => expect(getClients).toHaveBeenLastCalledWith({ provenance: 'DIRECTORY', lifecycle: 'ACTIVE' }));
+  await waitFor(() => expect(getClients).toHaveBeenLastCalledWith({ provenance: 'DIRECTORY', archive: 'OPEN', activity: 'ALL', q: '' }));
   fireEvent.press(view.getByText('Directorio HERA'));
   fireEvent.press(view.getByText('Cartera propia'));
-  await waitFor(() => expect(getClients).toHaveBeenLastCalledWith({ provenance: 'OWN', lifecycle: 'ACTIVE' }));
+  await waitFor(() => expect(getClients).toHaveBeenLastCalledWith({ provenance: 'OWN', archive: 'OPEN', activity: 'ALL', q: '' }));
   fireEvent.press(view.getByText('Cartera propia'));
   fireEvent.press(view.getByText('Procedencia pendiente'));
-  await waitFor(() => expect(getClients).toHaveBeenLastCalledWith({ provenance: 'UNDETERMINED', lifecycle: 'ACTIVE' }));
+  await waitFor(() => expect(getClients).toHaveBeenLastCalledWith({ provenance: 'UNDETERMINED', archive: 'OPEN', activity: 'ALL', q: '' }));
   view.unmount();
 });
 
 it('shows a load failure, then a genuine empty result after a successful retry', async () => {
-  const getClients = jest.mocked(professionalService.getProfessionalClients);
+  const getClients = mockDirectoryRead;
   getClients.mockRejectedValueOnce(new Error('Demasiadas solicitudes')).mockResolvedValueOnce([]);
   const view = render(<View><ProfessionalClientsScreen /></View>);
   await waitFor(() => expect(view.getByText('No pudimos cargar los pacientes')).toBeTruthy());
@@ -88,8 +95,8 @@ it('refreshes once after a creation during an existing read, without replaying t
   };
   let resolvePending: ((clients: professionalService.Client[]) => void) | undefined;
   const pending = new Promise<professionalService.Client[]>((resolve) => { resolvePending = resolve; });
-  const getClients = jest.mocked(professionalService.getProfessionalClients);
-  getClients.mockResolvedValueOnce([client]).mockReturnValueOnce(pending).mockResolvedValueOnce([{ ...client, sessions: [session] }]);
+  const getClients = mockDirectoryRead;
+  getClients.mockResolvedValueOnce([client]).mockReturnValueOnce(pending).mockResolvedValueOnce([{ ...client, sessionCount: 1, nextSessionDate: session.date }]);
   jest.mocked(professionalService.createManagedClientSession).mockResolvedValueOnce(session);
   const view = render(<View><ProfessionalClientsScreen /></View>);
   await waitFor(() => expect(view.getByText('Crear cita')).toBeTruthy());
