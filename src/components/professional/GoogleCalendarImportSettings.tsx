@@ -13,7 +13,7 @@ export function GoogleCalendarImportSettings({ userId, status, connected, onAuth
 }) {
   const { theme } = useTheme();
   const [open, setOpen] = useState(false), [loadingCalendars, setLoadingCalendars] = useState(false), [error, setError] = useState('');
-  const [action, setAction] = useState<'save' | 'disable' | 'authorize' | null>(null);
+  const [action, setAction] = useState<'save' | 'disable' | 'authorize' | 'refresh' | null>(null);
   const busy = loadingCalendars || action !== null;
   const [choices, setChoices] = useState<CalendarChoice[]>([]), [selected, setSelected] = useState<string[]>([]);
   const mounted = useRef(true);
@@ -31,7 +31,7 @@ export function GoogleCalendarImportSettings({ userId, status, connected, onAuth
   const text = { fontFamily: theme.fontSans, fontSize: 14, lineHeight: 21, color: theme.textSecondary };
   const workingButtonStyle = action ? { backgroundColor: theme.actionPrimary, borderColor: theme.actionPrimary } : undefined;
   const workingButtonText = action ? { color: theme.actionPrimaryText } : undefined;
-  const run = async (kind: 'save' | 'disable' | 'authorize', operation: () => Promise<void>) => { if (busy) return; setAction(kind); setError(''); try { await operation(); }
+  const run = async (kind: 'save' | 'disable' | 'authorize' | 'refresh', operation: () => Promise<void>) => { if (busy) return; setAction(kind); setError(''); try { await operation(); }
     catch (cause) { if (mounted.current) setError(getErrorMessage(cause)); } finally { if (mounted.current) setAction(null); } };
   const save = (enable: boolean) => run(enable ? 'save' : 'disable', async () => {
     await configureCalendarImport({ enabled: enable, calendarIds: enable ? selected : [], revision: status.revision, disclosureVersion: status.disclosureVersion });
@@ -46,10 +46,14 @@ export function GoogleCalendarImportSettings({ userId, status, connected, onAuth
         thumbColor={theme.bgCard} {...(Platform.OS === 'web' ? { activeThumbColor: theme.bgCard } : {})}
         trackColor={{ false: theme.border, true: theme.actionPrimary }} />
     </View>
-    <Text style={text}>{status.enabled
+    <Text style={text}>{status.errorCode === 'CALENDAR_IMPORT_METADATA_UNAVAILABLE'
+      ? 'No hemos podido recuperar los nombres de tus calendarios. Tu selección se conserva.'
+      : status.enabled
       ? 'Tus otros compromisos aparecen en HERA y bloquean los horarios ocupados.'
       : open ? 'Elige los calendarios que quieres ver en HERA y guarda para empezar.'
       : 'Activa esta opción para ver también tus compromisos de Google en HERA y evitar solapamientos.'}</Text>
+    {status.errorCode === 'CALENDAR_IMPORT_METADATA_UNAVAILABLE' && <Button variant="ghost" size="small" disabled={busy}
+      onPress={() => { void run('refresh', onChanged); }}>{action === 'refresh' ? 'Actualizando…' : 'Actualizar calendarios'}</Button>}
     {open && !status.enabled && <Text accessibilityLiveRegion="polite" style={[text, { fontSize: 12, fontFamily: theme.fontSansSemiBold, color: theme.warning }]}>Pendiente de guardar · Aún no se incluyen eventos.</Text>}
     {action === 'disable' && <Text accessibilityLiveRegion="polite" style={text}>Desactivando…</Text>}
     {status.enabled && !open && <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>

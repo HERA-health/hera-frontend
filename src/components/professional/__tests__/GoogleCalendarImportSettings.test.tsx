@@ -11,6 +11,16 @@ const calendars = [{ id: 'main', name: 'Personal', primary: true, availabilityOn
 const changed = jest.fn(async () => {}), authorize = jest.fn(async () => {});
 beforeEach(() => { jest.clearAllMocks(); jest.mocked(service.getImportCalendars).mockResolvedValue(calendars); jest.mocked(service.configureCalendarImport).mockResolvedValue(status); });
 
+test('unreadable metadata keeps the selection and offers recovery without disconnecting or saving preferences', async () => {
+  render(<GoogleCalendarImportSettings userId="owner" status={{ ...status, enabled: true, calendars: [{ id: 'main', name: 'Calendario de Google' }], errorCode: 'CALENDAR_IMPORT_METADATA_UNAVAILABLE' }} connected onAuthorize={authorize} onChanged={changed} />);
+  expect(screen.getByText('No hemos podido recuperar los nombres de tus calendarios. Tu selección se conserva.')).toBeTruthy();
+  expect(screen.getByText('1 calendario incluido')).toBeTruthy();
+  fireEvent.press(screen.getByText('Actualizar calendarios'));
+  await waitFor(() => expect(changed).toHaveBeenCalledTimes(1));
+  expect(service.configureCalendarImport).not.toHaveBeenCalled();
+  expect(authorize).not.toHaveBeenCalled();
+});
+
 test('opening proposes the primary calendar without activating or importing until save', async () => {
   render(<GoogleCalendarImportSettings userId="owner" status={status} connected onAuthorize={authorize} onChanged={changed} />);
   expect(service.getImportCalendars).not.toHaveBeenCalled();

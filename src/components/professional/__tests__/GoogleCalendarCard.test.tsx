@@ -16,6 +16,19 @@ const disconnected: service.GoogleCalendarStatus = { enabled: true, status: 'DIS
 const connected: service.GoogleCalendarStatus = { ...disconnected, status: 'CONNECTED', email: 'professional@example.invalid', activationConnection: { id: 'connection-a', generation: 1 } };
 beforeEach(() => { jest.clearAllMocks(); });
 
+test('a failed initial status stops the loading labels and retries into the real connection', async () => {
+  jest.mocked(service.getGoogleCalendarStatus).mockRejectedValueOnce(new Error('No se pudo consultar la conexión.')).mockResolvedValue(connected);
+  render(<GoogleCalendarCard />);
+  await screen.findByRole('alert');
+  expect(screen.getByLabelText('Google Calendar: No se pudo comprobar')).toBeTruthy();
+  expect(screen.getByLabelText('Google Meet: No se pudo comprobar')).toBeTruthy();
+  expect(screen.queryByText('Cargando conexión…')).toBeNull();
+  expect(screen.queryByText('Comprobando…')).toBeNull();
+  fireEvent.press(screen.getByText('Actualizar estado'));
+  await screen.findByLabelText('Google Calendar: Conectado');
+  expect(screen.queryByRole('alert')).toBeNull();
+});
+
 test.each([false, true])('Calendar stays visibly connected with Meet activation set to %s', async meetEnabled => {
   jest.mocked(service.getGoogleCalendarStatus).mockResolvedValue({ ...connected, videoSetupCompleted: true,
     meetEnabled, meetAssignmentsEnabled: true, videoProviderPreference: meetEnabled ? 'GOOGLE_MEET' : 'DAILY' });

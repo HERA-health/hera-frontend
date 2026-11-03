@@ -115,13 +115,13 @@ export function GoogleCalendarCard({ videoSetup = false, hasUnsavedChanges = fal
     && status.status === 'DISCONNECTED' && !credentialStorageError);
   const guidedSetup = videoSetup && status?.videoSetupCompleted === false && status.enabled
     && status.meetAssignmentsEnabled === true && !meetActive && !credentialStorageError && status.status !== 'DISCONNECTING';
-  const label = !status ? 'Cargando conexión…' : !status.enabled ? 'Disponible próximamente'
+  const label = !status ? error ? 'No se pudo comprobar' : 'Cargando conexión…' : !status.enabled ? 'Disponible próximamente'
     : status.status === 'DISCONNECTING' ? 'Desconectando…'
     : credentialStorageError ? 'La integración necesita revisión'
     : needsReauthorization ? 'Vuelve a autorizar el acceso'
     : status.status === 'DISCONNECTED' ? 'Sin conectar'
     : 'Conectado';
-  const meetLabel = !status ? 'Comprobando…' : credentialStorageError ? 'Preparación pausada'
+  const meetLabel = !status ? error ? 'No se pudo comprobar' : 'Comprobando…' : credentialStorageError ? 'Preparación pausada'
     : meetActive ? 'Activo' : !status.enabled || !status.meetAssignmentsEnabled ? 'Activación no disponible'
     : meetNeedsCalendar ? 'Necesita Calendar'
     : needsReauthorization ? 'Renueva Calendar' : canActivate ? 'Listo para activar' : status.videoProviderPreference === 'GOOGLE_MEET' ? 'Necesita atención'
