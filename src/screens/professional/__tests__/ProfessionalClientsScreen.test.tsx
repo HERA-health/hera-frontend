@@ -4,7 +4,6 @@ jest.mock('../../../services/patientDirectoryService', () => ({
   getPatientDirectory: (filters: DirectoryFilters) => mockDirectoryRead(filters).then(items => ({ items, pageInfo: { nextPage: null } })),
   activityLabels: { ACTIVE: 'Activo · últimos 60 días', INACTIVE: 'Inactivo', NO_SESSIONS: 'Sin primera sesión' },
 }));
-jest.mock('../../../components/professional/PatientActivityCount', () => ({ PatientActivityCount: () => null }));
 import React from 'react';
 import { View } from 'react-native';
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
@@ -59,6 +58,8 @@ it('requests acquisition categories instead of account types when changing the o
   getClients.mockResolvedValue([]);
   const view = render(<View><ProfessionalClientsScreen /></View>);
   await waitFor(() => expect(getClients).toHaveBeenLastCalledWith({ provenance: 'ALL', archive: 'OPEN', activity: 'ALL', q: '' }));
+  expect(view.queryByText(/Pacientes activos · últimos 60 días:/)).toBeNull();
+  expect(view.queryByText('Actualizar actividad')).toBeNull();
   fireEvent.press(view.getAllByText('Todos')[0]);
   expect(view.queryByText('Autoregistrados')).toBeNull();
   expect(view.queryByText('Añadidos por mí')).toBeNull();

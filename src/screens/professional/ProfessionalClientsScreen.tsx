@@ -1,5 +1,4 @@
 import { getPatientDirectory, activityLabels, type ActivityFilter } from '../../services/patientDirectoryService';
-import { PatientActivityCount } from '../../components/professional/PatientActivityCount';
 import { patientOriginLabel } from '../../utils/patientProvenance';
 import { CommissionInfoLink } from '../commissions/CommissionLinks';
 import { useGeneralRateLimit, useRateLimitRecovery } from '../../hooks/useGeneralRateLimit';
@@ -862,7 +861,6 @@ export function ProfessionalClientsScreen() {
             <CommissionInfoLink compact />
           </View>
 
-          <PatientActivityCount />
           <View style={stylesForTheme.filtersBar}>
             <View style={[stylesForTheme.filterDropdown, isDesktop && stylesForTheme.filterDropdownDesktop]}>
               <Text style={[stylesForTheme.contextLabel, { color: theme.textSecondary }]}>Actividad</Text>
