@@ -3,6 +3,8 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react-nativ
 import { SpecialistDetailAdminScreen } from '../SpecialistDetailAdminScreen';
 import * as adminService from '../../../services/adminService';
 
+jest.mock('../../../services/api', () => ({ api: { get: jest.fn() } }));
+
 const mockConfirm = jest.fn();
 const mockNavigate = jest.fn();
 jest.mock('@react-navigation/native', () => ({

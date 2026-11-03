@@ -1,4 +1,7 @@
 jest.mock("@expo/vector-icons", () => ({ Feather: () => null }));
+jest.mock('../../../services/patientDirectoryService', () => ({
+  getPatientDirectory: jest.fn().mockResolvedValue({ items: [], pageInfo: { nextPage: null } }),
+}));
 jest.mock('../../../services/sessionPaymentService', () => ({ storePaymentAccess: jest.fn(), paymentAmount: (cents: number) => `${cents / 100} EUR` }));
 import React from 'react';
 jest.mock('../../../services/packagePaymentService', () => ({ storePackagePaymentAccess: jest.fn() }));

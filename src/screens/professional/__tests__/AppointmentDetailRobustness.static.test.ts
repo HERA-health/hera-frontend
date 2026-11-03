@@ -82,8 +82,9 @@ describe('appointment detail robustness contracts', () => {
 
   it('keeps monthly calendar sessions and +N disclosure inside Agenda', () => {
     expect(professionalAgendaMonthSource).toContain('const daySessions = sessionsByDate.get');
-    expect(professionalAgendaMonthSource).toContain('const hiddenCount = Math.max(0, daySessions.length - visibleLimit)');
-    expect(professionalAgendaMonthSource).toContain('daySessions.slice(0, visibleLimit).map');
+    expect(professionalAgendaMonthSource).toContain('const sessionLimit = Math.max(0, visibleLimit - (dayExternal.length ? 1 : 0))');
+    expect(professionalAgendaMonthSource).toContain('const hiddenCount = Math.max(0, daySessions.length - sessionLimit)');
+    expect(professionalAgendaMonthSource).toContain('daySessions.slice(0, sessionLimit).map');
     expect(professionalAgendaMonthSource).toContain('>+{hiddenCount} más</Text>');
     expect(professionalAgendaMonthSource).toContain('<AgendaDayPopover');
   });
