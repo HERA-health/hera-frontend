@@ -271,7 +271,7 @@ export function GoogleCalendarCard({ videoSetup = false, hasUnsavedChanges = fal
                 <Text style={[styles.caption, { color: theme.textSecondary }]}>CUENTA ORGANIZADORA</Text>
                 <Text selectable style={[styles.account, { color: theme.textPrimary, fontFamily: theme.fontSansSemiBold }]}>{confirmMeet.email}</Text>
               </View>
-              <Text style={copy}>Autorizas a HERA a crear una reunión distinta de Google Meet por cita de vídeo en el calendario principal de {confirmMeet.email}. Los participantes recibirán su acceso por HERA y correo. No se enviarán datos clínicos al evento.</Text>
+              <Text style={copy}>Autorizas a HERA a crear una reunión distinta de Google Meet por cita de vídeo en el calendario principal de {confirmMeet.email}. El título incluye el nombre del paciente. Los participantes recibirán su acceso por HERA y correo. No se enviarán notas ni documentos clínicos al evento.</Text>
               <Text style={copy}>Google Meet será el proveedor principal, también en reservas inmediatas. El enlace puede tardar unos minutos en prepararse. Daily se utilizará automáticamente solo como respaldo de emergencia ante problemas que impidan disponer de Meet, según la política de privacidad. HERA mostrará el motivo del cambio; si se usa Daily, la llamada transcurrirá mediante ese servicio.</Text>
               <Text style={copy}>Los enlaces ya preparados y las citas que ya utilizan Daily conservarán su acceso.</Text>
               <Button variant="ghost" size="small" style={styles.start} onPress={() => {
@@ -280,7 +280,7 @@ export function GoogleCalendarCard({ videoSetup = false, hasUnsavedChanges = fal
               }}>Leer condiciones del respaldo de emergencia</Button>
               <Text style={copy}>Cuando se utiliza Meet, el audio y vídeo transcurren en Google. Debes admitir al paciente correcto y finalizar la reunión. Desconectar o borrar el evento no invalida necesariamente un enlace copiado. Revisa las condiciones aplicables a tu cuenta antes del uso clínico.</Text>
             </> : confirmDisconnect ? <Text style={copy}>Las citas ya copiadas permanecerán en Google y dejarán de actualizarse. Los enlaces Meet preparados pueden seguir funcionando; desconectar no borra las reuniones.</Text> : <>
-              <Text style={copy}>Se mostrarán tus citas privadas y de clínicas, pendientes y confirmadas, con su horario y un enlace a HERA. No se enviarán datos del paciente.</Text>
+              <Text style={copy}>Tus citas aparecerán en Google con el nombre del paciente, la modalidad, el horario y un enlace a HERA. Se marcarán como privadas. No se enviarán datos de contacto, notas ni documentos clínicos.</Text>
               <Text style={copy}>Los cambios de tus citas se gestionan en HERA. Google solicitará permiso para gestionar eventos; HERA solo gestionará sus propias copias.</Text>
               <Text style={copy}>Si desconectas la cuenta, las citas ya copiadas permanecerán en Google y dejarán de actualizarse. Guardamos tu identidad Google y una credencial cifrada; puedes desconectar cuando quieras.</Text>
               {status?.import?.available && <>

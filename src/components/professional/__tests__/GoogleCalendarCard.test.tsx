@@ -263,7 +263,7 @@ test('explains the data exported and starts a real connection action', async () 
   render(<GoogleCalendarCard />);
   await screen.findByText('Sin conectar');
   fireEvent.press(screen.getByText('Conectar Google Calendar'));
-  expect(screen.getByText(/No se enviarán datos del paciente/)).toBeTruthy();
+  expect(screen.getByText(/nombre del paciente, la modalidad, el horario y un enlace a HERA/)).toBeTruthy();
   expect(screen.getByText(/HERA solo gestionará sus propias copias/)).toBeTruthy();
   fireEvent.press(screen.getByText('Continuar con Google'));
   await waitFor(() => expect(service.connectGoogleCalendar).toHaveBeenCalledWith('professional', '2026-10-09'));
@@ -292,9 +292,9 @@ test('connected Daily keeps privacy available without repeating the full disclos
   jest.mocked(service.getGoogleCalendarStatus).mockResolvedValue({ ...connected, meetAssignmentsEnabled: true, videoProviderPreference: 'DAILY' });
   render(<GoogleCalendarCard />);
   await screen.findByText(/Un enlace de Meet para cada cita/);
-  expect(screen.queryByText(/No se enviarán datos del paciente/)).toBeNull();
+  expect(screen.queryByText(/nombre del paciente, la modalidad, el horario y un enlace a HERA/)).toBeNull();
   fireEvent.press(screen.getByText('Datos compartidos y privacidad'));
-  expect(screen.getByText(/No se enviarán datos del paciente/)).toBeTruthy();
+  expect(screen.getByText(/nombre del paciente, la modalidad, el horario y un enlace a HERA/)).toBeTruthy();
   expect(service.setVideoPreference).not.toHaveBeenCalled();
 });
 
