@@ -138,6 +138,46 @@ const pickInitialConsentDocument = async (): Promise<UploadAsset | null> => {
 const getSessionCountLabel = (count: number): string =>
   count === 1 ? 'sesión' : 'sesiones';
 
+function ClientAvatar({
+  client,
+  theme,
+  styles: avatarStyles,
+}: {
+  client: professionalService.Client;
+  theme: Theme;
+  styles: ReturnType<typeof createStyles>;
+}) {
+  const [photoStatus, setPhotoStatus] = useState<'loading' | 'loaded' | 'failed'>('loading');
+  const photo = client.user?.avatar?.trim();
+  const name = client.displayName?.trim() || client.user?.name?.trim() || 'Paciente';
+  const initials = (client.initials?.replace(/\s+/g, '') ||
+    name.split(/\s+/).slice(0, 2).map(part => part[0]).join('')).slice(0, 2).toUpperCase();
+
+  return (
+    <View style={[avatarStyles.avatar, { backgroundColor: theme.primary + '14' }]}>
+      {photoStatus !== 'loaded' && (
+        <Text
+          style={[avatarStyles.avatarText, { color: theme.primary }]}
+          accessibilityLabel={`Iniciales de ${name}: ${initials}`}
+          numberOfLines={1}
+        >
+          {initials}
+        </Text>
+      )}
+      {photo && photoStatus !== 'failed' ? (
+        <Image
+          source={{ uri: photo }}
+          style={[avatarStyles.avatarImage, { opacity: photoStatus === 'loaded' ? 1 : 0 }]}
+          accessibilityLabel={`Foto de ${name}`}
+          resizeMode="cover"
+          onLoad={() => setPhotoStatus('loaded')}
+          onError={() => setPhotoStatus('failed')}
+        />
+      ) : null}
+    </View>
+  );
+}
+
 function MetricCard({
   icon,
   label,
@@ -179,8 +219,8 @@ export function ProfessionalClientsScreen() {
   const { theme, isDark } = useTheme();
   const stylesForTheme = useMemo(() => createStyles(theme, isDark), [theme, isDark]);
   const isDesktop = width >= 1180;
-  const isTablet = width >= 768 && width < 1180;
   const isMobile = width < 768;
+  const [gridWidth, setGridWidth] = useState(0);
 
   const [clientsDataKey, setClientsDataKey] = useState('');
   const [clients, setClients] = useState<professionalService.Client[]>([]);
@@ -208,8 +248,10 @@ export function ProfessionalClientsScreen() {
   const [formErrors, setFormErrors] = useState<Partial<Record<keyof ManagedClientForm, string>>>({});
   const clinicalAccessTokenRef = useRef<string | null>(null);
 
-  const gridColumns = isDesktop ? 3 : isTablet ? 2 : 1;
-  const gridItemWidth = isDesktop ? '31.8%' : isTablet ? '48.8%' : '100%';
+  // Keep cards readable within the actual content area, including the sidebar.
+  const gridColumns = Math.max(1, Math.min(3, Math.floor((gridWidth + spacing.md) / (320 + spacing.md))));
+  const cardWidth = (gridWidth - spacing.md * (gridColumns - 1)) / gridColumns;
+  const stackCardActions = gridWidth > 0 && cardWidth < 280;
 
   const syncClinicalAccessToken = useCallback((nextToken: string | null) => {
     clinicalAccessTokenRef.current = nextToken;
@@ -691,23 +733,25 @@ export function ProfessionalClientsScreen() {
         style={stylesForTheme.clientCard}
       >
         <View style={stylesForTheme.clientHeader}>
-          <View style={[stylesForTheme.avatar, { backgroundColor: theme.primary + '14' }]}>
-            {client.user?.avatar ? (
-              <Image
-                source={{ uri: client.user.avatar }}
-                style={stylesForTheme.avatarImage}
-              />
-            ) : (
-              <Text style={[stylesForTheme.avatarText, { color: theme.primary }]}>
-                {client.initials || client.displayName?.slice(0, 1) || 'P'}
-              </Text>
-            )}
-          </View>
+          <ClientAvatar
+            key={client.user?.avatar}
+            client={client}
+            theme={theme}
+            styles={stylesForTheme}
+          />
 
           <View style={stylesForTheme.clientHeaderInfo}>
-            {client.activity && <Text style={{ color: theme.textSecondary, fontFamily: theme.fontSans }}>{activityLabels[client.activity]}</Text>}
+            <Text
+              style={[stylesForTheme.clientName, { color: theme.textPrimary }]}
+              numberOfLines={1}
+              accessibilityLabel={client.displayName || client.user?.name || 'Paciente'}
+            >
+              {client.displayName || client.user?.name || 'Paciente'}
+            </Text>
             <View style={stylesForTheme.badgeRow}>
-              <Text style={[stylesForTheme.sourceBadgeText, { color: theme.textSecondary }]}>{patientOriginLabel(client.heraOrigin?.origin)}</Text>
+              <Text style={[stylesForTheme.sourceBadgeText, stylesForTheme.sourceLabel, { color: theme.textSecondary }]} numberOfLines={1}>
+                {patientOriginLabel(client.heraOrigin?.origin)}
+              </Text>
               {client.archivedAt ? (
                 <View
                   style={[
@@ -715,75 +759,84 @@ export function ProfessionalClientsScreen() {
                     { backgroundColor: theme.textMuted + '14' },
                   ]}
                 >
-                  <Text style={[stylesForTheme.sourceBadgeText, { color: theme.textMuted }]}>
+                  <Text style={[stylesForTheme.sourceBadgeText, { color: theme.textMuted }]} numberOfLines={1}>
                     Archivado
                   </Text>
                 </View>
               ) : null}
-              <View style={[
-                stylesForTheme.consentBadge,
-                {
-                  backgroundColor: consentTone.backgroundColor,
-                  borderColor: consentTone.borderColor,
-                },
-              ]}>
-                <Ionicons name={consentTone.iconName} size={13} color={consentTone.color} />
-                <Text style={[stylesForTheme.consentBadgeText, { color: consentTone.color }]}>
-                  {getConsentLabel(client)}
-                </Text>
-              </View>
             </View>
-
-            <Text style={[stylesForTheme.clientName, { color: theme.textPrimary }]}>
-              {client.displayName || client.user?.name || 'Paciente'}
+            <Text style={[stylesForTheme.clientActivity, { color: theme.textSecondary }]} numberOfLines={1}>
+              {client.activity ? activityLabels[client.activity] : ' '}
             </Text>
-            <Text style={[stylesForTheme.clientMeta, { color: theme.textSecondary }]}>
-              {client.primaryEmail || 'Sin email registrado'}
-            </Text>
-
-            <View style={stylesForTheme.quickFactsRow}>
-              <View
-                style={[
-                  stylesForTheme.quickFactPill,
-                  { backgroundColor: theme.bgMuted, borderColor: theme.border },
-                ]}
-              >
-                <Ionicons name="albums-outline" size={13} color={theme.textMuted} />
-                <Text style={[stylesForTheme.quickFactText, { color: theme.textSecondary }]} numberOfLines={1}>
-                  <Text style={[stylesForTheme.quickFactValue, { color: theme.textPrimary }]}>
-                    {sessionCount}
-                  </Text>
-                  {` ${getSessionCountLabel(sessionCount)}`}
-                </Text>
-              </View>
-
-              <View
-                style={[
-                  stylesForTheme.quickFactPill,
-                  { backgroundColor: theme.bgMuted, borderColor: theme.border },
-                ]}
-              >
-                <Ionicons name="calendar-outline" size={13} color={theme.textMuted} />
-                <Text style={[stylesForTheme.quickFactText, { color: theme.textSecondary }]} numberOfLines={1}>
-                  {client.nextSessionDate ? 'Próx. ' : ''}
-                  <Text style={[stylesForTheme.quickFactValue, { color: theme.textPrimary }]}>
-                    {nextSessionValue}
-                  </Text>
-                </Text>
-              </View>
-            </View>
           </View>
         </View>
 
-        <View style={stylesForTheme.infoRow}>
-          <Ionicons name="call-outline" size={16} color={theme.textMuted} />
-          <Text style={[stylesForTheme.infoText, { color: theme.textSecondary }]}>
-            {client.primaryPhone || 'Sin teléfono'}
+        <View style={stylesForTheme.contactDetails}>
+          <View style={stylesForTheme.infoRow}>
+            <Ionicons name="mail-outline" size={16} color={theme.textMuted} />
+            <Text
+              style={[stylesForTheme.infoText, { color: theme.textSecondary }]}
+              numberOfLines={1}
+              accessibilityLabel={client.primaryEmail || 'Sin email registrado'}
+            >
+              {client.primaryEmail || 'Sin email registrado'}
+            </Text>
+          </View>
+          <View style={stylesForTheme.infoRow}>
+            <Ionicons name="call-outline" size={16} color={theme.textMuted} />
+            <Text style={[stylesForTheme.infoText, { color: theme.textSecondary }]} numberOfLines={1}>
+              {client.primaryPhone || 'Sin teléfono'}
+            </Text>
+          </View>
+        </View>
+
+        <View style={[
+          stylesForTheme.consentBadge,
+          {
+            backgroundColor: consentTone.backgroundColor,
+            borderColor: consentTone.borderColor,
+          },
+        ]}>
+          <Ionicons name={consentTone.iconName} size={13} color={consentTone.color} />
+          <Text style={[stylesForTheme.consentBadgeText, { color: consentTone.color }]} numberOfLines={1}>
+            {getConsentLabel(client)}
           </Text>
         </View>
 
-        <View style={stylesForTheme.cardActions}>
-          <View style={stylesForTheme.cardActionItem}>
+        <View style={stylesForTheme.quickFactsRow}>
+          <View
+            style={[
+              stylesForTheme.quickFactPill,
+              { backgroundColor: theme.bgMuted, borderColor: theme.border },
+            ]}
+          >
+            <Ionicons name="albums-outline" size={13} color={theme.textMuted} />
+            <Text style={[stylesForTheme.quickFactText, { color: theme.textSecondary }]} numberOfLines={1}>
+              <Text style={[stylesForTheme.quickFactValue, { color: theme.textPrimary }]}>
+                {sessionCount}
+              </Text>
+              {` ${getSessionCountLabel(sessionCount)}`}
+            </Text>
+          </View>
+
+          <View
+            style={[
+              stylesForTheme.quickFactPill,
+              { backgroundColor: theme.bgMuted, borderColor: theme.border },
+            ]}
+          >
+            <Ionicons name="calendar-outline" size={13} color={theme.textMuted} />
+            <Text style={[stylesForTheme.quickFactText, { color: theme.textSecondary }]} numberOfLines={1}>
+              {client.nextSessionDate ? 'Próx. ' : ''}
+              <Text style={[stylesForTheme.quickFactValue, { color: theme.textPrimary }]}>
+                {nextSessionValue}
+              </Text>
+            </Text>
+          </View>
+        </View>
+
+        <View style={[stylesForTheme.cardActions, stackCardActions && stylesForTheme.cardActionsStacked]}>
+          <View style={[stylesForTheme.cardActionItem, stackCardActions && stylesForTheme.cardActionItemStacked]}>
             <Button
               variant="outline"
               size="small"
@@ -795,7 +848,7 @@ export function ProfessionalClientsScreen() {
             </Button>
           </View>
           {!client.archivedAt ? (
-            <View style={stylesForTheme.cardActionItem}>
+            <View style={[stylesForTheme.cardActionItem, stackCardActions && stylesForTheme.cardActionItemStacked]}>
               <Button
                 variant="secondary"
                 size="small"
@@ -820,9 +873,12 @@ export function ProfessionalClientsScreen() {
       rows.push(
         <View key={`row-${i}`} style={stylesForTheme.gridRow}>
           {rowItems.map((client) => (
-            <View key={client.id} style={[stylesForTheme.gridItem, { width: gridItemWidth }]}>
+            <View key={client.id} style={stylesForTheme.gridItem}>
               {renderClientCard(client)}
             </View>
+          ))}
+          {Array.from({ length: gridColumns - rowItems.length }, (_, index) => (
+            <View key={`empty-${index}`} style={stylesForTheme.gridItem} />
           ))}
         </View>
       );
@@ -931,9 +987,14 @@ export function ProfessionalClientsScreen() {
               </Text>
             </Card>
           ) : (
-            <View><Text style={{ color: theme.textSecondary }}>{filteredClients.length} fichas cargadas</Text>
+            <View>
               {loading && <ActivityIndicator accessibilityLabel="Actualizando fichas" color={theme.primary} />}
-              <View style={stylesForTheme.clientsGrid}>{renderClientGrid()}</View>
+              <View
+                style={stylesForTheme.clientsGrid}
+                onLayout={({ nativeEvent }) => setGridWidth(nativeEvent.layout.width)}
+              >
+                {renderClientGrid()}
+              </View>
               {error && <Button variant="ghost" onPress={() => { void loadClients(); }}>Reintentar</Button>}
               {nextPage && <Button loading={loadingMore} onPress={() => { void loadMore(); }}>Cargar más fichas</Button>}
             </View>
@@ -1506,12 +1567,15 @@ const createStyles = (theme: Theme, isDark: boolean) =>
       alignItems: 'stretch',
     },
     gridItem: {
+      flex: 1,
+      minWidth: 0,
       alignSelf: 'stretch',
     },
     clientCard: {
       gap: spacing.sm + 2,
       minWidth: 0,
-      height: '100%',
+      minHeight: 288,
+      flex: 1,
     },
     clientHeader: {
       flexDirection: 'row',
@@ -1521,12 +1585,16 @@ const createStyles = (theme: Theme, isDark: boolean) =>
     avatar: {
       width: 48,
       height: 48,
+      flexShrink: 0,
       borderRadius: 16,
       alignItems: 'center',
       justifyContent: 'center',
       overflow: 'hidden',
     },
     avatarImage: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
       width: '100%',
       height: '100%',
       borderRadius: 16,
@@ -1539,17 +1607,22 @@ const createStyles = (theme: Theme, isDark: boolean) =>
     clientHeaderInfo: {
       flex: 1,
       minWidth: 0,
-      gap: 5,
+      gap: 2,
+      minHeight: 68,
     },
     badgeRow: {
       flexDirection: 'row',
       gap: 6,
-      flexWrap: 'wrap',
+      alignItems: 'center',
     },
     sourceBadge: {
-      paddingHorizontal: 9,
-      paddingVertical: 5,
+      flexShrink: 0,
+      paddingHorizontal: 6,
       borderRadius: 999,
+    },
+    sourceLabel: {
+      flexShrink: 1,
+      minWidth: 0,
     },
     sourceBadgeText: {
       ...textStyles.caption,
@@ -1557,6 +1630,8 @@ const createStyles = (theme: Theme, isDark: boolean) =>
       fontFamily: theme.fontSansBold,
     },
     consentBadge: {
+      alignSelf: 'flex-start',
+      maxWidth: '100%',
       paddingHorizontal: 9,
       paddingVertical: 5,
       borderRadius: 999,
@@ -1566,6 +1641,7 @@ const createStyles = (theme: Theme, isDark: boolean) =>
       gap: 4,
     },
     consentBadgeText: {
+      flexShrink: 1,
       ...textStyles.caption,
       fontWeight: '700',
       fontFamily: theme.fontSansBold,
@@ -1575,17 +1651,21 @@ const createStyles = (theme: Theme, isDark: boolean) =>
       fontWeight: '700',
       fontFamily: theme.fontHeading,
     },
-    clientMeta: {
-      ...textStyles.bodySmall,
+    clientActivity: {
+      ...textStyles.caption,
       fontFamily: theme.fontSans,
+    },
+    contactDetails: {
+      gap: spacing.xs,
     },
     quickFactsRow: {
       flexDirection: 'row',
-      flexWrap: 'wrap',
       gap: 6,
       marginTop: 2,
     },
     quickFactPill: {
+      flexShrink: 1,
+      minWidth: 0,
       minHeight: 28,
       borderRadius: 999,
       borderWidth: 1,
@@ -1614,16 +1694,29 @@ const createStyles = (theme: Theme, isDark: boolean) =>
       ...textStyles.bodySmall,
       fontFamily: theme.fontSans,
       flex: 1,
+      minWidth: 0,
     },
     cardActions: {
       flexDirection: 'row',
-      flexWrap: 'wrap',
       gap: spacing.sm,
-      marginTop: spacing.xs,
+      marginTop: 'auto',
+      paddingTop: spacing.xs,
+      minHeight: 40,
+    },
+    cardActionsStacked: {
+      flexDirection: 'column',
+      minHeight: 84,
     },
     cardActionItem: {
-      flex: 1,
-      minWidth: 120,
+      flexGrow: 1,
+      flexShrink: 1,
+      flexBasis: 0,
+      minWidth: 0,
+    },
+    cardActionItemStacked: {
+      flexGrow: 0,
+      flexShrink: 0,
+      flexBasis: 'auto',
     },
     modalBackdrop: {
       flex: 1,

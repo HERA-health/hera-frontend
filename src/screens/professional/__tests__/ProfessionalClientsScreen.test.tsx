@@ -86,6 +86,53 @@ it('shows a load failure, then a genuine empty result after a successful retry',
   view.unmount();
 });
 
+it('keeps initials while photos load, recovers from image errors and retries a changed photo', async () => {
+  const client: professionalService.Client = {
+    id: 'avatar-test', userId: null, source: 'MANAGED', displayName: 'Sara Prueba', initials: 'SP',
+    user: { id: null, email: '', name: 'Sara Prueba', userType: 'CLIENT', avatar: 'https://example.com/old-avatar.png' },
+    sessions: [],
+  };
+  mockDirectoryRead.mockResolvedValueOnce([client]).mockResolvedValueOnce([{
+    ...client,
+    user: { ...client.user, avatar: 'https://example.com/new-avatar.png' },
+  }]);
+  const view = render(<ProfessionalClientsScreen />);
+  const photo = await view.findByLabelText('Foto de Sara Prueba');
+  expect(view.getByLabelText('Iniciales de Sara Prueba: SP')).toBeTruthy();
+
+  fireEvent(photo, 'error', { nativeEvent: { error: 'Image unavailable' } });
+  expect(view.queryByLabelText('Foto de Sara Prueba')).toBeNull();
+  expect(view.getByLabelText('Iniciales de Sara Prueba: SP')).toBeTruthy();
+
+  mockIsFocused = false;
+  view.rerender(<ProfessionalClientsScreen />);
+  mockIsFocused = true;
+  view.rerender(<ProfessionalClientsScreen />);
+  const replacement = await view.findByLabelText('Foto de Sara Prueba');
+  expect(replacement.props.source.uri).toBe('https://example.com/new-avatar.png');
+  expect(view.getByLabelText('Iniciales de Sara Prueba: SP')).toBeTruthy();
+  fireEvent(replacement, 'load');
+  expect(view.queryByLabelText('Iniciales de Sara Prueba: SP')).toBeNull();
+  expect(view.getByLabelText('Foto de Sara Prueba')).toBeTruthy();
+  view.unmount();
+});
+
+it('derives nonempty initials from the name when the photo and supplied initials are blank', async () => {
+  mockDirectoryRead.mockResolvedValue([{
+    id: 'blank-avatar', userId: null, source: 'MANAGED', displayName: '  ', initials: '  ',
+    user: { id: null, email: '', name: '  Elena   Gómez  ', userType: 'CLIENT', avatar: '  ' },
+    sessions: [],
+  }, {
+    id: 'missing-avatar', userId: null, source: 'MANAGED', displayName: '', initials: '',
+    user: { id: null, email: '', name: '', userType: 'CLIENT' }, sessions: [],
+  }]);
+  const view = render(<ProfessionalClientsScreen />);
+  expect(await view.findByLabelText('Iniciales de Elena   Gómez: EG')).toBeTruthy();
+  expect(view.getByLabelText('Iniciales de Paciente: P')).toBeTruthy();
+  expect(view.queryByLabelText(/Foto de/)).toBeNull();
+  view.unmount();
+});
+
 it('refreshes once after a creation during an existing read, without replaying the write', async () => {
   const client: professionalService.Client = {
     id: 'client-test', userId: null, source: 'MANAGED', displayName: 'Paciente de prueba',
