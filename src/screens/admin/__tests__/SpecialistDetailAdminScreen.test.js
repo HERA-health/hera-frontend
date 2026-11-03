@@ -47,6 +47,14 @@ const open = async () => {
 };
 beforeEach(() => { jest.clearAllMocks(); mockConfirm.mockResolvedValue(false); });
 
+test.each([['+34600123456', 'Teléfono: +34600123456'], [null, 'Teléfono: No indicado'], ['   ', 'Teléfono: No indicado']])('shows the account phone %s explicitly in the admin detail', async (phone, expected) => {
+  const specialist = detail();
+  specialist.user.phone = phone;
+  adminService.getSpecialistDetail.mockResolvedValue(specialist);
+  await open();
+  expect(screen.getByText(expected).props.selectable).toBe(true);
+});
+
 test('shows the persisted HERA balance and opens this specialist’s transfers', async () => {
   adminService.getSpecialistDetail.mockResolvedValue(detail());
   await open();

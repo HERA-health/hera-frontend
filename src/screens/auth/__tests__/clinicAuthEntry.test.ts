@@ -20,7 +20,7 @@ describe('clinic auth entry points', () => {
     expect(landingSource).not.toContain(obsoleteHelperName);
     expect(welcomeSource).toContain("userType: 'CLINIC'");
     expect(registerSource).toContain('clinicCommercialName');
-    expect(registerSource).toContain("setUserType('clinic')");
+    // Clinic selection is exercised through the rendered form in RegisterScreen.test.tsx.
     expect(landingSource).toContain('handleClinicAccess');
   });
 

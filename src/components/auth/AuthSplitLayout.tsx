@@ -26,6 +26,9 @@ interface AuthSplitLayoutProps {
   features: AuthFeature[];
   form: React.ReactNode;
   footer?: React.ReactNode;
+  formScrollRef?: React.Ref<ScrollView>;
+  variant?: 'split' | 'form';
+  formHeader?: React.ReactNode;
 }
 
 export function AuthSplitLayout({
@@ -36,6 +39,9 @@ export function AuthSplitLayout({
   features,
   form,
   footer,
+  formScrollRef,
+  variant = 'split',
+  formHeader,
 }: AuthSplitLayoutProps): React.ReactElement {
   const { width } = useWindowDimensions();
   const { theme, isDark } = useTheme();
@@ -47,6 +53,28 @@ export function AuthSplitLayout({
   const brandSideColor = accent === 'primary'
     ? (isDark ? theme.primaryMuted : theme.primary)
     : (isDark ? theme.secondaryMuted : theme.secondaryDark);
+
+  if (variant === 'form') {
+    return (
+      <KeyboardAvoidingView
+        style={[styles.root, { backgroundColor: theme.bgMuted }]}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        {formHeader}
+        <ScrollView
+          ref={formScrollRef}
+          style={styles.formScroll}
+          contentContainerStyle={styles.compactScrollContent}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={styles.wideFormContainer}>
+            {form}
+            {footer}
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    );
+  }
 
   return (
     <KeyboardAvoidingView
@@ -157,6 +185,7 @@ export function AuthSplitLayout({
           ]}
         >
           <ScrollView
+            ref={formScrollRef}
             style={styles.formScroll}
             contentContainerStyle={[
               styles.formScrollContent,
@@ -178,6 +207,15 @@ export function AuthSplitLayout({
 }
 
 const styles = StyleSheet.create({
+  compactScrollContent: {
+    flexGrow: 1,
+    padding: spacing.lg,
+  },
+  wideFormContainer: {
+    width: '100%',
+    maxWidth: 1040,
+    alignSelf: 'center',
+  },
   root: {
     flex: 1,
   },

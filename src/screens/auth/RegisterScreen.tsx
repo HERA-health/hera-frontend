@@ -1,7 +1,7 @@
 import { getLegalCatalog } from '../../services/legalService';
 import { LEGAL_DOCUMENTS, type LegalDocumentContent } from '../../constants/legal';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Platform, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import * as authService from '../../services/authService';
@@ -17,6 +17,8 @@ import { spacing } from '../../constants/colors';
 import { getRequiredRegistrationDocumentKeys } from '../../constants/legal';
 import { AuthSplitLayout, GoogleAuthButton, PasswordRequirementsChecklist } from '../../components/auth';
 import { getPasswordError, validatePassword } from '../../utils/validation';
+import { normalizeRegistrationPhone, PHONE_CONTACT_HELP, PHONE_FORMAT_HELP, RegistrationPhoneError } from '../../utils/registrationPhone';
+import { LandingHeader } from '../landing/components/LandingHeader';
 
 type RegisterRouteParams = AppRouteProp<'Register'>;
 
@@ -52,12 +54,21 @@ export function RegisterScreen() {
   const navigation = useNavigation<AppNavigationProp>();
   const route = useRoute<RegisterRouteParams>();
   const { theme } = useTheme();
+  const { width } = useWindowDimensions();
+  const pairedFields = width >= 600;
   const { register, authenticateWithGoogle, loading: authLoading, clearError } = useAuth();
   const initialUserType: PublicUserType = mapRouteUserType(route.params?.userType);
 
   const [userType, setUserType] = useState<PublicUserType>(initialUserType);
+  const isWide = width >= 1024 && userType !== 'client';
   const [clinicCommercialName, setClinicCommercialName] = useState('');
   const [name, setName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [phoneError, setPhoneError] = useState('');
+  const phoneInputRef = useRef<TextInput>(null);
+  const formScrollRef = useRef<ScrollView>(null);
+  const phoneFieldRef = useRef<View>(null);
+  const formContentRef = useRef<View>(null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -79,6 +90,27 @@ export function RegisterScreen() {
   const passwordsDontMatch = confirmPassword.length > 0 && password !== confirmPassword;
   const canSubmit = legalDocuments.length > 0 && termsAccepted && isPasswordValid && passwordsMatch && !authLoading;
   const isClinic = userType === 'clinic';
+
+  const showPhoneError = useCallback((error: RegistrationPhoneError) => {
+    setPhoneError(error.message);
+    phoneInputRef.current?.focus();
+    // Measure now: loading the legal catalog can move the field without resizing it.
+    requestAnimationFrame(() => {
+      const content = formContentRef.current;
+      if (content) {
+        phoneFieldRef.current?.measureLayout(content, (_x, y) => {
+          formScrollRef.current?.scrollTo({ y: Math.max(0, y - spacing.md), animated: false });
+        });
+      }
+    });
+  }, []);
+
+  const selectUserType = (next: PublicUserType) => {
+    setPhoneError('');
+    setLocalError('');
+    clearError();
+    setUserType(next);
+  };
 
   const introCopy = useMemo(() => {
     if (userType === 'clinic') {
@@ -186,6 +218,8 @@ export function RegisterScreen() {
     }
 
     try {
+      const registrationPhone = userType === 'professional' ? normalizeRegistrationPhone(phone) : undefined;
+      setPhoneError('');
       analyticsService.track('register_submitted', {
         userType: mapFrontendUserTypeToBackend(userType),
       });
@@ -200,7 +234,8 @@ export function RegisterScreen() {
         userType,
         acceptedLegalDocumentKeys,
         isClinic ? clinicCommercialName : undefined,
-        currentProofs(acceptedLegalDocumentKeys)
+        currentProofs(acceptedLegalDocumentKeys),
+        registrationPhone
       );
 
       if (userType === 'client') {
@@ -209,6 +244,10 @@ export function RegisterScreen() {
         });
       }
     } catch (error: unknown) {
+      if (error instanceof RegistrationPhoneError) {
+        showPhoneError(error);
+        return;
+      }
       setLocalError(getErrorMessage(error, 'Error al registrarse.'));
       setLegalRevision(v => v + 1);
     }
@@ -216,6 +255,7 @@ export function RegisterScreen() {
 
   const handleGoogleCredential = useCallback(async (idToken: string) => {
     setLocalError('');
+    setPhoneError('');
     clearError();
 
     if (!termsAccepted) {
@@ -240,8 +280,13 @@ export function RegisterScreen() {
         acceptedLegalDocumentKeys,
         acceptedLegalDocuments: currentProofs(acceptedLegalDocumentKeys),
         clinicCommercialName: isClinic ? clinicCommercialName.trim() : undefined,
+        ...(userType === 'professional' ? { phone } : {}),
       });
     } catch (error: unknown) {
+      if (error instanceof RegistrationPhoneError) {
+        showPhoneError(error);
+        return;
+      }
       setLocalError(getErrorMessage(error, 'No se pudo continuar con Google.'));
       setLegalRevision(v => v + 1);
     }
@@ -253,20 +298,37 @@ export function RegisterScreen() {
     termsAccepted,
     userType,
     legalDocuments,
+    phone,
+    showPhoneError,
   ]);
 
   return (
     <AuthSplitLayout
+      variant="form"
+      formHeader={
+        <View style={styles.publicHeader}>
+          <LandingHeader
+            context="access"
+            isScrolled={false}
+            onLogoPress={() => navigation.navigate('Landing')}
+            onAccess={() => navigation.navigate('Login', { userType: mapFrontendUserTypeToBackend(userType) })}
+            onViewPlans={() => navigation.navigate('Pricing')}
+            onScrollToSection={(section) => navigation.navigate('Landing', { section })}
+          />
+        </View>
+      }
       eyebrow={introCopy.eyebrow}
       title={introCopy.title}
       subtitle={introCopy.subtitle}
       accent={introCopy.accent}
       features={introCopy.features}
+      formScrollRef={formScrollRef}
       form={
-        <View>
+        <View ref={formContentRef} collapsable={false} style={userType === 'client' ? styles.patientForm : undefined}>
           {legalDocuments.length === 0 ? <Button variant="ghost" onPress={() => setLegalRevision(v => v + 1)}>Reintentar carga de condiciones</Button> : null}
           <View style={styles.header}>
             <AnimatedPressable
+              accessibilityLabel="Volver"
               onPress={handleGoBack}
               hoverLift={false}
               pressScale={0.94}
@@ -286,7 +348,9 @@ export function RegisterScreen() {
                 Crear cuenta
               </Text>
               <Text style={[styles.subtitle, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>
-                Empieza con una configuración clara desde el principio.
+                {Platform.OS === 'web'
+                  ? 'Elige tu tipo de cuenta y regístrate con Google o email.'
+                  : 'Elige tu tipo de cuenta y completa tus datos.'}
               </Text>
             </View>
           </View>
@@ -312,272 +376,230 @@ export function RegisterScreen() {
             Quiero entrar como
           </Text>
           <View style={styles.userTypeRow}>
-            <AnimatedPressable
-              onPress={() => setUserType('client')}
-              hoverLift={false}
-              pressScale={0.98}
-              style={[
-                styles.userTypeCard,
-                {
-                  backgroundColor: userType === 'client' ? theme.primaryAlpha12 : theme.bgMuted,
-                  borderColor: userType === 'client' ? theme.primary : theme.border,
-                },
-              ]}
-            >
-              <View style={[styles.userTypeIcon, { backgroundColor: theme.primaryAlpha12 }]}>
-                <Ionicons
-                  name="person-outline"
-                  size={18}
-                  color={userType === 'client' ? theme.primary : theme.textSecondary}
-                />
-              </View>
-              <View style={styles.userTypeCopy}>
-                <Text
-                  style={[
-                    styles.userTypeTitle,
-                    {
-                      color: theme.textPrimary,
-                      fontFamily: theme.fontSansSemiBold,
-                    },
-                  ]}
-                >
-                  Paciente
+            {([
+              { type: 'client', label: 'Paciente', icon: 'person-outline' },
+              { type: 'professional', label: 'Especialista', icon: 'medical-outline' },
+              { type: 'clinic', label: 'Clínica', icon: 'business-outline' },
+            ] as const).map(option => (
+              <AnimatedPressable
+                key={option.type}
+                onPress={() => selectUserType(option.type)}
+                accessibilityRole="button"
+                accessibilityState={{ selected: userType === option.type }}
+                accessibilityLabel={option.label}
+                hoverLift={false}
+                pressScale={0.98}
+                style={[
+                  styles.userTypeCard,
+                  {
+                    backgroundColor: userType === option.type ? theme.primaryAlpha12 : theme.bgCard,
+                    borderColor: userType === option.type ? theme.primary : theme.border,
+                  },
+                ]}
+              >
+                {width >= 600 ? <Ionicons name={option.icon} size={18} color={theme.textSecondary} /> : null}
+                <Text style={[styles.userTypeTitle, { color: theme.textPrimary, fontFamily: theme.fontSansSemiBold }]}>
+                  {option.label}
                 </Text>
-                <Text style={[styles.userTypeHint, { color: theme.textMuted, fontFamily: theme.fontSans }]}>
-                  Buscar ayuda y gestionar sesiones
-                </Text>
-              </View>
-            </AnimatedPressable>
-
-            <AnimatedPressable
-              onPress={() => setUserType('professional')}
-              hoverLift={false}
-              pressScale={0.98}
-              style={[
-                styles.userTypeCard,
-                {
-                  backgroundColor: userType === 'professional' ? theme.secondaryAlpha12 : theme.bgMuted,
-                  borderColor: userType === 'professional' ? theme.secondary : theme.border,
-                },
-              ]}
-            >
-              <View style={[styles.userTypeIcon, { backgroundColor: theme.secondaryAlpha12 }]}>
-                <Ionicons
-                  name="medical-outline"
-                  size={18}
-                  color={userType === 'professional' ? theme.secondaryDark : theme.textSecondary}
-                />
-              </View>
-              <View style={styles.userTypeCopy}>
-                <Text
-                  style={[
-                    styles.userTypeTitle,
-                    {
-                      color: theme.textPrimary,
-                      fontFamily: theme.fontSansSemiBold,
-                    },
-                  ]}
-                >
-                  Especialista
-                </Text>
-                <Text style={[styles.userTypeHint, { color: theme.textMuted, fontFamily: theme.fontSans }]}>
-                  Perfil profesional y verificación
-                </Text>
-              </View>
-            </AnimatedPressable>
-
-            <AnimatedPressable
-              onPress={() => setUserType('clinic')}
-              hoverLift={false}
-              pressScale={0.98}
-              style={[
-                styles.userTypeCard,
-                {
-                  backgroundColor: userType === 'clinic' ? theme.primaryAlpha12 : theme.bgMuted,
-                  borderColor: userType === 'clinic' ? theme.primary : theme.border,
-                },
-              ]}
-            >
-              <View style={[styles.userTypeIcon, { backgroundColor: theme.primaryAlpha12 }]}>
-                <Ionicons
-                  name="business-outline"
-                  size={18}
-                  color={userType === 'clinic' ? theme.primary : theme.textSecondary}
-                />
-              </View>
-              <View style={styles.userTypeCopy}>
-                <Text
-                  style={[
-                    styles.userTypeTitle,
-                    {
-                      color: theme.textPrimary,
-                      fontFamily: theme.fontSansSemiBold,
-                    },
-                  ]}
-                >
-                  Clínica
-                </Text>
-                <Text style={[styles.userTypeHint, { color: theme.textMuted, fontFamily: theme.fontSans }]}>
-                  Panel propio para centros y equipos
-                </Text>
-              </View>
-            </AnimatedPressable>
+              </AnimatedPressable>
+            ))}
           </View>
 
-          <AnimatedPressable
-            onPress={() => { if (legalDocuments.length) setTermsAccepted((value) => !value); }}
-            hoverLift={false}
-            pressScale={0.99}
-            style={styles.termsRow}
-          >
-            <View
-              style={[
-                styles.checkbox,
-                {
-                  backgroundColor: termsAccepted ? theme.primary : theme.bgCard,
-                  borderColor: termsAccepted ? theme.primary : theme.border,
-                },
-              ]}
-            >
-              {termsAccepted && <Ionicons name="checkmark" size={14} color="#FFFFFF" />}
-            </View>
-            <Text style={[styles.termsText, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>
-              Confirmo haber recibido la{' '}
-              <Text style={[styles.inlineLink, { color: theme.primary }]} onPress={openPrivacy}>
-                política de privacidad
-              </Text>
-              {' y acepto los '}
-              <Text style={[styles.inlineLink, { color: theme.primary }]} onPress={openTerms}>
-                términos
-              </Text>
+          <View style={[styles.registrationBody, isWide && styles.registrationBodyWide]}>
+            <View style={isWide ? styles.sharedColumn : undefined}>
               {userType === 'professional' ? (
-                <>
-                  {' (incluidas las condiciones de comisiones del Directorio) y las '}
-                  <Text style={[styles.inlineLink, { color: theme.primary }]} onPress={openProfessionalTerms}>
-                    condiciones profesionales
-                  </Text>
-                </>
+                <View
+                  ref={phoneFieldRef}
+                  collapsable={false}
+                  style={styles.phoneField}
+                >
+                  <Input
+                    inputRef={phoneInputRef}
+                    label="Teléfono de contacto (obligatorio)"
+                    accessibilityLabel="Teléfono de contacto (obligatorio)"
+                    placeholder="600 123 456"
+                    value={phone}
+                    onChangeText={(value) => { setPhone(value); setPhoneError(''); }}
+                    keyboardType="phone-pad"
+                    autoComplete="tel"
+                    textContentType="telephoneNumber"
+                    maxLength={40}
+                    error={phoneError}
+                    supportingTextStyle={{ fontSize: 13, lineHeight: 18, color: phoneError ? theme.error : theme.textSecondary }}
+                    helperText={`${PHONE_FORMAT_HELP}\n${PHONE_CONTACT_HELP}`}
+                    leftIcon={<Ionicons name="call-outline" size={18} color={theme.textMuted} />}
+                  />
+                </View>
               ) : null}
-              .
-            </Text>
-          </AnimatedPressable>
 
-          {isClinic ? (
-            <Input
-              label="Nombre de la clínica"
-              placeholder="Clínica HERA Norte"
-              value={clinicCommercialName}
-              onChangeText={setClinicCommercialName}
-              autoCapitalize="words"
-              leftIcon={<Ionicons name="business-outline" size={18} color={theme.textMuted} />}
-            />
-          ) : null}
-
-          <GoogleAuthButton
-            onCredential={handleGoogleCredential}
-            disabled={authLoading}
-          />
-
-          <View style={styles.authDivider}>
-            <View style={[styles.authDividerLine, { backgroundColor: theme.border }]} />
-            <Text style={[styles.authDividerText, { color: theme.textMuted, fontFamily: theme.fontSansSemiBold }]}>
-              o crea tu cuenta con email
-            </Text>
-            <View style={[styles.authDividerLine, { backgroundColor: theme.border }]} />
-          </View>
-
-          <Input
-            label={isClinic ? 'Persona responsable' : 'Nombre completo'}
-            placeholder={isClinic ? 'Nombre y apellidos' : 'Tu nombre y apellidos'}
-            value={name}
-            onChangeText={setName}
-            autoCapitalize="words"
-            autoComplete="name"
-            leftIcon={<Ionicons name="person-outline" size={18} color={theme.textMuted} />}
-          />
-
-          <Input
-            label="Email"
-            placeholder="tu@email.com"
-            value={email}
-            onChangeText={setEmail}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            autoComplete="email"
-            leftIcon={<Ionicons name="mail-outline" size={18} color={theme.textMuted} />}
-          />
-
-          <Input
-            label="Contraseña"
-            placeholder="Crea una contraseña segura"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry={!showPassword}
-            autoComplete="new-password"
-            leftIcon={<Ionicons name="lock-closed-outline" size={18} color={theme.textMuted} />}
-            rightIcon={(
-              <AnimatedPressable
-                onPress={() => setShowPassword((value) => !value)}
-                hoverLift={false}
-                pressScale={0.94}
-                style={styles.iconButton}
-              >
-                <Ionicons
-                  name={showPassword ? 'eye-off-outline' : 'eye-outline'}
-                  size={18}
-                  color={theme.textMuted}
+              {isClinic ? (
+                <Input
+                  label="Nombre de la clínica"
+                  placeholder="Clínica HERA Norte"
+                  value={clinicCommercialName}
+                  onChangeText={setClinicCommercialName}
+                  autoCapitalize="words"
+                  leftIcon={<Ionicons name="business-outline" size={18} color={theme.textMuted} />}
                 />
+              ) : null}
+
+              <AnimatedPressable
+                onPress={() => { if (legalDocuments.length) setTermsAccepted((value) => !value); }}
+                hoverLift={false}
+                pressScale={0.99}
+                style={styles.termsRow}
+              >
+                <View
+                  style={[
+                    styles.checkbox,
+                    {
+                      backgroundColor: termsAccepted ? theme.primary : theme.bgCard,
+                      borderColor: termsAccepted ? theme.primary : theme.border,
+                    },
+                  ]}
+                >
+                  {termsAccepted && <Ionicons name="checkmark" size={14} color="#FFFFFF" />}
+                </View>
+                <Text style={[styles.termsText, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>
+                  Confirmo haber recibido la{' '}
+                  <Text style={[styles.inlineLink, { color: theme.primary }]} onPress={openPrivacy}>
+                    política de privacidad
+                  </Text>
+                  {' y acepto los '}
+                  <Text style={[styles.inlineLink, { color: theme.primary }]} onPress={openTerms}>
+                    términos
+                  </Text>
+                  {userType === 'professional' ? (
+                    <>
+                      {' (incluidas las condiciones de comisiones del Directorio) y las '}
+                      <Text style={[styles.inlineLink, { color: theme.primary }]} onPress={openProfessionalTerms}>
+                        condiciones profesionales
+                      </Text>
+                    </>
+                  ) : null}
+                  .
+                </Text>
               </AnimatedPressable>
-            )}
-          />
 
-          <PasswordRequirementsChecklist password={password} />
-
-          <Input
-            label="Confirmar contraseña"
-            placeholder="Repite tu contraseña"
-            value={confirmPassword}
-            onChangeText={setConfirmPassword}
-            secureTextEntry={!showConfirmPassword}
-            autoComplete="new-password"
-            error={passwordsDontMatch ? 'Las contraseñas no coinciden.' : undefined}
-            helperText={passwordsMatch ? 'Las contraseñas coinciden.' : undefined}
-            leftIcon={(
-              <Ionicons
-                name={passwordsMatch ? 'checkmark-circle-outline' : 'lock-closed-outline'}
-                size={18}
-                color={passwordsMatch ? theme.success : theme.textMuted}
+            </View>
+            <View style={isWide ? [styles.emailColumn, { borderLeftColor: theme.border }] : undefined}>
+              <GoogleAuthButton
+                onCredential={handleGoogleCredential}
+                disabled={authLoading}
               />
-            )}
-            rightIcon={(
-              <AnimatedPressable
-                onPress={() => setShowConfirmPassword((value) => !value)}
-                hoverLift={false}
-                pressScale={0.94}
-                style={styles.iconButton}
-              >
-                <Ionicons
-                  name={showConfirmPassword ? 'eye-off-outline' : 'eye-outline'}
-                  size={18}
-                  color={theme.textMuted}
-                />
-              </AnimatedPressable>
-            )}
-          />
+              <View style={styles.authDivider}>
+                <View style={[styles.authDividerLine, { backgroundColor: theme.border }]} />
+                <Text style={[styles.authDividerText, { color: theme.textSecondary, fontFamily: theme.fontSansSemiBold }]}>
+                  {Platform.OS === 'web' ? 'O crea tu cuenta con email' : 'Datos de acceso'}
+                </Text>
+                <View style={[styles.authDividerLine, { backgroundColor: theme.border }]} />
+              </View>
 
-          <Button
-            onPress={handleRegister}
-            variant="primary"
-            size="large"
-            fullWidth
-            loading={authLoading}
-            disabled={!canSubmit}
-            icon={<Ionicons name="arrow-forward" size={18} color={theme.textOnPrimary} />}
-            iconPosition="right"
-            textStyle={{ fontFamily: theme.fontSansBold }}
-          >
-            Crear cuenta
-          </Button>
+              <View style={pairedFields ? styles.fieldRow : undefined}>
+                <Input
+                  containerStyle={pairedFields ? styles.fieldCell : undefined}
+                  label={isClinic ? 'Persona responsable' : 'Nombre completo'}
+                  placeholder={isClinic ? 'Nombre y apellidos' : 'Tu nombre y apellidos'}
+                  value={name}
+                  onChangeText={setName}
+                  autoCapitalize="words"
+                  autoComplete="name"
+                  leftIcon={<Ionicons name="person-outline" size={18} color={theme.textMuted} />}
+                />
+
+                <Input
+                  containerStyle={pairedFields ? styles.fieldCell : undefined}
+                  label="Email"
+                  placeholder="tu@email.com"
+                  value={email}
+                  onChangeText={setEmail}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoComplete="email"
+                  leftIcon={<Ionicons name="mail-outline" size={18} color={theme.textMuted} />}
+                />
+
+              </View>
+              <View style={pairedFields ? styles.fieldRow : undefined}>
+                <Input
+                  containerStyle={pairedFields ? styles.fieldCell : undefined}
+                  label="Contraseña"
+                  placeholder="Crea tu contraseña"
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry={!showPassword}
+                  autoComplete="new-password"
+                  leftIcon={<Ionicons name="lock-closed-outline" size={18} color={theme.textMuted} />}
+                  rightIcon={(
+                    <AnimatedPressable
+                      accessibilityLabel={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                      onPress={() => setShowPassword((value) => !value)}
+                      hoverLift={false}
+                      pressScale={0.94}
+                      style={styles.iconButton}
+                    >
+                      <Ionicons
+                        name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                        size={18}
+                        color={theme.textMuted}
+                      />
+                    </AnimatedPressable>
+                  )}
+                />
+
+                <Input
+                  containerStyle={pairedFields ? styles.fieldCell : undefined}
+                  label="Confirmar contraseña"
+                  placeholder="Repite tu contraseña"
+                  value={confirmPassword}
+                  onChangeText={setConfirmPassword}
+                  secureTextEntry={!showConfirmPassword}
+                  autoComplete="new-password"
+                  error={passwordsDontMatch ? 'Las contraseñas no coinciden.' : undefined}
+                  helperText={passwordsMatch ? 'Las contraseñas coinciden.' : undefined}
+                  leftIcon={(
+                    <Ionicons
+                      name={passwordsMatch ? 'checkmark-circle-outline' : 'lock-closed-outline'}
+                      size={18}
+                      color={passwordsMatch ? theme.success : theme.textMuted}
+                    />
+                  )}
+                  rightIcon={(
+                    <AnimatedPressable
+                      accessibilityLabel={showConfirmPassword ? 'Ocultar confirmación de contraseña' : 'Mostrar confirmación de contraseña'}
+                      onPress={() => setShowConfirmPassword((value) => !value)}
+                      hoverLift={false}
+                      pressScale={0.94}
+                      style={styles.iconButton}
+                    >
+                      <Ionicons
+                        name={showConfirmPassword ? 'eye-off-outline' : 'eye-outline'}
+                        size={18}
+                        color={theme.textMuted}
+                      />
+                    </AnimatedPressable>
+                  )}
+                />
+
+              </View>
+              <PasswordRequirementsChecklist password={password} />
+
+              <Button
+                onPress={handleRegister}
+                variant="primary"
+                size="large"
+                fullWidth
+                loading={authLoading}
+                disabled={!canSubmit}
+                icon={<Ionicons name="arrow-forward" size={18} color={theme.textOnPrimary} />}
+                iconPosition="right"
+                textStyle={{ fontFamily: theme.fontSansBold }}
+              >
+                Crear cuenta
+              </Button>
+
+            </View>
+          </View>
 
           <View style={[styles.divider, { borderTopColor: theme.border }]} />
 
@@ -602,6 +624,15 @@ export function RegisterScreen() {
 }
 
 const styles = StyleSheet.create({
+  publicHeader: {
+    height: 78,
+    zIndex: 1,
+  },
+  patientForm: {
+    width: '100%',
+    maxWidth: 680,
+    alignSelf: 'center',
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -646,34 +677,52 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   userTypeRow: {
+    flexDirection: 'row',
     gap: spacing.sm,
-    marginBottom: spacing.sm,
+    marginBottom: spacing.lg,
   },
   userTypeCard: {
-    borderWidth: 1,
-    borderRadius: 18,
-    padding: spacing.md,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  userTypeIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: spacing.sm,
-  },
-  userTypeCopy: {
     flex: 1,
+    minWidth: 0,
+    minHeight: 48,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: spacing.sm,
   },
   userTypeTitle: {
-    fontSize: 15,
-    marginBottom: 2,
+    fontSize: 14,
   },
-  userTypeHint: {
-    fontSize: 13,
-    lineHeight: 18,
+  registrationBody: {
+    gap: spacing.sm,
+  },
+  registrationBodyWide: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 32,
+  },
+  sharedColumn: {
+    flex: 4,
+    minWidth: 0,
+  },
+  emailColumn: {
+    flex: 6,
+    minWidth: 0,
+    borderLeftWidth: 1,
+    paddingLeft: 32,
+  },
+  fieldRow: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    alignItems: 'flex-start',
+  },
+  fieldCell: {
+    flex: 1,
+    minWidth: 0,
   },
   iconButton: {
     width: 28,
@@ -686,6 +735,9 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     gap: 12,
     marginBottom: spacing.md,
+  },
+  phoneField: {
+    marginTop: spacing.sm,
   },
   checkbox: {
     width: 22,

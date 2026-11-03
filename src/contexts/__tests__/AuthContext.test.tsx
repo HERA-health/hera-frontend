@@ -57,6 +57,9 @@ import {
 import type { AuthResponse } from '../../services/authService';
 
 describe('AuthContext user type mapping', () => {
+  it('keeps the stored phone available to the existing profile editor', () => {
+    expect(mapAuthUser({ id: 'professional-user', email: 'professional@example.test', name: 'Profesional', userType: 'PROFESSIONAL', phone: '+34600123456' }).phone).toBe('+34600123456');
+  });
   it('maps backend clinic users to the clinic frontend type', () => {
     expect(mapBackendUserType('CLINIC')).toBe('clinic');
   });
@@ -112,6 +115,25 @@ describe('AuthContext user type mapping', () => {
     expect(deriveKnownVerificationSubmission(pendingUser)).toBe(true);
     expect(deriveKnownVerificationSubmission(newUser)).toBe(false);
   });
+});
+
+function RegistrationPhoneProbe(): React.ReactElement {
+  const { register, user } = useAuth();
+  return <>
+    <Text testID="register-phone" onPress={() => { void register('professional@example.test', 'Password1!', 'Profesional', 'professional', [], undefined, undefined, '+34600123456'); }}>Registrar</Text>
+    <Text testID="stored-phone">{user?.phone ?? 'missing'}</Text>
+  </>;
+}
+
+it('passes the phone through the registration context and hydrates the account', async () => {
+  jest.clearAllMocks();
+  jest.mocked(initializeAuth).mockResolvedValue(null);
+  jest.mocked(authService.register).mockResolvedValue({ token: 'test-token', refreshToken: 'test-refresh', user: { id: 'professional-user', email: 'professional@example.test', name: 'Profesional', userType: 'PROFESSIONAL', phone: '+34600123456' } });
+  const view = render(<AuthProvider><RegistrationPhoneProbe /></AuthProvider>);
+  await act(async () => { await Promise.resolve(); });
+  await act(async () => fireEvent.press(view.getByTestId('register-phone')));
+  expect(authService.register).toHaveBeenCalledWith(expect.objectContaining({ phone: '+34600123456', userType: 'PROFESSIONAL' }));
+  expect(view.getByTestId('stored-phone').props.children).toBe('+34600123456');
 });
 
 function AuthProbe(): React.ReactElement {

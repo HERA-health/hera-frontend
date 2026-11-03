@@ -176,7 +176,7 @@ export function SpecialistDetailAdminScreen({ route, navigation }: Props) {
   const { specialistId } = route.params;
   const isAdmin = user?.isAdmin ?? false;
   const [contentWidth, setContentWidth] = useState(windowWidth);
-  const isTwoCol = contentWidth >= 900;
+  const isTwoCol = Math.min(contentWidth, windowWidth) >= 900;
   const isWide = windowWidth >= 1024;
   const styles = useMemo(() => createStyles(theme, isDark, isTwoCol, isWide), [theme, isDark, isTwoCol, isWide]);
 
@@ -458,7 +458,7 @@ export function SpecialistDetailAdminScreen({ route, navigation }: Props) {
       <View style={styles.headerIdentity}>
         <Text style={styles.headerName}>{specialist.user.name}</Text>
         <Text style={styles.headerEmail}>{specialist.user.email}</Text>
-        {specialist.user.phone ? <Text style={styles.headerPhone}>{specialist.user.phone}</Text> : null}
+        <Text selectable style={styles.headerPhone}>Teléfono: {specialist.user.phone?.trim() || 'No indicado'}</Text>
       </View>
       <View style={styles.headerStatus}>
         <View style={styles.badgeRow}>
@@ -1619,7 +1619,7 @@ const createStyles = (theme: Theme, isDark: boolean, isTwoCol: boolean, isWide: 
   },
   headerPhone: {
     fontSize: typography.fontSizes.sm,
-    color: theme.textMuted,
+    color: theme.textSecondary,
     marginTop: 2,
   },
   badgeRow: {

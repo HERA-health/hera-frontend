@@ -1,4 +1,5 @@
 import { ProfessionalBirthdayEditor } from '../../components/professional/ProfessionalBirthdayEditor';
+import { PHONE_CONTACT_HELP, PHONE_FORMAT_HELP } from '../../utils/registrationPhone';
 import { emptyPerspective, type PerspectiveDraft } from '../../utils/perspective';
 import type {PerspectiveOperation} from '../../services/profileDiscoveryService';
 import { customChoiceError, PROFESSIONAL_SPECIALTY_OPTIONS, PROFESSIONAL_THERAPEUTIC_APPROACH_OPTIONS } from '../../constants/professionalMatchingOptions';
@@ -105,6 +106,7 @@ import { PUBLIC_PROFILE_SLUG_MAX_CHANGES } from '../../utils/publicProfileSlug';
 // ============================================================================
 
 type ProfileTab = ProfessionalProfileTab;
+type ProfileSection = ProfessionalProfileSection | 'phone';
 
 interface Education {
   id: string;
@@ -523,7 +525,7 @@ export function SpecialistProfileScreen() {
   const formScrollRef = useRef<ScrollView | null>(null);
   const tabsScrollRef = useRef<ScrollView | null>(null);
   const formScrollOffsetRef = useRef(0);
-  const sectionRefs = useRef<Record<ProfessionalProfileSection, View | null>>({
+  const sectionRefs = useRef<Record<ProfileSection, View | null>>({
     identity: null,
     bio: null,
     matching: null,
@@ -531,9 +533,10 @@ export function SpecialistProfileScreen() {
     location: null,
     verification: null,
     insurance: null,
+    phone: null,
   });
-  const [pendingSection, setPendingSection] = useState<ProfessionalProfileSection | null>(null);
-  const [highlightedSection, setHighlightedSection] = useState<ProfessionalProfileSection | null>(null);
+  const [pendingSection, setPendingSection] = useState<ProfileSection | null>(null);
+  const [highlightedSection, setHighlightedSection] = useState<ProfileSection | null>(null);
 
   // Navigation
   const navigation = useNavigation<AppNavigationProp>();
@@ -971,13 +974,17 @@ export function SpecialistProfileScreen() {
       || (key === 'perspective' && originalData.perspective.hasDeclaration && !perspective.publish)
       || (key === 'showAge' && !profileData.showAge) || (key === 'birthDate' && profileData.birthDate === null));
 
+    const phoneOnly = Object.keys(profileData).every(key => key === 'phone'
+      || JSON.stringify(profileData[key as keyof SpecialistProfileData]) === JSON.stringify(originalData[key as keyof SpecialistProfileData]));
+    const requiresProfessionalValidation = !withdrawalOnly && !phoneOnly;
+
     const experienceInput = profileData.yearsInPractice.trim();
-    if (!withdrawalOnly && experienceInput !== '' && (!/^\d+$/.test(experienceInput) || Number(experienceInput) > 60)) {
+    if (requiresProfessionalValidation && experienceInput !== '' && (!/^\d+$/.test(experienceInput) || Number(experienceInput) > 60)) {
       showAppAlert(appAlert, 'Revisa los años de experiencia', 'Indica un número entero entre 0 y 60, o deja el campo vacío para no mostrarlo.');
       return false;
     }
 
-    if (!withdrawalOnly && profileData.offersInPerson && !profileData.insuranceUploaded) {
+    if (requiresProfessionalValidation && profileData.offersInPerson && !profileData.insuranceUploaded) {
       showAppAlert(appAlert, 
         'Falta la póliza',
         'Para activar las sesiones presenciales necesitamos una póliza de responsabilidad civil subida y guardada en HERA.'
@@ -985,7 +992,7 @@ export function SpecialistProfileScreen() {
       return false;
     }
 
-    if (!withdrawalOnly && !profileData.professionalType) {
+    if (requiresProfessionalValidation && !profileData.professionalType) {
       showAppAlert(
         appAlert,
         'Falta el tipo profesional',
@@ -997,7 +1004,7 @@ export function SpecialistProfileScreen() {
     const specialtyCount = profileData.specialties.length + profileData.customSpecialties.length;
     const choiceError = profileData.customSpecialties.map((value, i) => customChoiceError(value, profileData.customSpecialties.slice(0, i), PROFESSIONAL_SPECIALTY_OPTIONS)).find(Boolean)
       || profileData.customTherapeuticApproaches.map((value, i) => customChoiceError(value, profileData.customTherapeuticApproaches.slice(0, i), PROFESSIONAL_THERAPEUTIC_APPROACH_OPTIONS)).find(Boolean);
-    if (!withdrawalOnly && (specialtyCount < 1 || specialtyCount > 5 || choiceError || profileData.therapeuticApproaches.length + profileData.customTherapeuticApproaches.length > 30)) {
+    if (requiresProfessionalValidation && (specialtyCount < 1 || specialtyCount > 5 || choiceError || profileData.therapeuticApproaches.length + profileData.customTherapeuticApproaches.length > 30)) {
       showAppAlert(appAlert, 'Revisa tu práctica', choiceError || 'Elige entre 1 y 5 especialidades y hasta 30 enfoques.');
       return false;
     }
@@ -1029,7 +1036,7 @@ export function SpecialistProfileScreen() {
       assignIfChanged('bio', 'bio', profileData.bio);
       assignIfChanged('avatar', 'avatar', profileData.avatar);
       // Send the complete choice groups so the server can validate the resulting selection.
-      if (!withdrawalOnly) {
+      if (requiresProfessionalValidation) {
         updateData.specialties = profileData.specialties;
         updateData.customSpecialties = profileData.customSpecialties;
         updateData.therapeuticApproaches = profileData.therapeuticApproaches;
@@ -1069,6 +1076,7 @@ export function SpecialistProfileScreen() {
         updateUser({ avatar: mappedData.avatar });
         setAvatarLoadFailed(false);
       }
+      if (hasFieldChanged('phone')) updateUser({ phone: mappedData.phone });
       setProfileData(mappedData);
       setOriginalData(mappedData);
       await refreshCompletion();
@@ -1518,6 +1526,8 @@ export function SpecialistProfileScreen() {
   // RENDER: TAB NAVIGATION
   // ============================================================================
 
+  const needsContactPhone = !originalData.phone.trim();
+
   const tabs: { id: ProfileTab; label: string; icon: IconName; pendingCount?: number }[] = [
     {
       id: 'information',
@@ -1540,7 +1550,7 @@ export function SpecialistProfileScreen() {
     },
     { id: 'privacy', label: 'Privacidad', icon: 'eye-outline' },
     { id: 'google', label: 'Google', icon: 'logo-google' },
-    { id: 'account', label: 'Cuenta', icon: 'settings-outline' },
+    { id: 'account', label: 'Cuenta', icon: 'settings-outline', pendingCount: needsContactPhone ? 1 : 0 },
   ];
 
   const canShareProfile = isProfessionalVerified && Boolean(specialistId);
@@ -1649,6 +1659,7 @@ export function SpecialistProfileScreen() {
               key={tab.id}
               accessibilityRole="tab"
               accessibilityLabel={tab.label}
+              accessibilityHint={tab.id === 'account' && needsContactPhone ? 'Teléfono recomendado pendiente. Abre el campo para completarlo.' : undefined}
               accessibilityState={{ selected: activeTab === tab.id }}
               style={{
                 ...styles.tab,
@@ -1658,6 +1669,7 @@ export function SpecialistProfileScreen() {
               }}
               onPress={() => {
                 setActiveTab(tab.id);
+                setPendingSection(tab.id === 'account' && needsContactPhone ? 'phone' : null);
                 formScrollRef.current?.scrollTo({ y: 0, animated: false });
               }}
               hoverLift={false}
@@ -1681,7 +1693,7 @@ export function SpecialistProfileScreen() {
               {tab.pendingCount ? (
                 <View
                   style={styles.tabPendingBadge}
-                  accessibilityLabel={`${tab.pendingCount} apartados pendientes`}
+                  accessibilityLabel={tab.id === 'account' ? 'Teléfono recomendado pendiente' : `${tab.pendingCount} apartados pendientes`}
                 >
                   <Text style={styles.tabPendingBadgeText}>{tab.pendingCount}</Text>
                 </View>
@@ -1709,6 +1721,7 @@ export function SpecialistProfileScreen() {
       keyboardType?: 'default' | 'numeric' | 'email-address' | 'phone-pad';
       helperText?: string;
       required?: boolean;
+      recommended?: boolean;
       verified?: boolean;
       maxLength?: number;
       characterCount?: boolean;
@@ -1724,6 +1737,7 @@ export function SpecialistProfileScreen() {
       keyboardType = 'default',
       helperText,
       required = false,
+      recommended = false,
       verified,
       maxLength,
       characterCount = false,
@@ -1738,6 +1752,7 @@ export function SpecialistProfileScreen() {
             {label}
             {required && <Text style={styles.required}> *</Text>}
           </Text>
+          {recommended && <Text style={[styles.verifiedText, styles.verifiedTextPending]}>Recomendado</Text>}
           {verified !== undefined && (
             <View style={[styles.verifiedBadge, verified ? styles.verifiedBadgeSuccess : styles.verifiedBadgePending]}>
               <Ionicons
@@ -3243,34 +3258,42 @@ export function SpecialistProfileScreen() {
   const renderAccountTab = () => (
     <View style={[styles.tabContent, styles.settingsContent]}>
       <View style={styles.accountGrid}>
-      <View style={styles.accountColumn}><ClinicalPinManager /></View>
-      {/* Account Information */}
-      <View style={styles.accountColumn}>
-        <AccountSettingsCard title="Información de cuenta">
-          {renderFormField(
-            'Email de acceso',
-            profileData.email,
-            () => {},
-            {
-              disabled: true,
-              verified: profileData.emailVerified === true,
-              helperText: 'El email no se puede modificar por seguridad',
-              compactSpacing: true,
-            }
-          )}
-          {renderFormField(
-            'Teléfono',
-            profileData.phone,
-            (text) => updateField('phone', text),
-            {
-              placeholder: '+34 600 123 456',
-              compactSpacing: true,
-              keyboardType: 'phone-pad',
-              verified: profileData.phoneVerified,
-            }
-          )}
-        </AccountSettingsCard>
-      </View>
+        {/* Account Information */}
+        <View style={styles.accountColumn}>
+          <AccountSettingsCard title="Información de cuenta">
+            {renderFormField(
+              'Email de acceso',
+              profileData.email,
+              () => {},
+              {
+                disabled: true,
+                verified: profileData.emailVerified === true,
+                helperText: 'El email no se puede modificar por seguridad',
+                compactSpacing: true,
+              }
+            )}
+            <View
+              ref={(node) => { sectionRefs.current.phone = node; }}
+              collapsable={false}
+              style={highlightedSection === 'phone' ? styles.targetHighlight : undefined}
+            >
+              {renderFormField(
+                'Teléfono',
+                profileData.phone,
+                (text) => updateField('phone', text),
+                {
+                  placeholder: '600 123 456',
+                  compactSpacing: true,
+                  keyboardType: 'phone-pad',
+                  recommended: needsContactPhone,
+                  maxLength: 40,
+                  helperText: `${PHONE_FORMAT_HELP}\n${PHONE_CONTACT_HELP} Revisa que esté actualizado.`,
+                }
+              )}
+            </View>
+          </AccountSettingsCard>
+        </View>
+        <View style={styles.accountColumn}><ClinicalPinManager /></View>
       </View>
     </View>
   );

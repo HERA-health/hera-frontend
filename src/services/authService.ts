@@ -1,4 +1,5 @@
 import { legalProofs } from './legalService';
+import { RegistrationPhoneError } from '../utils/registrationPhone';
 import api, { logoutServerSession, setAuthSession } from './api';
 import { getErrorMessage, hasResponseData } from '../constants/errors';
 import { invalidateSpecialistsCache } from './specialistsService';
@@ -49,6 +50,7 @@ export interface RegisterData {
   acceptedLegalDocumentKeys: LegalDocumentKey[];
   acceptedLegalDocuments?: ReturnType<typeof legalProofs>;
   clinicCommercialName?: string;
+  phone?: string;
 }
 
 export interface LoginData {
@@ -63,6 +65,7 @@ export interface GoogleAuthData {
   acceptedLegalDocumentKeys?: LegalDocumentKey[];
   acceptedLegalDocuments?: ReturnType<typeof legalProofs>;
   clinicCommercialName?: string;
+  phone?: string;
 }
 
 const getClientPlatform = (): 'web' | 'mobile' => (Platform.OS === 'web' ? 'web' : 'mobile');
@@ -112,6 +115,9 @@ export const register = async (data: RegisterData): Promise<AuthResponse> => {
       let errorMessage = 'Error al registrarse. Intenta de nuevo';
 
       switch (errorCode) {
+        case 'PHONE_REQUIRED':
+        case 'INVALID_PHONE':
+          throw new RegistrationPhoneError(errorCode);
         case 'EMAIL_EXISTS':
           errorMessage = 'Este email ya está registrado';
           break;
@@ -264,6 +270,9 @@ export const authenticateWithGoogle = async (data: GoogleAuthData): Promise<Auth
         case 'REGISTRATION_REQUIRED':
           errorMessage = 'Completa el registro para continuar con Google';
           break;
+        case 'PHONE_REQUIRED':
+        case 'INVALID_PHONE':
+          throw new RegistrationPhoneError(errorCode);
         case 'USER_TYPE_MISMATCH':
           errorMessage = getGoogleUserTypeMismatchMessage(data.expectedUserType);
           break;

@@ -61,7 +61,8 @@ interface AuthContextType {
     userType: PublicUserType,
     acceptedLegalDocumentKeys: LegalDocumentKey[],
     clinicCommercialName?: string,
-    acceptedLegalDocuments?: authService.RegisterData['acceptedLegalDocuments']
+    acceptedLegalDocuments?: authService.RegisterData['acceptedLegalDocuments'],
+    phone?: string
   ) => Promise<AuthResponse>;
   logout: () => Promise<void>;
   setUserType: (type: UserType) => void;
@@ -329,7 +330,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     userType: PublicUserType,
     acceptedLegalDocumentKeys: LegalDocumentKey[],
     clinicCommercialName?: string,
-    acceptedLegalDocuments?: authService.RegisterData['acceptedLegalDocuments']
+    acceptedLegalDocuments?: authService.RegisterData['acceptedLegalDocuments'],
+    phone?: string
   ) => {
     const operationEpoch = authEpochRef.current + 1;
     authEpochRef.current = operationEpoch;
@@ -351,6 +353,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         acceptedLegalDocumentKeys,
         acceptedLegalDocuments,
         clinicCommercialName,
+        ...(backendUserType === 'PROFESSIONAL' ? { phone } : {}),
       });
       if (authEpochRef.current !== operationEpoch) return response;
 

@@ -142,6 +142,63 @@ test('account settings exclude Google and switching tabs preserves unsaved accou
   expect(screen.getByLabelText('Teléfono').props.value).toBe('+34 600 123 456');
 });
 
+test('Account shows a recommended phone badge until saving, including on incomplete existing profiles', async () => {
+  const incomplete = { ...profile, professionalType: null, specialties: [], offersInPerson: true, insuranceUploaded: false };
+  jest.mocked(professionalService.getComprehensiveProfile).mockResolvedValue(incomplete);
+  jest.mocked(professionalService.updateComprehensiveProfile).mockImplementation(async data => ({ ...incomplete, phone: data.phone ?? '' }));
+  render(<SpecialistProfileScreen />);
+  await screen.findByLabelText('Teléfono recomendado pendiente');
+  expect(screen.queryByText(/Añade un teléfono para que el equipo/)).toBeNull();
+  fireEvent.press(screen.getByRole('tab', { name: 'Cuenta' }));
+  expect(screen.getByText('Recomendado')).toBeTruthy();
+  expect(screen.getByRole('tab', { name: 'Cuenta', selected: true })).toBeTruthy();
+  expect(screen.queryByText('Pendiente')).toBeNull();
+  fireEvent.changeText(screen.getByLabelText('Teléfono'), '600 123 456');
+  expect(screen.getByLabelText('Teléfono recomendado pendiente')).toBeTruthy();
+  await act(async () => fireEvent.press(screen.getByText('Guardar')));
+  expect(professionalService.updateComprehensiveProfile).toHaveBeenLastCalledWith({ phone: '600 123 456' });
+  expect(mockUpdateUser).toHaveBeenCalledWith({ phone: '600 123 456' });
+  fireEvent.press(screen.getByRole('tab', { name: 'Información Profesional' }));
+  expect(screen.queryByLabelText('Teléfono recomendado pendiente')).toBeNull();
+  fireEvent.press(screen.getByRole('tab', { name: 'Cuenta' }));
+  fireEvent.changeText(screen.getByLabelText('Teléfono'), '');
+  await act(async () => fireEvent.press(screen.getByText('Guardar')));
+  expect(professionalService.updateComprehensiveProfile).toHaveBeenLastCalledWith({ phone: '' });
+  expect(screen.getByLabelText('Teléfono recomendado pendiente')).toBeTruthy();
+});
+
+test('a failed phone save keeps the recommendation and the draft for retry', async () => {
+  jest.mocked(professionalService.updateComprehensiveProfile).mockRejectedValueOnce(new Error('Error de prueba'));
+  render(<SpecialistProfileScreen />);
+  fireEvent.press(await screen.findByRole('tab', { name: 'Cuenta' }));
+  fireEvent.changeText(screen.getByLabelText('Teléfono'), '600 123 456');
+  await act(async () => fireEvent.press(screen.getByText('Guardar')));
+  expect(screen.getByLabelText('Teléfono recomendado pendiente')).toBeTruthy();
+  expect(screen.getByLabelText('Teléfono').props.value).toBe('600 123 456');
+  expect(showAppAlert).toHaveBeenCalledWith(expect.anything(), 'No se pudo guardar el perfil', 'Error de prueba');
+});
+
+test('a saved phone does not show a recommendation', async () => {
+  jest.mocked(professionalService.getComprehensiveProfile).mockResolvedValue({ ...profile, phone: '+34600123456' });
+  render(<SpecialistProfileScreen />);
+  fireEvent.press(await screen.findByRole('tab', { name: 'Cuenta' }));
+  expect(screen.queryByLabelText('Teléfono recomendado pendiente')).toBeNull();
+  expect(screen.queryByText('Recomendado')).toBeNull();
+  expect(screen.getByLabelText('Teléfono').props.value).toBe('+34600123456');
+});
+
+test('editing more than the phone still validates incomplete professional fields', async () => {
+  jest.mocked(professionalService.getComprehensiveProfile).mockResolvedValue({ ...profile, professionalType: null, specialties: [] });
+  render(<SpecialistProfileScreen />);
+  const experience = await screen.findByLabelText('Años de experiencia (opcional)');
+  fireEvent.changeText(experience, '3');
+  fireEvent.press(screen.getByRole('tab', { name: 'Cuenta' }));
+  fireEvent.changeText(screen.getByLabelText('Teléfono'), '600 123 456');
+  fireEvent.press(screen.getByText('Guardar'));
+  expect(professionalService.updateComprehensiveProfile).not.toHaveBeenCalled();
+  expect(showAppAlert).toHaveBeenCalledWith(expect.anything(), 'Falta el tipo profesional', expect.any(String));
+});
+
 test('a Google navigation entry opens the new tab without exposing account settings', async () => {
   mockRouteParams = { initialTab: 'google' };
   render(<SpecialistProfileScreen />);

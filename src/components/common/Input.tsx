@@ -19,9 +19,11 @@ import { useTheme } from '../../contexts/ThemeContext';
 import { spacing, borderRadius, typography } from '../../constants/colors';
 
 interface InputProps extends TextInputProps {
+  inputRef?: React.Ref<TextInput>;
   label?: string;
   error?: string;
   helperText?: string;
+  supportingTextStyle?: TextStyle;
   containerStyle?: ViewStyle;
   leftIcon?: React.ReactNode;
   rightIcon?: React.ReactNode;
@@ -34,12 +36,14 @@ export const Input: React.FC<InputProps> = ({
   label,
   error,
   helperText,
+  supportingTextStyle,
   containerStyle,
   leftIcon,
   rightIcon,
   style,
   onFocus,
   onBlur,
+  inputRef,
   ...textInputProps
 }) => {
   const { theme } = useTheme();
@@ -99,6 +103,7 @@ export const Input: React.FC<InputProps> = ({
         {leftIcon ? <View style={styles.leftIcon}>{leftIcon}</View> : null}
 
         <TextInput
+          ref={inputRef}
           style={[
             styles.input,
             {
@@ -117,14 +122,14 @@ export const Input: React.FC<InputProps> = ({
       </Animated.View>
 
       {error ? (
-        <Text style={[styles.errorText, { color: theme.error, fontFamily: theme.fontSans }]}>
+        <Text accessibilityLiveRegion="polite" style={[styles.errorText, { color: theme.error, fontFamily: theme.fontSans }, supportingTextStyle]}>
           {error}
         </Text>
       ) : null}
 
       {helperText && !error ? (
         <Text
-          style={[styles.helperText, { color: theme.textMuted, fontFamily: theme.fontSans }]}
+          style={[styles.helperText, { color: theme.textMuted, fontFamily: theme.fontSans }, supportingTextStyle]}
         >
           {helperText}
         </Text>

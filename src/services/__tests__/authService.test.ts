@@ -8,6 +8,7 @@ import {
   type AuthResponse,
 } from '../authService';
 import type { LegalAcceptanceStatus } from '../legalService';
+import { RegistrationPhoneError } from '../../utils/registrationPhone';
 
 jest.mock('../api', () => ({
   __esModule: true,
@@ -80,6 +81,23 @@ describe('authService legal status hydration', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     setAuthSessionMock.mockResolvedValue(undefined);
+  });
+
+  it.each(['PHONE_REQUIRED', 'INVALID_PHONE'] as const)('preserves %s for email and Google without creating a session', async code => {
+    postMock.mockRejectedValue({ response: { data: { code, message: 'Error de teléfono' } } });
+    const registration = { email: 'professional@example.test', password: 'Password1!', name: 'Profesional', userType: 'PROFESSIONAL' as const, phone: '', acceptedLegalDocumentKeys: [] };
+    await expect(register(registration)).rejects.toEqual(new RegistrationPhoneError(code));
+    await expect(authenticateWithGoogle({ idToken: 'test-token', phone: '' })).rejects.toMatchObject({ code });
+    expect(setAuthSessionMock).not.toHaveBeenCalled();
+  });
+
+  it('forwards the registration phone for email and Google', async () => {
+    mockSuccessfulAuthResponse();
+    await register({ email: 'professional@example.test', password: 'Password1!', name: 'Profesional', userType: 'PROFESSIONAL', phone: '+34600123456', acceptedLegalDocumentKeys: [] });
+    expect(postMock).toHaveBeenLastCalledWith('/auth/register', expect.objectContaining({ phone: '+34600123456' }), expect.any(Object));
+    mockSuccessfulAuthResponse();
+    await authenticateWithGoogle({ idToken: 'test-token', userType: 'PROFESSIONAL', phone: '+34600123456' });
+    expect(postMock).toHaveBeenLastCalledWith('/auth/google', expect.objectContaining({ phone: '+34600123456' }), expect.any(Object));
   });
 
   it('preserves legalStatus returned by login', async () => {
