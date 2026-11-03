@@ -21,6 +21,19 @@ test('unreadable metadata keeps the selection and offers recovery without discon
   expect(authorize).not.toHaveBeenCalled();
 });
 
+test('an enabled import missing read permission opens authorization directly instead of claiming events are synchronized', async () => {
+  render(<GoogleCalendarImportSettings userId="owner" status={{ ...status, enabled: true, permissionRequired: true,
+    calendars: [{ id: 'main', name: 'Calendario de Google' }], errorCode: 'CALENDAR_IMPORT_METADATA_UNAVAILABLE' }} connected onAuthorize={authorize} onChanged={changed} />);
+  await screen.findByText('Continuar con Google');
+  expect(screen.getByText('Renueva el permiso de Google para volver a incluir tus eventos en HERA.')).toBeTruthy();
+  expect(screen.queryByText('Tus otros compromisos aparecen en HERA y bloquean los horarios ocupados.')).toBeNull();
+  expect(screen.queryByText('Actualizar calendarios')).toBeNull();
+  expect(service.getImportCalendars).not.toHaveBeenCalled();
+  fireEvent.press(screen.getByText('Continuar con Google'));
+  await waitFor(() => expect(authorize).toHaveBeenCalledTimes(1));
+  expect(service.configureCalendarImport).not.toHaveBeenCalled();
+});
+
 test('opening proposes the primary calendar without activating or importing until save', async () => {
   render(<GoogleCalendarImportSettings userId="owner" status={status} connected onAuthorize={authorize} onChanged={changed} />);
   expect(service.getImportCalendars).not.toHaveBeenCalled();

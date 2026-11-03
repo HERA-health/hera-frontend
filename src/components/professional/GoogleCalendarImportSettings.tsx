@@ -20,6 +20,9 @@ export function GoogleCalendarImportSettings({ userId, status, connected, onAuth
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
   useEffect(() => { if (status.available && consumeCalendarImportSetup(userId)) setOpen(true); }, [status.available, userId]);
   useEffect(() => {
+    if (status.enabled && status.permissionRequired && connected) setOpen(true);
+  }, [status.enabled, status.permissionRequired, connected]);
+  useEffect(() => {
     if (!open || status.permissionRequired || !connected) return;
     let active = true; setLoadingCalendars(true); setError(''); setChoices([]); setSelected([]);
     void getImportCalendars().then(items => { if (active) {
@@ -46,13 +49,15 @@ export function GoogleCalendarImportSettings({ userId, status, connected, onAuth
         thumbColor={theme.bgCard} {...(Platform.OS === 'web' ? { activeThumbColor: theme.bgCard } : {})}
         trackColor={{ false: theme.border, true: theme.actionPrimary }} />
     </View>
-    <Text style={text}>{status.errorCode === 'CALENDAR_IMPORT_METADATA_UNAVAILABLE'
+    <Text style={text}>{status.enabled && status.permissionRequired
+      ? 'Renueva el permiso de Google para volver a incluir tus eventos en HERA.'
+      : status.errorCode === 'CALENDAR_IMPORT_METADATA_UNAVAILABLE'
       ? 'No hemos podido recuperar los nombres de tus calendarios. Tu selección se conserva.'
       : status.enabled
       ? 'Tus otros compromisos aparecen en HERA y bloquean los horarios ocupados.'
       : open ? 'Elige los calendarios que quieres ver en HERA y guarda para empezar.'
       : 'Activa esta opción para ver también tus compromisos de Google en HERA y evitar solapamientos.'}</Text>
-    {status.errorCode === 'CALENDAR_IMPORT_METADATA_UNAVAILABLE' && <Button variant="ghost" size="small" disabled={busy}
+    {status.errorCode === 'CALENDAR_IMPORT_METADATA_UNAVAILABLE' && !status.permissionRequired && <Button variant="ghost" size="small" disabled={busy}
       onPress={() => { void run('refresh', onChanged); }}>{action === 'refresh' ? 'Actualizando…' : 'Actualizar calendarios'}</Button>}
     {open && !status.enabled && <Text accessibilityLiveRegion="polite" style={[text, { fontSize: 12, fontFamily: theme.fontSansSemiBold, color: theme.warning }]}>Pendiente de guardar · Aún no se incluyen eventos.</Text>}
     {action === 'disable' && <Text accessibilityLiveRegion="polite" style={text}>Desactivando…</Text>}
