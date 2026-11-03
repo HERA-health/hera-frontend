@@ -2,9 +2,12 @@ import { LEGAL_DOCUMENTS } from '../constants/legal';
 import { Platform } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import { api } from './api';
+import { z } from 'zod';
+import { calendarChoiceSchema, calendarImportStatusSchema, externalCalendarEventSchema, externalCalendarVerificationSchema, type CalendarImportStatus } from './externalCalendarContracts';
 import { captureCalendarUrl, clearCalendarProof, getCalendarIntent, readCalendarProof, saveCalendarProof } from './googleCalendarIntent';
 
 export interface GoogleCalendarStatus {
+  import?: CalendarImportStatus;
   activationConnection?: { id: string; generation: number } | null;
   videoProviderPreference?: 'GOOGLE_MEET' | 'DAILY';
   videoSetupCompleted?: boolean;
@@ -54,8 +57,9 @@ export const getProfessionalMeetingStatus = async (id: string) =>
 export const commandSessionMeeting = async (id: string, command: 'RETRY', expectedRevision: number) =>
   (await api.post<ProfessionalMeetingStatus>(`${base}/sessions/${encodeURIComponent(id)}/meeting`, { command, expectedRevision, confirmed: true }, config)).data;
 
-export async function connectGoogleCalendar(userId: string, disclosureVersion = LEGAL_DOCUMENTS.PRIVACY_POLICY.version): Promise<string | null> {
-  const { data } = await api.post<{ attemptId: string; proof: string; expiresAt: string; authorizationUrl: string }>(`${base}/connect`, { platform: Platform.OS === 'web' ? 'web' : 'mobile', disclosureVersion }, config);
+export async function connectGoogleCalendar(userId: string, disclosureVersion = LEGAL_DOCUMENTS.PRIVACY_POLICY.version,
+  purpose: 'CONNECT' | 'IMPORT' = 'CONNECT', expectedConnection?: { id: string; generation: number }): Promise<string | null> {
+  const { data } = await api.post<{ attemptId: string; proof: string; expiresAt: string; authorizationUrl: string }>(`${base}/connect`, { platform: Platform.OS === 'web' ? 'web' : 'mobile', disclosureVersion, ...(purpose === 'IMPORT' ? { purpose, expectedConnection } : {}) }, config);
   await saveCalendarProof({ userId, attemptId: data.attemptId, proof: data.proof, expiresAt: data.expiresAt });
   if (Platform.OS === 'web') {
     window.location.assign(data.authorizationUrl);
@@ -68,6 +72,30 @@ export async function connectGoogleCalendar(userId: string, disclosureVersion = 
   if (intent?.kind !== 'connect' || intent.attempt !== data.attemptId) throw new Error('La respuesta de Google no corresponde a esta vinculación.');
   return intent.attempt;
 }
+
+export async function getImportCalendars() {
+  return z.object({ calendars: z.array(calendarChoiceSchema) }).parse((await api.get(`${base}/calendars`)).data).calendars;
+}
+export async function configureCalendarImport(input: { enabled: boolean; calendarIds: string[]; revision: number; disclosureVersion: string }) {
+  return calendarImportStatusSchema.parse((await api.put(`${base}/import`, input, config)).data);
+}
+export async function getExternalCalendarEvents(from: string, to: string) {
+  const schema = z.object({ events: z.array(externalCalendarEventSchema), verification: externalCalendarVerificationSchema });
+  const start = new Date(from).getTime(), end = new Date(to).getTime(), maxRange = 42 * 86400000;
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) throw new Error('Elige un intervalo válido.');
+  // Civil month grids may span 42 days plus a DST hour. Keep every HTTP range bounded.
+  const results = [];
+  for (let cursor = start; cursor < end; cursor += maxRange) {
+    results.push(schema.parse((await api.get(`${base}/events`, { params: { from: new Date(cursor).toISOString(), to: new Date(Math.min(cursor + maxRange, end)).toISOString() } })).data));
+  }
+  const verification = results.find(r => r.verification.status === 'UNAVAILABLE')?.verification
+    ?? results.find(r => r.verification.status === 'STALE')?.verification ?? results[0].verification;
+  return { events: [...new Map(results.flatMap(r => r.events).map(event => [event.id, event])).values()], verification };
+}
+// Consumed only by the matching signed-in profile after completing OAuth.
+let importSetupUser: string | null = null;
+export const offerCalendarImportSetup = (userId: string) => { importSetupUser = userId; };
+export const consumeCalendarImportSetup = (userId: string) => { const offer = importSetupUser === userId; if (offer) importSetupUser = null; return offer; };
 
 // iOS/Android can deliver the browser result and the deep link together.
 let completion: { key: string; promise: Promise<GoogleCalendarStatus> } | null = null;

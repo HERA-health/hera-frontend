@@ -1,3 +1,4 @@
+import { GoogleCalendarImportSettings } from './GoogleCalendarImportSettings';
 import { getLegalCatalog } from '../../services/legalService';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
@@ -41,7 +42,7 @@ export function GoogleCalendarCard({ videoSetup = false, hasUnsavedChanges = fal
   const refresh = useCallback(async () => {
     const revision = ++generation.current;
     try {
-      const [next, documents] = await Promise.all([getGoogleCalendarStatus(), getLegalCatalog()]);
+      const [next, documents] = await Promise.all([getGoogleCalendarStatus(), getLegalCatalog('PROFESSIONAL')]);
       const privacy = documents.find(doc => doc.key === 'PRIVACY_POLICY');
       if (!privacy) throw new Error('No se pudo cargar la información de privacidad.');
       if (mounted.current && revision === generation.current) {
@@ -153,7 +154,7 @@ export function GoogleCalendarCard({ videoSetup = false, hasUnsavedChanges = fal
           : 'Primero sincroniza tus citas con Google Calendar. Después podrás activar un enlace de Meet para cada videollamada.'}</Text>
       </View>}
       <View onLayout={event => setContentWidth(event.nativeEvent.layout.width)} style={[styles.columns, twoColumns && styles.columnsWide]}>
-      <View style={[styles.section, styles.productPanel, styles.column, twoColumns && styles.columnWide, { backgroundColor: calendarActive ? theme.successLight : theme.bgMuted }]}>
+      <View style={[styles.section, styles.productPanel, styles.column, twoColumns && styles.calendarColumnWide, { backgroundColor: calendarActive ? theme.successLight : theme.bgMuted }]}>
         <View style={styles.sectionHeader}>
           <Image source={require('../../../assets/google-calendar.png')} style={styles.productLogo} resizeMode="contain" accessible={false} />
           <View style={styles.headerCopy}>
@@ -169,14 +170,21 @@ export function GoogleCalendarCard({ videoSetup = false, hasUnsavedChanges = fal
           : needsReauthorization
           ? 'Google necesita que renueves el permiso. Reconecta la misma cuenta para continuar sincronizando tus citas.'
           : connected
-          ? 'Tus citas de HERA se sincronizan automáticamente con tu calendario.'
-          : 'Sincroniza tus citas de HERA con tu calendario principal.'}</Text>
+          ? 'Tus citas de HERA aparecen automáticamente en Google Calendar.'
+          : 'Envía tus citas de HERA a tu calendario principal de Google.'}</Text>
         {!status && !error && <ActivityIndicator color={theme.primary} />}
         {status?.enabled && (status.status === 'DISCONNECTED' || needsReauthorization) && <Button
           style={compact ? styles.stretch : styles.start} loading={busy} disabled={!disclosureVersion}
           onPress={() => setPrivacyDialog('connect')}>
           {needsReauthorization ? 'Reconectar Google Calendar' : guidedSetup ? 'Conectar Google y continuar' : 'Conectar Google Calendar'}
         </Button>}
+        {user && status?.import && <GoogleCalendarImportSettings userId={user.id} status={status.import} connected={connected}
+          onChanged={refresh} onAuthorize={async () => {
+            if (!disclosureVersion || !status.activationConnection) return;
+            if (onBeforeConnect && !await onBeforeConnect()) return;
+            const attempt = await connectGoogleCalendar(user.id, disclosureVersion, 'IMPORT', status.activationConnection);
+            if (attempt) navigation.navigate('GoogleCalendarIntegration', { attempt });
+          }} />}
       </View>
 
       <View style={[styles.section, styles.productPanel, styles.column, twoColumns && styles.columnWide, { backgroundColor: meetActive ? theme.successLight : theme.bgMuted }]}>
@@ -202,6 +210,7 @@ export function GoogleCalendarCard({ videoSetup = false, hasUnsavedChanges = fal
         {canActivate && <Button style={compact ? styles.stretch : styles.start} disabled={busy || status.privacyUpdateRequired || !status.activationConnection || !status.meetDisclosureVersion || !status.email} onPress={() => {
           if (status.activationConnection && status.meetDisclosureVersion && status.email) setConfirmMeet({ email: status.email, disclosureVersion: status.meetDisclosureVersion, connection: { ...status.activationConnection } });
         }}>Activar Google Meet</Button>}
+        <Text style={[styles.caption, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>Las citas ya preparadas conservan su enlace.</Text>
         {!!status?.failedDeliveries && <Text style={[...copy, { color: theme.error }]}>Hay accesos por correo pendientes de entrega: {status.failedDeliveries}</Text>}
       </View>
       </View>
@@ -236,7 +245,6 @@ export function GoogleCalendarCard({ videoSetup = false, hasUnsavedChanges = fal
             <Button variant="ghost" size="small" disabled={busy} onPress={() => setConfirmDisconnect(true)}>Desconectar</Button>
           </View>
         </View>}
-      <Text style={[styles.caption, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>Las citas ya preparadas conservan su enlace.</Text>
       {pending && pollingPaused && !error && <Button variant="ghost" size="small" disabled={busy} style={styles.start} onPress={() => { void refresh(); }}>Actualizar estado</Button>}
       {status?.errorCode === 'REVOCATION_FAILED' && <View style={styles.section}>
         <Text style={copy}>HERA ha dejado de sincronizar. No se pudo retirar el permiso en Google; puedes hacerlo desde tu cuenta.</Text>
@@ -273,8 +281,13 @@ export function GoogleCalendarCard({ videoSetup = false, hasUnsavedChanges = fal
               <Text style={copy}>Cuando se utiliza Meet, el audio y vídeo transcurren en Google. Debes admitir al paciente correcto y finalizar la reunión. Desconectar o borrar el evento no invalida necesariamente un enlace copiado. Revisa las condiciones aplicables a tu cuenta antes del uso clínico.</Text>
             </> : confirmDisconnect ? <Text style={copy}>Las citas ya copiadas permanecerán en Google y dejarán de actualizarse. Los enlaces Meet preparados pueden seguir funcionando; desconectar no borra las reuniones.</Text> : <>
               <Text style={copy}>Se mostrarán tus citas privadas y de clínicas, pendientes y confirmadas, con su horario y un enlace a HERA. No se enviarán datos del paciente.</Text>
-              <Text style={copy}>Los cambios se gestionan en HERA. Los eventos personales de Google no se importan ni bloquean tu disponibilidad. Google solicitará permiso para gestionar eventos de tus calendarios; HERA solo gestionará sus propias copias.</Text>
+              <Text style={copy}>Los cambios de tus citas se gestionan en HERA. Google solicitará permiso para gestionar eventos; HERA solo gestionará sus propias copias.</Text>
               <Text style={copy}>Si desconectas la cuenta, las citas ya copiadas permanecerán en Google y dejarán de actualizarse. Guardamos tu identidad Google y una credencial cifrada; puedes desconectar cuando quieras.</Text>
+              {status?.import?.available && <>
+                <Text style={copy}>Incluir tus otros compromisos es opcional. Solo leeremos el título, el calendario y el horario de los calendarios que elijas para mostrarlos en tu agenda y evitar solapamientos. No leeremos descripciones, contactos, ubicaciones ni adjuntos.</Text>
+                <Text style={copy}>Los títulos solo aparecen en tu agenda personal; tu clínica ve «No disponible». Conservamos una copia temporal durante un máximo de 24 horas desde su lectura, con títulos cifrados. Al desactivar la opción, retirar un calendario o desconectar, borramos esa copia. Google sigue tratando los datos de tu cuenta según sus condiciones.</Text>
+                <Text style={copy}>Si Google no responde, podrás reservar con un aviso. Los cambios posteriores pueden coincidir con citas existentes: te avisaremos sin cancelarlas.</Text>
+              </>}
               {privacyDialog === 'connect' && <Text style={copy}>Al continuar autorizas esta sincronización. Activar Meet será un paso adicional.</Text>}
               {privacyDialog === 'connect' && hasUnsavedChanges && <Text style={copy}>Antes de abrir Google guardaremos los cambios pendientes de tu perfil.</Text>}
               <Button variant="ghost" size="small" style={styles.start} onPress={() => { closeDialog(); navigation.navigate('LegalDocument', { documentKey: 'PRIVACY_POLICY', version: disclosureVersion ?? undefined }); }}>Leer política de privacidad</Button>
@@ -311,9 +324,10 @@ const styles = StyleSheet.create({
   statusBadge: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, maxWidth: '100%' },
   statusText: { fontSize: 13, lineHeight: 18, flexShrink: 1 },
   columns: { flexDirection: 'column', gap: 14 },
-  columnsWide: { flexDirection: 'row', alignItems: 'stretch', gap: 16 },
+  columnsWide: { flexDirection: 'row', alignItems: 'flex-start', gap: 16 },
   column: { minWidth: 0, flexShrink: 0 },
   columnWide: { flex: 1 },
+  calendarColumnWide: { flex: 1.6 },
   sectionTitle: { fontSize: 16, lineHeight: 23 },
   caption: { fontSize: 12, lineHeight: 19 },
   account: { fontSize: 14, lineHeight: 22, flexShrink: 1 },

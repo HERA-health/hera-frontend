@@ -1,3 +1,4 @@
+import type { ExternalCalendarVerification } from '../externalCalendarContracts';
 export type ClinicStatus = 'ACTIVE' | 'SUSPENDED' | 'ARCHIVED';
 export type ClinicMembershipRole = 'OWNER' | 'ADMIN' | 'SPECIALIST';
 export type ClinicMembershipStatus = 'ACTIVE' | 'INACTIVE';
@@ -479,6 +480,8 @@ export interface ClinicAgendaFilters {
 }
 
 export interface ClinicAgenda {
+  externalCalendarVerification?: ExternalCalendarVerification;
+  externalBusy?: Array<{ id: string; expiresAt?: string; startsAt: string; endsAt: string; title: 'No disponible'; clinicSpecialistId: string }>;
   items: ClinicAgendaItem[];
   pageInfo: ClinicPatientListPageInfo;
 }

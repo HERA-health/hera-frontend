@@ -1,3 +1,4 @@
+import { ExternalEventCard, externalEventIntersectsDay } from './ExternalCalendarEvent';
 import { useAgendaScrollPosition } from './useAgendaScrollPosition';
 import React from 'react';
 import { ScrollView, Text, View } from 'react-native';
@@ -20,11 +21,13 @@ export function ProfessionalAgendaWeekView({ weekDays, gridEnabled, renderSessio
   return <ScrollView ref={listRef} onScroll={(event) => { props.scrollPosition.current = event.nativeEvent.contentOffset.y; }} scrollEventThrottle={32} contentContainerStyle={{ padding: 16, gap: 20 }}>
     {weekDays.map((day) => {
       const sessions = props.sessions.filter((session) => sessionIntersectsDay(session, day));
+      const external = (props.externalEvents ?? []).filter(e => externalEventIntersectsDay(e, day));
       return <View key={toCalendarDateKey(day)} style={{ gap: 8 }}>
         <View style={{ minHeight: 40, paddingVertical: 8, paddingHorizontal: 8, justifyContent: 'center', backgroundColor: theme.bgCard, borderBottomWidth: 1, borderBottomColor: theme.borderLight }}>
           <Text style={{ fontFamily: theme.fontSansBold, color: theme.textSecondary, fontSize: 12, lineHeight: 16, letterSpacing: 0.6, textTransform: 'uppercase' }}>{formatMadridInstant(day, { weekday: 'long', day: 'numeric', month: 'short' })}</Text>
         </View>
-        {sessions.length ? sessions.map((session) => renderSessionCard(session, true)) : <Text style={{ color: theme.textSecondary, fontFamily: theme.fontSans }}>Sin citas</Text>}
+        {[...sessions.map(session => ({ time: session.date.getTime(), id: session.id, node: renderSessionCard(session, true) })), ...external.map(event => ({ time: Date.parse(event.startsAt), id: event.id, node: <ExternalEventCard event={event} /> }))].sort((a, b) => a.time - b.time).map(item => <React.Fragment key={item.id}>{item.node}</React.Fragment>)}
+        {!sessions.length && !external.length && <Text style={{ color: theme.textSecondary, fontFamily: theme.fontSans }}>Sin citas</Text>}
       </View>;
     })}
   </ScrollView>;

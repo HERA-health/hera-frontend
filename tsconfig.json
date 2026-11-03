@@ -4,5 +4,5 @@
     "strict": true,
     "types": ["jest", "google.maps"]
   },
-  "exclude": ["dist"]
+  "exclude": ["dist", "output", ".playwright-cli"]
 }

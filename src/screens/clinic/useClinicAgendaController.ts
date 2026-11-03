@@ -1,3 +1,6 @@
+import { AppState, Platform } from 'react-native';
+import { useIsFocused } from '@react-navigation/native';
+import { calendarVerificationNeedsAttention, PROFESSIONAL_CALENDAR_WARNING } from '../../services/externalCalendarContracts';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { showAppAlert, useAppAlert } from '../../components/common/alert';
 import type { DropdownOption } from '../../components/common/SimpleDropdown';
@@ -88,6 +91,9 @@ export const buildClinicAgendaFilters = (
 
 export function useClinicAgendaController() {
   const appAlert = useAppAlert();
+  const isFocused = useIsFocused();
+  const lastAgendaRead = useRef(0);
+  const [externalVerification, setExternalVerification] = useState<clinicService.ClinicAgenda['externalCalendarVerification']>();
   const workspace = useClinicWorkspace();
   const mountedRef = useRef(true);
   const sessionsRequestSeq = useRef(0);
@@ -102,6 +108,7 @@ export function useClinicAgendaController() {
   } | null>(null);
   const patientLookupBeforeSchedulerRef = useRef<PatientLookupSnapshot | null>(null);
 
+  const [externalBusy, setExternalBusy] = useState<NonNullable<clinicService.ClinicAgenda['externalBusy']>>([]);
   const [sessions, setSessions] = useState<clinicService.ClinicAgendaItem[]>([]);
   const [agendaPageInfo, setAgendaPageInfo] =
     useState<clinicService.ClinicPatientListPageInfo | null>(null);
@@ -143,6 +150,9 @@ export function useClinicAgendaController() {
 
     invalidateAgendaRequests();
     setSessions([]);
+    setExternalBusy([]);
+    setExternalVerification(undefined);
+    lastAgendaRead.current = 0;
     setAgendaPageInfo(null);
     setAgendaLoadingMore(false);
     setSelectedSessionId(null);
@@ -324,6 +334,9 @@ export function useClinicAgendaController() {
         const nextItems = result.items.filter((session) => !currentKeys.has(session.key));
         return [...currentSessions, ...nextItems];
       });
+      setExternalBusy(result.externalBusy ?? []);
+      setExternalVerification(result.externalCalendarVerification);
+      lastAgendaRead.current = Date.now();
       setAgendaPageInfo(result.pageInfo);
     } catch (loadError: unknown) {
       if (!mountedRef.current || sessionsRequestSeq.current !== requestId) return;
@@ -331,6 +344,7 @@ export function useClinicAgendaController() {
         ? loadError.message
         : 'No se pudo cargar la agenda';
       setError(message);
+      setExternalBusy([]);
       if (!append) {
         setSessions([]);
         setAgendaPageInfo(null);
@@ -369,6 +383,9 @@ export function useClinicAgendaController() {
         seenKeys.add(session.key);
         return true;
       }));
+      setExternalBusy(pages[0]?.externalBusy ?? []);
+      setExternalVerification(pages[0]?.externalCalendarVerification);
+      lastAgendaRead.current = Date.now();
       setAgendaPageInfo(pages.at(-1)?.pageInfo ?? null);
     } catch (refreshError: unknown) {
       if (!mountedRef.current || sessionsRequestSeq.current !== requestId) return;
@@ -382,6 +399,25 @@ export function useClinicAgendaController() {
       }
     }
   }, []);
+
+  useEffect(() => {
+    if (!isFocused || !canManage || !workspace.selectedClinicId) return;
+    let pending = false;
+    const refresh = () => {
+      setExternalBusy(current => current.filter(block => block.expiresAt && Date.parse(block.expiresAt) > Date.now()));
+      if (pending || loading || agendaLoadingMore || Date.now() - lastAgendaRead.current < 60_000) return;
+      pending = true; lastAgendaRead.current = Date.now();
+      void refreshLoadedAgendaPages(workspace.selectedClinicId!, appliedFilters, agendaPageInfo?.page ?? 1).finally(() => { pending = false; });
+    };
+    // Existing loadSessions covers first mount; this handles returning to the screen.
+    if (lastAgendaRead.current) refresh();
+    const timer = setInterval(() => {
+      if (externalVerification && externalVerification.status !== 'NOT_ENABLED') refresh();
+    }, 60_000);
+    const listener = AppState.addEventListener('change', state => { if (state === 'active') refresh(); });
+    if (Platform.OS === 'web') window.addEventListener('focus', refresh);
+    return () => { clearInterval(timer); listener.remove(); if (Platform.OS === 'web') window.removeEventListener('focus', refresh); };
+  }, [isFocused, canManage, workspace.selectedClinicId, loading, agendaLoadingMore, appliedFilters, agendaPageInfo?.page, refreshLoadedAgendaPages, externalVerification]);
 
   const loadSessionDetail = useCallback(async (clinicId: string, sessionId: string) => {
     const requestId = sessionDetailRequestSeq.current + 1;
@@ -834,6 +870,8 @@ export function useClinicAgendaController() {
     selectedSessionDetailError,
     selectedSessionDetailLoading,
     selectedSessionId,
+    externalBusy,
+    externalCalendarWarning: calendarVerificationNeedsAttention(externalVerification) ? PROFESSIONAL_CALENDAR_WARNING : null,
     sessions,
     setEditableFilter,
     saving,

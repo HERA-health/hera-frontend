@@ -108,6 +108,8 @@ export function ClinicAgendaScreen({
     selectedSessionDetailError,
     selectedSessionDetailLoading,
     selectedSessionId,
+    externalBusy = [],
+    externalCalendarWarning,
     sessions,
     setEditableFilter,
     saving,
@@ -368,6 +370,7 @@ export function ClinicAgendaScreen({
           </View>
 
           <AgendaOriginLegend />
+          {externalCalendarWarning && <Text accessibilityRole="alert" style={styles.refreshNoticeText}>{externalCalendarWarning}</Text>}
 
           {agendaRefreshError ? (
             <View accessibilityRole="alert" style={styles.refreshNotice}>
@@ -379,6 +382,13 @@ export function ClinicAgendaScreen({
             </View>
           ) : null}
 
+          {!loading && !error && externalBusy.length > 0 && <View style={styles.sessionList}>
+            <Text style={styles.stateText}>Otros compromisos · Horarios no disponibles</Text>
+            {externalBusy.map(block => <View key={block.id} style={{ padding: 12, borderRadius: 8, backgroundColor: theme.bgMuted, gap: 4 }}>
+              <Text style={{ color: theme.textPrimary, fontFamily: theme.fontSansSemiBold }}>No disponible · {specialistFilterOptions.find(option => option.value === block.clinicSpecialistId)?.label ?? 'Profesional'}</Text>
+              <Text style={{ color: theme.textSecondary, fontFamily: theme.fontSans }}>{new Date(block.startsAt).toLocaleString('es-ES', { timeZone: 'Europe/Madrid' })} – {new Date(block.endsAt).toLocaleString('es-ES', { timeZone: 'Europe/Madrid' })}</Text>
+            </View>)}
+          </View>}
           {loading ? (
             <View style={styles.statePanel}>
               <ActivityIndicator color={theme.primary} size="small" />

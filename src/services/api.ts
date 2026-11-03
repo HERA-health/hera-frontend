@@ -1,3 +1,4 @@
+import { beginExternalCalendarRequest, receiveExternalCalendarNotice, clearExternalCalendarNotice } from './externalCalendarNotice';
 import { notifyLegalUpdate } from './legalEvents';
 import { GeneralRateLimitError, PublicDiscoveryRateLimitError, getGeneralRateLimitRetryAt, getRateLimitSessionGeneration, isGeneralRead, isGeneralRateLimited, isDiscoveryRequest, recordGeneralRateLimit } from './generalRateLimit';
 import axios, {
@@ -187,6 +188,7 @@ export const setAuthSession = async (token: string, refreshToken: string): Promi
 };
 
 export const clearAuthSession = async (): Promise<void> => {
+  clearExternalCalendarNotice();
   clearAccessToken();
   clearWebRefreshToken();
   await Promise.all([clearPersistedRefreshToken(), clearCalendarProof()]);
@@ -268,6 +270,7 @@ const requestSessions = new WeakMap<object, number>();
 api.interceptors.request.use(
   (config) => {
     requestSessions.set(config, getRateLimitSessionGeneration());
+    beginExternalCalendarRequest(config, config.url);
     if (isGeneralRead(config.url, config.method) && isGeneralRateLimited()) {
       throw new GeneralRateLimitError(getGeneralRateLimitRetryAt());
     }
@@ -298,6 +301,7 @@ api.interceptors.request.use(
 
 api.interceptors.response.use(
   (response) => {
+    if (requestSessions.get(response.config) === getRateLimitSessionGeneration()) receiveExternalCalendarNotice(response.config, response.data, response.config.method);
     logApiDebug('response', {
       status: response.status,
       url: response.config.url,

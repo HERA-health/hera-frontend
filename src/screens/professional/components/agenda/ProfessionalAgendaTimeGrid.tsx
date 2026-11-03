@@ -1,16 +1,20 @@
-import React, { useEffect, useMemo, useRef } from 'react';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import type { ExternalCalendarEvent } from '../../../../services/externalCalendarContracts';
+import { ExternalEventDetail, externalEventTime } from './ExternalCalendarEvent';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { AnimatedPressable } from '../../../../components/common';
 import { useTheme } from '../../../../contexts/ThemeContext';
 import type { ProfessionalSession } from '../../../../constants/types';
 import { formatMadridInstant, MADRID_TIME_ZONE } from '../../../../utils/madridTime';
 import { DAY_HOUR_HEIGHT, formatTime, formatSessionTimeRange, getProvenanceLabel, getProvenancePalette, getSessionTypeLabel, getSessionDisplayStatus, getStatusLabel, isToday, toCalendarDateKey } from './professionalAgendaUtils';
-import { getAgendaAxis, getAgendaHours, getInstantTop, layoutAgendaSessions } from './agendaTimeline';
+import { getAgendaAxis, getAgendaHours, getInstantTop, layoutAgendaItems } from './agendaTimeline';
 
 export interface AgendaScrollPosition { current: number | null; }
 interface Props {
   days: Date[];
   sessions: ProfessionalSession[];
+  externalEvents?: ExternalCalendarEvent[];
   currentTime: Date;
   scrollPosition: AgendaScrollPosition;
   scrollRequest: number;
@@ -20,12 +24,13 @@ interface Props {
   scrollRef?: React.RefObject<ScrollView | null>;
 }
 
-export function ProfessionalAgendaTimeGrid({ days, sessions, currentTime, scrollPosition, scrollRequest, dataReady = true, scrollTarget, onOpenSession, scrollRef }: Props) {
+export function ProfessionalAgendaTimeGrid({ days, sessions, externalEvents = [], currentTime, scrollPosition, scrollRequest, dataReady = true, scrollTarget, onOpenSession, scrollRef }: Props) {
   const { theme } = useTheme();
+  const [externalDetail, setExternalDetail] = useState<ExternalCalendarEvent | null>(null);
   const internalRef = useRef<ScrollView | null>(null);
   const ref = scrollRef ?? internalRef;
   const axis = useMemo(() => getAgendaAxis(days), [days]);
-  const columns = useMemo(() => days.map((day) => ({ day, hours: getAgendaHours(day), blocks: layoutAgendaSessions(sessions, day, axis) })), [days, sessions, axis]);
+  const columns = useMemo(() => days.map((day) => ({ day, hours: getAgendaHours(day), blocks: layoutAgendaItems<ProfessionalSession | ExternalCalendarEvent>([...sessions, ...externalEvents], day, axis, item => 'kind' in item ? { start: Date.parse(item.startsAt), end: Date.parse(item.endsAt), cancelled: false } : { start: item.date.getTime(), end: item.date.getTime() + item.duration * 60_000, cancelled: item.status === 'cancelled' }) })), [days, sessions, externalEvents, axis]);
   const zoneOffsets = [...new Set(columns.flatMap((column) => column.hours.map((hour) => hour.offset.replace('GMT', 'UTC'))))];
   const todayColumn = columns.find((column) => isToday(column.day, currentTime));
   const currentTimeTop = todayColumn ? getInstantTop(currentTime.getTime(), todayColumn.hours, axis) : null;
@@ -35,13 +40,13 @@ export function ProfessionalAgendaTimeGrid({ days, sessions, currentTime, scroll
     let offset = scrollPosition.current;
     if (offset === null) {
       const today = columns.find((column) => isToday(column.day, currentTime));
-      const first = columns.flatMap((column) => column.blocks).filter((block) => block.session.status !== 'cancelled').sort((a, b) => a.top - b.top)[0];
+      const first = columns.flatMap((column) => column.blocks).filter((block) => ('kind' in block.session || block.session.status !== 'cancelled')).sort((a, b) => a.top - b.top)[0];
       const target = scrollTarget ? columns.map((column) => getInstantTop(scrollTarget.getTime(), column.hours, axis)).find((top) => top !== null) : null;
       offset = target != null ? Math.max(0, target - DAY_HOUR_HEIGHT) : today ? Math.max(0, (getInstantTop(currentTime.getTime(), today.hours, axis) ?? 8 * DAY_HOUR_HEIGHT) - DAY_HOUR_HEIGHT) : first?.top ?? 8 * DAY_HOUR_HEIGHT;
     }
     const timer = setTimeout(() => {
       if (!ref.current) return;
-      ref.current.scrollTo({ y: offset, animated: false });
+      ref.current.scrollTo({ y: offset ?? 0, animated: false });
       scrollPosition.current = offset;
       request.current = scrollRequest;
     }, 0);
@@ -76,9 +81,16 @@ export function ProfessionalAgendaTimeGrid({ days, sessions, currentTime, scroll
             })}
             {blocks.map((block) => {
               const { session } = block;
+              if ('kind' in session) return <AnimatedPressable key={block.key} onPress={() => setExternalDetail(session)} hoverLift={false}
+                accessibilityRole="button" accessibilityLabel={session.title + ', ' + externalEventTime(session) + ', Google Calendar' + (session.busy ? '' : ', libre')}
+                style={[styles.event, { top: block.top + 1, height: Math.max(12, block.height - 2), left: `${block.lane / block.lanes * 100}%`, width: `${100 / block.lanes}%`, backgroundColor: theme.bgMuted, borderLeftColor: theme.textMuted, opacity: session.busy ? 1 : 0.7 }]}>
+                <View style={{ flexDirection: 'row', gap: 3, alignItems: 'flex-start' }}><Ionicons name="logo-google" size={10} color={theme.textSecondary} /><Text numberOfLines={block.height >= 68 ? 2 : 1} style={{ flex: 1, color: theme.textPrimary, fontFamily: theme.fontSansSemiBold, fontSize: 12, lineHeight: 14 }}>{block.height < 34 ? externalEventTime(session) + ' · ' : ''}{session.title}</Text></View>
+                {block.height >= 34 && <Text numberOfLines={1} style={{ color: theme.textSecondary, fontFamily: theme.fontSans, fontSize: 11 }}>{externalEventTime(session)}{session.busy ? '' : ' · Libre'}</Text>}
+              </AnimatedPressable>;
+              const conflict = session.status !== 'cancelled' && externalEvents.some(e => e.busy && Date.parse(e.startsAt) < session.date.getTime() + session.duration * 60_000 && Date.parse(e.endsAt) > session.date.getTime());
               const palette = getProvenancePalette(theme, session);
               const status = getStatusLabel(getSessionDisplayStatus(session, currentTime));
-              const description = `${session.clientName}, ${formatSessionTimeRange(session)}, ${getProvenanceLabel(session.provenance, session.relationshipContext)}, ${status}${hours.length !== 24 ? `, ${block.offset}` : ''}`;
+              const description = `${conflict ? 'Coincide con otro compromiso. ' : ''}${session.clientName}, ${formatSessionTimeRange(session)}, ${getProvenanceLabel(session.provenance, session.relationshipContext)}, ${status}${hours.length !== 24 ? `, ${block.offset}` : ''}`;
               return <AnimatedPressable key={block.key} onPress={() => onOpenSession(session.id)} hoverLift={false} pressScale={0.99}
                 accessibilityRole="button" accessibilityLabel={description}
                 style={[styles.event, { top: block.top + 1, height: Math.max(12, block.height - 2), paddingVertical: block.height < 28 ? 0 : 3, left: `${block.lane / block.lanes * 100}%`, width: `${100 / block.lanes}%`, backgroundColor: theme.bgCard, borderLeftColor: palette.border }]}>
@@ -91,6 +103,7 @@ export function ProfessionalAgendaTimeGrid({ days, sessions, currentTime, scroll
                   {session.status === 'pending' ? <Text style={{ color: theme.textPrimary, fontFamily: theme.fontSansBold, fontSize: 10, lineHeight: 13 }}>Pendiente</Text> : null}
                   <Text numberOfLines={1} style={{ flexShrink: 1, color: theme.textPrimary, fontFamily: theme.fontSans, fontSize: 12, lineHeight: 13 }}>{formatSessionTimeRange(session)}{hours.length === 25 ? ` · ${block.offset}` : ''}</Text>
                 </View> : null}
+                {conflict && block.height >= 48 && <Text numberOfLines={1} style={{ color: theme.warning, fontFamily: theme.fontSansSemiBold, fontSize: 11 }}>Coincide con otro compromiso</Text>}
                 {block.height >= 48 ? <Text numberOfLines={1} style={{ color: theme.textSecondary, fontFamily: theme.fontSans, fontSize: 11, lineHeight: 12 }}>{getProvenanceLabel(session.provenance, session.relationshipContext)}</Text> : null}
                 {block.height >= 68 && session.status !== 'pending' ? <Text numberOfLines={1} style={{ color: theme.textSecondary, fontFamily: theme.fontSans, fontSize: 11 }}>{status}</Text> : null}
                 {block.height >= 86 ? <Text numberOfLines={1} style={{ color: theme.textSecondary, fontFamily: theme.fontSans, fontSize: 11 }}>{getSessionTypeLabel(session.type)}</Text> : null}
@@ -101,6 +114,7 @@ export function ProfessionalAgendaTimeGrid({ days, sessions, currentTime, scroll
         })}
       </View>
     </ScrollView>
+    <ExternalEventDetail event={externalDetail} onClose={() => setExternalDetail(null)} />
   </View>;
 }
 

@@ -1,3 +1,6 @@
+import { AppState, Platform } from 'react-native';
+import { getExternalCalendarEvents } from '../../../../services/googleCalendarService';
+import type { ExternalCalendarEvent, ExternalCalendarVerification } from '../../../../services/externalCalendarContracts';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect, useIsFocused } from '@react-navigation/native';
@@ -8,7 +11,7 @@ import { getErrorMessage } from '../../../../constants/errors';
 import * as professionalService from '../../../../services/professionalService';
 import { getGoogleCalendarStatus, type GoogleCalendarStatus } from '../../../../services/googleCalendarService';
 import { addCalendarDays, calendarDate, filterAgendaSessions, getAgendaCalendarRange, getMonthDays, getWeekDays, mapAgendaItem, toCalendarDateKey, type AgendaOriginFilter, type AgendaStatusFilter } from './professionalAgendaUtils';
-import { sessionIntersectsDay } from './agendaTimeline';
+import { getAgendaHours, sessionIntersectsDay } from './agendaTimeline';
 
 interface CacheEntry { sessions: ProfessionalSession[]; loadedAt: number; }
 const EMPTY: ProfessionalSession[] = [];
@@ -28,6 +31,9 @@ export function useProfessionalAgendaController(userId: string | null, initialVi
   const [readyUser, setReadyUser] = useState<string | null>(null);
   const [preferenceError, setPreferenceError] = useState('');
   const [googleCalendarStatus, setGoogleCalendarStatus] = useState<GoogleCalendarStatus | null>(null);
+  const [externalData, setExternalData] = useState<{ key: string; receivedAt: number; events: ExternalCalendarEvent[]; verification: ExternalCalendarVerification } | null>(null);
+  const [externalRefreshing, setExternalRefreshing] = useState(false);
+  const [externalLoadError, setExternalLoadError] = useState('');
   const [currentTime, setCurrentTime] = useState(new Date());
   const [loadErrorMessage, setLoadErrorMessage] = useState('');
   const [pendingKey, setPendingKey] = useState<string | null>(null);
@@ -139,6 +145,34 @@ export function useProfessionalAgendaController(userId: string | null, initialVi
     return () => { alive.current = false; generation.current += 1; clearInterval(interval); };
   }, []);
 
+  useEffect(() => {
+    if (!isFocused || !userId || !googleCalendarStatus?.import?.enabled) { setExternalData(null); setExternalRefreshing(false); setExternalLoadError(''); return; }
+    let active = true, pending = false, lastRead = 0;
+    const fromHours = getAgendaHours(calendarDate(range.from));
+    const toHours = getAgendaHours(calendarDate(range.to));
+    const from = new Date(fromHours[0].start).toISOString(), to = new Date(toHours[toHours.length - 1].end).toISOString();
+    const refresh = async () => {
+      if (pending || Date.now() - lastRead < 60_000) return;
+      pending = true; lastRead = Date.now(); setExternalRefreshing(true);
+      try {
+        const result = await getExternalCalendarEvents(from, to);
+        lastRead = Date.now();
+        if (active) { setExternalLoadError(''); setExternalData({ key, receivedAt: lastRead, ...result }); }
+      } catch {
+        if (active) setExternalLoadError('No hemos podido cargar los eventos de Google en HERA. Vuelve a intentarlo.');
+        if (active) setExternalData(previous => ({ key, receivedAt: previous?.receivedAt ?? 0, events: previous?.key === key ? previous.events.filter(event => event.expiresAt && Date.parse(event.expiresAt) > Date.now()) : [], verification: { status: 'UNAVAILABLE', checkedAt: null } }));
+      } finally { pending = false; if (active) setExternalRefreshing(false); }
+    };
+    void refresh();
+    const timer = setInterval(() => { void refresh(); }, 60_000);
+    const focus = () => { void refresh(); };
+    const subscription = AppState.addEventListener('change', state => { if (state === 'active') focus(); });
+    if (Platform.OS === 'web') window.addEventListener('focus', focus);
+    return () => { active = false; clearInterval(timer); subscription.remove(); if (Platform.OS === 'web') window.removeEventListener('focus', focus); };
+  }, [isFocused, userId, key, range.from, range.to, googleCalendarStatus?.import?.enabled, googleCalendarStatus?.import?.revision]);
+  const externalEvents = externalData?.key === key ? externalData.events : [];
+  const externalVerification = externalData?.key === key ? externalData.verification : null;
+
   const weekDays = useMemo(() => getWeekDays(selectedDate), [selectedDate]);
   const sessionsForDate = useMemo(() => sessions.filter((session) => sessionIntersectsDay(session, selectedDate)), [sessions, selectedDate]);
   const sessionsForWeek = useMemo(() => sessions.filter((session) => weekDays.some((day) => sessionIntersectsDay(session, day))), [sessions, weekDays]);
@@ -167,7 +201,7 @@ export function useProfessionalAgendaController(userId: string | null, initialVi
   return {
     viewMode, setViewMode: changeView, selectedDate, setSelectedDate,
     originFilter, setOriginFilter: changeOrigin, statusFilter, setStatusFilter: changeStatus, resetFilters,
-    preferenceError, googleCalendarStatus, sessions, rawSessionCount: rawSessions.length,
+    externalEvents, externalVerification, externalRefreshing, externalLoadError, preferenceError, googleCalendarStatus, sessions, rawSessionCount: rawSessions.length,
     initialLoading: Boolean(userId) && (!hasLoadedOnce && !loadErrorMessage && (readyUser !== userId || isPending)),
     dataReady: Boolean(entry),
     refreshing: hasLoadedOnce && isPending, hasLoadedOnce, loadError: Boolean(loadErrorMessage), loadErrorMessage,

@@ -1,3 +1,4 @@
+import { ExternalCalendarNotice } from '../../../components/scheduling/ExternalCalendarNotice';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import React, { useMemo } from 'react';
 import {
@@ -35,7 +36,7 @@ const formatDate = (dateString: string): string =>
     month: 'long',
   });
 
-export const TimeSlotsColumn: React.FC<TimeSlotsColumnProps> = ({
+const TimeSlotsColumnContent: React.FC<TimeSlotsColumnProps> = ({
   availabilityKey = '',
   selectedDate,
   availableSlots,
@@ -357,5 +358,8 @@ const createStyles = (
       fontSize: 12,
     },
   });
+
+
+export const TimeSlotsColumn: React.FC<TimeSlotsColumnProps> = props => <View><ExternalCalendarNotice patient /><TimeSlotsColumnContent {...props} /></View>;
 
 export default TimeSlotsColumn;

@@ -98,10 +98,10 @@ describe('ProfessionalAgendaToolbar', () => {
     const onGoogleCalendar = jest.fn();
     const screen = renderCalendarStatus(connectedCalendar, onGoogleCalendar);
 
-    expect(screen.getByText('Google Calendar · Sincronizado')).toBeTruthy();
+    expect(screen.getByText('Google Calendar · Conectado')).toBeTruthy();
     expect(screen.getByText('checkmark-circle')).toBeTruthy();
     expect(screen.queryByText('Sincronizar con Google Calendar')).toBeNull();
-    fireEvent.press(screen.getByLabelText('Google Calendar · Sincronizado'));
+    fireEvent.press(screen.getByLabelText('Google Calendar · Conectado'));
     expect(onGoogleCalendar).toHaveBeenCalledTimes(1);
   });
 

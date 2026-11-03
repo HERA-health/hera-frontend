@@ -1,3 +1,5 @@
+import type { ExternalCalendarEvent } from '../../../../services/externalCalendarContracts';
+import { ExternalEventCard, externalEventIntersectsDay } from './ExternalCalendarEvent';
 import { useAgendaScrollPosition } from './useAgendaScrollPosition';
 import type { AgendaScrollPosition } from './ProfessionalAgendaTimeGrid';
 import React, { useMemo, useState } from 'react';
@@ -35,6 +37,7 @@ interface ProfessionalAgendaMonthViewProps {
   scrollPosition?: AgendaScrollPosition;
   scrollRequest?: number;
   selectedDate: Date;
+  externalEvents?: ExternalCalendarEvent[];
   sessionsForSelectedDate: ProfessionalSession[];
   sessionsByDate: Map<string, ProfessionalSession[]>;
   isMobile: boolean;
@@ -53,6 +56,7 @@ interface PopoverState {
 
 export function ProfessionalAgendaMonthView({
   selectedDate,
+  externalEvents = [],
   scrollPosition,
   scrollRequest,
   sessionsForSelectedDate,
@@ -111,11 +115,13 @@ export function ProfessionalAgendaMonthView({
           </View>
           <View style={styles.grid}>
             {calendarDays.map((day) => {
+              const dayExternal = externalEvents.filter(e => externalEventIntersectsDay(e, day));
               const daySessions = sessionsByDate.get(toCalendarDateKey(day)) ?? [];
               const inCurrentMonth = toCalendarDateKey(day).slice(0, 7) === toCalendarDateKey(selectedDate).slice(0, 7);
               const selected = isSameCalendarDay(day, selectedDate);
               const today = isToday(day);
-              const hiddenCount = Math.max(0, daySessions.length - visibleLimit);
+              const sessionLimit = Math.max(0, visibleLimit - (dayExternal.length ? 1 : 0));
+              const hiddenCount = Math.max(0, daySessions.length - sessionLimit);
               const cellStyle = [
                 styles.cell,
                 {
@@ -133,7 +139,7 @@ export function ProfessionalAgendaMonthView({
                           {day.getUTCDate()}
                         </Text>
                       </View>
-                      {daySessions.length ? <Text style={styles.mobileCount}>{daySessions.length}</Text> : null}
+                      {daySessions.length ? <Text style={styles.mobileCount}>{daySessions.length}</Text> : null}{dayExternal.length > 0 && <Ionicons name="logo-google" size={10} color={theme.textSecondary} />}
                     </View>
                   ) : (
                     <AnimatedPressable
@@ -152,7 +158,7 @@ export function ProfessionalAgendaMonthView({
                   )}
                   {!isMobile ? (
                     <View style={styles.events}>
-                      {daySessions.slice(0, visibleLimit).map((session) => {
+                      {daySessions.slice(0, sessionLimit).map((session) => {
                         const status = getStatus(session);
                         const statusPalette = getProvenancePalette(theme, session);
                         const accent = getStatusColor(status);
@@ -183,6 +189,10 @@ export function ProfessionalAgendaMonthView({
                           </AnimatedPressable>
                         );
                       })}
+                      {dayExternal.length > 0 && <View>
+                        <ExternalEventCard compact event={dayExternal[0]} />
+                        {dayExternal.length > 1 && <AnimatedPressable onPress={() => onSelectDate(day)} hoverLift={false} accessibilityRole="button" accessibilityLabel={dayExternal.length + ' eventos de Google'}><Text style={styles.moreText}>+{dayExternal.length - 1} de Google</Text></AnimatedPressable>}
+                      </View>}
                       {hiddenCount > 0 ? (
                         <AnimatedPressable
                           onPress={(event) => openOverflow(event, day)}
@@ -207,7 +217,7 @@ export function ProfessionalAgendaMonthView({
                   hoverLift={false}
                   pressScale={0.995}
                   style={cellStyle}
-                  accessibilityLabel={`${formatMadridInstant(day, { day: 'numeric', month: 'long' })}, ${daySessions.length} citas`}
+                  accessibilityLabel={`${formatMadridInstant(day, { day: 'numeric', month: 'long' })}, ${daySessions.length} citas, ${dayExternal.length} eventos de Google`}
                 >
                   {cellContent}
                 </AnimatedPressable>
@@ -220,7 +230,7 @@ export function ProfessionalAgendaMonthView({
           </View>
         </View>
 
-        {isMobile ? (
+        {isMobile || externalEvents.some(e => externalEventIntersectsDay(e, selectedDate)) ? (
           <View style={styles.selectedDay}>
             <View style={styles.selectedHeading}>
               <Text style={styles.selectedTitle}>
@@ -228,6 +238,7 @@ export function ProfessionalAgendaMonthView({
               </Text>
               <View style={styles.badge}><Text style={styles.badgeText}>{sessionsForSelectedDate.length}</Text></View>
             </View>
+            {externalEvents.filter(e => externalEventIntersectsDay(e, selectedDate)).map(event => <View key={event.id} style={{ marginBottom: 8 }}><ExternalEventCard event={event} /></View>)}
             {sessionsForSelectedDate.length
               ? sessionsForSelectedDate.map((session) => renderSessionCard(session))
               : (

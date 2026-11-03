@@ -1,17 +1,17 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { StackActions, useNavigation, useRoute } from '@react-navigation/native';
 import type { AppNavigationProp, AppRouteProp } from '../../constants/types';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { getErrorMessage } from '../../constants/errors';
+import { GoogleCalendarConnectionState } from '../../components/professional/GoogleCalendarConnectionState';
 import { Button } from '../../components/common/Button';
-import { completeGoogleCalendar, resolveCalendarSession } from '../../services/googleCalendarService';
+import { completeGoogleCalendar, resolveCalendarSession, offerCalendarImportSetup } from '../../services/googleCalendarService';
 import { clearCalendarIntent, getCalendarIntent } from '../../services/googleCalendarIntent';
 
 export function GoogleCalendarScreen() {
   const { user } = useAuth();
-  const { theme } = useTheme();
   const navigation = useNavigation<AppNavigationProp>();
   const route = useRoute<AppRouteProp<'GoogleCalendarIntegration'>>();
   const intent = getCalendarIntent();
@@ -28,8 +28,9 @@ export function GoogleCalendarScreen() {
       return () => cancelAnimationFrame(frame);
     }
     setBusy(true); setError(null);
-    void completeGoogleCalendar(user.id, attempt).then(() => {
+    void completeGoogleCalendar(user.id, attempt).then(next => {
       if (active) {
+        if (next.import?.available) offerCalendarImportSetup(user.id);
         clearCalendarIntent();
         navigation.dispatch(StackActions.replace('ProfessionalProfile', { initialTab: 'google' }));
       }
@@ -37,17 +38,14 @@ export function GoogleCalendarScreen() {
       .finally(() => { if (active) setBusy(false); });
     return () => { active = false; };
   }, [user?.id, user?.type, attempt, navigation]);
-  return <ScrollView contentContainerStyle={[styles.page, { backgroundColor: theme.bg }]}>
-    <View style={styles.content}>
-      {!user ? <><Text style={{ color: theme.textPrimary }}>Inicia sesión en HERA para completar la vinculación.</Text><Button onPress={() => navigation.navigate('Login', { userType: 'PROFESSIONAL' })}>Iniciar sesión</Button></>
-        : user.type !== 'professional' ? <Text style={{ color: theme.textPrimary }}>La vinculación está disponible para especialistas.</Text>
-        : <>
-          {busy ? <><ActivityIndicator color={theme.primary} /><Text style={{ color: theme.textPrimary }}>Completando la vinculación con Google…</Text></> : null}
-          {error ? <Text accessibilityRole="alert" style={{ color: theme.error }}>{error}</Text> : null}
-          <Button variant="ghost" onPress={() => { clearCalendarIntent(); navigation.navigate('ProfessionalProfile', { initialTab: 'google' }); }}>Volver a ajustes de Google</Button>
-        </>}
-    </View>
-  </ScrollView>;
+  const professional = user?.type === 'professional';
+  return <GoogleCalendarConnectionState
+    title={!user ? 'Continúa con tu calendario' : !professional ? 'Conexión para especialistas' : error ? 'Revisa la conexión con Google' : busy ? 'Conectando Google Calendar' : 'Volviendo a tu agenda'}
+    description={!user ? 'Inicia sesión en HERA para completar la conexión con Google.' : !professional ? 'Entra con tu cuenta profesional para conectar tu calendario.' : 'Estamos terminando la conexión para que puedas organizar tu agenda desde HERA.'}
+    loading={professional && !error} error={error}>
+    {!user && <Button onPress={() => navigation.navigate('Login', { userType: 'PROFESSIONAL' })}>Iniciar sesión</Button>}
+    {professional && error && <Button variant="outline" onPress={() => { clearCalendarIntent(); navigation.navigate('ProfessionalProfile', { initialTab: 'google' }); }}>Volver a ajustes de Google</Button>}
+  </GoogleCalendarConnectionState>;
 }
 
 export function GoogleCalendarSessionScreen() {

@@ -1,3 +1,4 @@
+import { calendarVerificationNeedsAttention, PROFESSIONAL_CALENDAR_WARNING } from '../../services/externalCalendarContracts';
 import { getPatientDirectory } from '../../services/patientDirectoryService';
 import { getPayment, paymentAmount, cancelPayment, type SessionPayment } from '../../services/sessionPaymentService';
 import { openSessionMeeting } from '../../utils/openSessionMeeting';
@@ -773,7 +774,9 @@ export function ProfessionalSessionsScreen() {
     (session: ProfessionalSession, compact = false) => {
       const status = getSessionDisplayStatus(session);
       const accentColor = getStatusColor(status);
-      return (
+      const conflict = session.status !== 'cancelled' && agenda.externalEvents.some(e => e.busy && Date.parse(e.startsAt) < session.date.getTime() + session.duration * 60_000 && Date.parse(e.endsAt) > session.date.getTime());
+      return (<View key={session.id} style={{ gap: 4 }}>
+        {conflict && <Text style={{ color: theme.warning, fontFamily: theme.fontSansSemiBold, fontSize: 12 }}>Coincide con otro compromiso</Text>}
         <ProfessionalAgendaSessionCard
           key={session.id}
           session={session}
@@ -782,14 +785,14 @@ export function ProfessionalSessionsScreen() {
           compact={compact}
           actions={compact ? undefined : renderSessionActions(session)}
           onOpen={(sessionId) => { void openSessionDetail(sessionId); }}
-        />
+        /></View>
       );
     },
     [
       getSessionDisplayStatus,
       getStatusColor,
       openSessionDetail,
-      renderSessionActions,
+      renderSessionActions, agenda.externalEvents, theme,
     ],
   );
 
@@ -842,6 +845,7 @@ export function ProfessionalSessionsScreen() {
 
   const renderDayView = () => (
     <ProfessionalAgendaDayView
+      externalEvents={agenda.externalEvents}
       scrollRef={dayScrollRef}
       selectedDate={selectedDate}
       currentTime={currentTime}
@@ -856,6 +860,7 @@ export function ProfessionalSessionsScreen() {
 
   const renderWeekView = () => (
     <ProfessionalAgendaWeekView
+      externalEvents={agenda.externalEvents}
       weekDays={weekDays}
       sessions={sessionsForWeek}
       gridEnabled={width >= 900}
@@ -871,6 +876,7 @@ export function ProfessionalSessionsScreen() {
 
   const renderListView = () => (
     <ProfessionalAgendaListView
+      externalEvents={agenda.externalEvents}
       scrollPosition={listScrollPosition}
       scrollRequest={scrollRequest}
       sessions={sessions}
@@ -881,6 +887,7 @@ export function ProfessionalSessionsScreen() {
 
   const renderMonthView = () => (
     <ProfessionalAgendaMonthView
+      externalEvents={agenda.externalEvents}
       scrollPosition={monthScrollPosition}
       scrollRequest={scrollRequest}
       selectedDate={selectedDate}
@@ -908,6 +915,7 @@ export function ProfessionalSessionsScreen() {
   return (
     <>
     <View style={styles.container}>
+      {(agenda.externalLoadError || calendarVerificationNeedsAttention(agenda.externalVerification)) && <Text accessibilityRole="alert" style={{ padding: 12, color: theme.textSecondary, backgroundColor: theme.bgMuted, fontFamily: theme.fontSans }}>{agenda.externalLoadError || PROFESSIONAL_CALENDAR_WARNING}</Text>}
       <ProfessionalAgendaToolbar
         viewMode={viewMode}
         selectedDate={selectedDate}
@@ -922,7 +930,7 @@ export function ProfessionalSessionsScreen() {
         onChangeStatus={setStatusFilter}
         onResetFilters={resetFilters}
         onPickDate={() => setDatePickerVisible(true)}
-        googleCalendarStatus={agenda.googleCalendarStatus}
+        externalRefreshing={agenda.externalRefreshing} externalVerification={agenda.externalVerification} googleCalendarStatus={agenda.googleCalendarStatus}
         onGoogleCalendar={() => navigateProfessionalSection(navigation, 'ProfessionalProfile', { initialTab: 'google' })}
         onSettings={(anchor) => { setSettingsAnchor(anchor); setSettingsVisible(true); }}
         isMobile={isMobile}
@@ -942,7 +950,7 @@ export function ProfessionalSessionsScreen() {
         <View style={styles.main}>
           {renderLoadErrorNotice()}
           {preferenceError ? <Text accessibilityRole="alert" style={{ color: theme.warning, padding: 12 }}>{preferenceError}</Text> : null}
-          {!agendaLoading && !loadError && sessions.length === 0 ? <View style={{ paddingHorizontal: 20, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          {!agendaLoading && !loadError && sessions.length === 0 && agenda.externalEvents.length === 0 ? <View style={{ paddingHorizontal: 20, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
             <Text style={{ color: theme.textSecondary, fontFamily: theme.fontSans }}>{rawSessionCount ? 'No hay citas con estos filtros.' : 'No hay citas en este periodo.'}</Text>
             {rawSessionCount ? <Button size="small" variant="outline" onPress={() => { setOriginFilter('ALL'); setStatusFilter('ALL'); }}>Ver todas las citas</Button> : null}
           </View> : null}

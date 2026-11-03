@@ -58,9 +58,9 @@ export function getInstantTop(instant: number, hours: AgendaHour[], axis: Agenda
   return (axis.findIndex((row) => row.key === slot.key) + (instant - slot.start) / HOUR) * DAY_HOUR_HEIGHT;
 }
 
-export interface AgendaSessionBlock {
+export interface AgendaSessionBlock<T = ProfessionalSession> {
   key: string;
-  session: ProfessionalSession;
+  session: T;
   top: number;
   height: number;
   lane: number;
@@ -69,14 +69,14 @@ export interface AgendaSessionBlock {
 }
 
 /** Split at civil-time discontinuities; assign lanes by strict interval overlap. */
-export function layoutAgendaSessions(sessions: ProfessionalSession[], day: Date, axis: AgendaAxisRow[]): AgendaSessionBlock[] {
+export function layoutAgendaItems<T extends { id: string }>(sessions: T[], day: Date, axis: AgendaAxisRow[], interval: (item: T) => { start: number; end: number; cancelled: boolean }): AgendaSessionBlock<T>[] {
   const hours = getAgendaHours(day);
-  const blocks: AgendaSessionBlock[] = [];
+  const blocks: AgendaSessionBlock<T>[] = [];
   for (const session of sessions) {
-    let current: AgendaSessionBlock | null = null;
+    let current: AgendaSessionBlock<T> | null = null;
     for (const slot of hours) {
-      const start = Math.max(session.date.getTime(), slot.start);
-      const end = Math.min(getSessionEndDate(session).getTime(), slot.end);
+      const start = Math.max(interval(session).start, slot.start);
+      const end = Math.min(interval(session).end, slot.end);
       if (end <= start) continue;
       const top = (axis.findIndex((row) => row.key === slot.key) + (start - slot.start) / HOUR) * DAY_HOUR_HEIGHT;
       const height = (end - start) / HOUR * DAY_HOUR_HEIGHT;
@@ -88,8 +88,8 @@ export function layoutAgendaSessions(sessions: ProfessionalSession[], day: Date,
       }
     }
   }
-  const ordered = blocks.sort((a, b) => a.top - b.top || Number(a.session.status === 'cancelled') - Number(b.session.status === 'cancelled') || b.height - a.height || a.key.localeCompare(b.key));
-  let cluster: AgendaSessionBlock[] = [];
+  const ordered = blocks.sort((a, b) => a.top - b.top || Number(interval(a.session).cancelled) - Number(interval(b.session).cancelled) || b.height - a.height || a.key.localeCompare(b.key));
+  let cluster: AgendaSessionBlock<T>[] = [];
   let clusterEnd = -1;
   let laneEnds: number[] = [];
   const finish = () => { cluster.forEach((block) => { block.lanes = laneEnds.length; }); };
@@ -104,4 +104,8 @@ export function layoutAgendaSessions(sessions: ProfessionalSession[], day: Date,
   }
   finish();
   return ordered;
+}
+
+export function layoutAgendaSessions(sessions: ProfessionalSession[], day: Date, axis: AgendaAxisRow[]): AgendaSessionBlock[] {
+  return layoutAgendaItems(sessions, day, axis, session => ({ start: session.date.getTime(), end: getSessionEndDate(session).getTime(), cancelled: session.status === 'cancelled' }));
 }

@@ -1,3 +1,4 @@
+import { calendarVerificationNeedsAttention, type ExternalCalendarVerification } from '../../../../services/externalCalendarContracts';
 import React, { useRef, useState } from 'react';
 import { Image, StyleSheet, Text, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -29,6 +30,8 @@ interface Props {
   onNavigateDate: (direction: number) => void;
   onGoToToday: () => void;
   onPickDate: () => void;
+  externalRefreshing?: boolean;
+  externalVerification?: ExternalCalendarVerification | null;
   googleCalendarStatus?: GoogleCalendarStatus | null;
   onGoogleCalendar: () => void;
   onSettings: (anchor: { x: number; y: number }) => void;
@@ -53,7 +56,7 @@ export function ProfessionalAgendaToolbar(props: Props) {
     || Boolean(calendarStatus?.privacyUpdateRequired)
     || calendarStatus?.errorCode === 'CALENDAR_CREDENTIAL_STORAGE_ERROR';
   const calendarConnected = calendarStatus?.enabled && calendarStatus.status === 'CONNECTED' && !calendarNeedsAttention;
-  const calendarLabel = calendarConnected ? 'Google Calendar · Sincronizado'
+  const calendarLabel = calendarConnected ? (calendarVerificationNeedsAttention(props.externalVerification) || calendarStatus?.import?.enabled && calendarStatus.import.errorCode) ? 'Google Calendar · Pendiente de actualizar' : props.externalRefreshing || calendarStatus?.reconciling || calendarStatus?.pending ? 'Google Calendar · Actualizando' : 'Google Calendar · Conectado'
     : calendarNeedsAttention ? 'Revisar Google Calendar'
     : calendarStatus?.status === 'DISCONNECTING' ? 'Google Calendar · Desconectando…'
     : calendarStatus?.enabled && calendarStatus.status === 'DISCONNECTED' ? 'Sincronizar con Google Calendar'

@@ -3235,7 +3235,7 @@ export function SpecialistProfileScreen() {
   // ============================================================================
 
   const renderGoogleTab = () => (
-    <View style={[styles.tabContent, styles.settingsContent]}>
+    <View style={styles.tabContent}>
       <GoogleCalendarCard videoSetup={profileData.offersOnline} hasUnsavedChanges={hasChanges} onBeforeConnect={() => handleSave(false)} />
     </View>
   );

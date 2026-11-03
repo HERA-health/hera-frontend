@@ -3,10 +3,29 @@ import { ScrollView, Text } from 'react-native';
 import { act, fireEvent, render } from '@testing-library/react-native';
 import { ProfessionalAgendaTimeGrid } from '../ProfessionalAgendaTimeGrid';
 import { ProfessionalAgendaListView } from '../ProfessionalAgendaListView';
+import { ProfessionalAgendaMonthView } from '../ProfessionalAgendaMonthView';
+import type { ExternalCalendarEvent } from '../../../../../services/externalCalendarContracts';
 import { calendarDate } from '../professionalAgendaUtils';
 import type { ProfessionalSession } from '../../../../../constants/types';
 
 const item: ProfessionalSession = { id: 'midnight', clientId: 'synthetic', clientName: 'Paciente sintético', clientInitial: 'P', status: 'scheduled', type: 'video', provenance: 'OWN', date: new Date('2026-10-13T21:45Z'), duration: 60 };
+const external: ExternalCalendarEvent = { id: 'external', kind: 'GOOGLE', title: 'Compromiso externo', calendarName: 'Personal', startsAt: '2026-10-13T21:30:00Z', endsAt: '2026-10-13T22:30:00Z', busy: true, allDay: false };
+
+it('external blocks open read-only details without invoking session actions and mark overlaps', () => {
+  const open = jest.fn();
+  const screen = render(<ProfessionalAgendaTimeGrid days={[calendarDate('2026-10-13')]} sessions={[item]} externalEvents={[external]} currentTime={new Date('2026-10-13T09:00Z')} scrollPosition={{ current: 0 }} scrollRequest={0} onOpenSession={open} />);
+  expect(screen.getByLabelText(/Coincide con otro compromiso/)).toBeTruthy();
+  fireEvent.press(screen.getByRole('button', { name: /Compromiso externo.*Google Calendar/ }));
+  expect(screen.getByText('Este evento se gestiona en Google Calendar.')).toBeTruthy();
+  expect(screen.getByText('Abrir Google Calendar')).toBeTruthy();
+  expect(open).not.toHaveBeenCalled();
+});
+
+it('desktop month events open their own details, including when there are no HERA sessions', () => {
+  const screen = render(<ProfessionalAgendaMonthView selectedDate={calendarDate('2026-10-13')} sessionsForSelectedDate={[]} sessionsByDate={new Map()} externalEvents={[external]} isMobile={false} isTablet={false} getStatus={() => 'confirmed'} getStatusColor={() => '#345'} renderSessionCard={() => null} onSelectDate={jest.fn()} onOpenSession={jest.fn()} />);
+  fireEvent.press(screen.getAllByRole('button', { name: /Compromiso externo.*Google Calendar/ })[0]);
+  expect(screen.getByText('Este evento se gestiona en Google Calendar.')).toBeTruthy();
+});
 
 beforeEach(() => { jest.clearAllMocks(); jest.useFakeTimers(); });
 afterEach(() => { jest.useRealTimers(); jest.restoreAllMocks(); });

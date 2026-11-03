@@ -1,3 +1,4 @@
+import { ExternalCalendarNotice } from './ExternalCalendarNotice';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import React, { useEffect, useMemo, useRef } from 'react';
 import {
@@ -172,6 +173,7 @@ export function SchedulerDateTimeSelector({
 
   return (
     <View style={styles.container}>
+      <ExternalCalendarNotice />
       <View style={styles.scheduleRow}>
         <View
           style={[

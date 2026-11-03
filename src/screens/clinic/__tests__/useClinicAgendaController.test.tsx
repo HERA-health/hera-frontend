@@ -1,3 +1,4 @@
+jest.mock('@react-navigation/native', () => ({ useIsFocused: () => true }));
 import { act, renderHook, waitFor } from '@testing-library/react-native';
 import { useAppAlert } from '../../../components/common/alert';
 import * as clinicService from '../../../services/clinicService';

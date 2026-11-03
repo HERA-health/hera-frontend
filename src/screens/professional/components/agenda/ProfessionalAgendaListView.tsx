@@ -1,3 +1,5 @@
+import type { ExternalCalendarEvent } from '../../../../services/externalCalendarContracts';
+import { ExternalEventCard, externalEventIntersectsDay } from './ExternalCalendarEvent';
 import { useAgendaScrollPosition } from './useAgendaScrollPosition';
 import type { AgendaScrollPosition } from './ProfessionalAgendaTimeGrid';
 import React, { useMemo } from 'react';
@@ -11,6 +13,7 @@ import { capitalizeFirst, calendarDate, toCalendarDateKey, isToday } from './pro
 
 interface ProfessionalAgendaListViewProps {
   sessions: ProfessionalSession[];
+  externalEvents?: ExternalCalendarEvent[];
   scrollPosition?: AgendaScrollPosition;
   scrollRequest?: number;
   weekDays: Date[];
@@ -19,13 +22,14 @@ interface ProfessionalAgendaListViewProps {
 
 export function ProfessionalAgendaListView({
   sessions,
+  externalEvents = [],
   scrollPosition,
   scrollRequest,
   weekDays,
   renderSessionCard,
 }: ProfessionalAgendaListViewProps): React.ReactElement {
   const { theme } = useTheme();
-  const scrollRef = useAgendaScrollPosition(scrollPosition, sessions.length > 0, scrollRequest);
+  const scrollRef = useAgendaScrollPosition(scrollPosition, sessions.length + externalEvents.length > 0, scrollRequest);
   const styles = useMemo(() => createStyles(theme), [theme]);
   const grouped = new Map<string, ProfessionalSession[]>();
   [...sessions]
@@ -34,7 +38,8 @@ export function ProfessionalAgendaListView({
       const key = [toCalendarDateKey(session.date), toCalendarDateKey(weekDays[0])].sort().at(-1)!;
       grouped.set(key, [...(grouped.get(key) ?? []), session]);
     });
-  const visibleDates = [...grouped.keys()];
+  for (const day of weekDays) if (externalEvents.some(e => externalEventIntersectsDay(e, day)) && !grouped.has(toCalendarDateKey(day))) grouped.set(toCalendarDateKey(day), []);
+  const visibleDates = [...grouped.keys()].sort();
 
   return (
     <ScrollView ref={scrollRef} onScroll={(event) => { if (scrollPosition) scrollPosition.current = event.nativeEvent.contentOffset.y; }} scrollEventThrottle={32} style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator>
@@ -51,7 +56,7 @@ export function ProfessionalAgendaListView({
               </Text>
               <View style={styles.badge}><Text style={styles.badgeText}>{dateSessions.length}</Text></View>
             </View>
-            {dateSessions.map((session) => renderSessionCard(session))}
+            {[...dateSessions.map(session => ({ time: session.date.getTime(), id: session.id, node: renderSessionCard(session) })), ...externalEvents.filter(e => externalEventIntersectsDay(e, date)).map(event => ({ time: Date.parse(event.startsAt), id: event.id, node: <ExternalEventCard event={event} /> }))].sort((a, b) => a.time - b.time).map(item => <React.Fragment key={item.id}>{item.node}</React.Fragment>)}
           </View>
         );
       })}

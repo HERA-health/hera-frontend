@@ -3,7 +3,7 @@ import React from 'react';
 import { act, renderHook, waitFor } from '@testing-library/react-native';
 import { useIsFocused } from '@react-navigation/native';
 import * as professionalService from '../../../../../services/professionalService';
-import { getGoogleCalendarStatus, type GoogleCalendarStatus } from '../../../../../services/googleCalendarService';
+import { getGoogleCalendarStatus, getExternalCalendarEvents, type GoogleCalendarStatus } from '../../../../../services/googleCalendarService';
 import { useProfessionalAgendaController } from '../useProfessionalAgendaController';
 
 jest.mock('@react-navigation/native', () => {
@@ -22,7 +22,7 @@ jest.mock('../../../../../services/professionalService', () => ({
   getAgendaPreferences: jest.fn(),
   getProfessionalAgenda: jest.fn(),
 }));
-jest.mock('../../../../../services/googleCalendarService', () => ({ getGoogleCalendarStatus: jest.fn() }));
+jest.mock('../../../../../services/googleCalendarService', () => ({ getGoogleCalendarStatus: jest.fn(), getExternalCalendarEvents: jest.fn() }));
 
 const connectedCalendar: GoogleCalendarStatus = {
   enabled: true, status: 'CONNECTED', email: null, pending: 0, failed: 0,
@@ -101,6 +101,29 @@ describe('useProfessionalAgendaController', () => {
 
   afterEach(() => {
     jest.restoreAllMocks();
+  });
+
+  const importEnabled = { available: true, enabled: true, permissionRequired: false, revision: 1, disclosureVersion: '2026-11-02', calendars: [{ id: 'calendar', name: 'Personal' }], lastSyncedAt: null, errorCode: null };
+  it('keeps external blocks visible across session filters without counting them as sessions', async () => {
+    getProfessionalAgendaMock.mockResolvedValue({ ...createAgendaResponse('session'), items: [] });
+    jest.mocked(getGoogleCalendarStatus).mockResolvedValue({ ...connectedCalendar, import: importEnabled });
+    jest.mocked(getExternalCalendarEvents).mockResolvedValue({ events: [{ id: 'external', kind: 'GOOGLE', title: 'Private event', calendarName: 'Personal', startsAt: '2026-08-06T10:00:00.000Z', endsAt: '2026-08-06T11:00:00.000Z', allDay: false, busy: true, expiresAt: '2026-08-07T08:00:00.000Z' }], verification: { status: 'VERIFIED', checkedAt: null } });
+    const { result, unmount } = renderHook(() => useProfessionalAgendaController('user-1'));
+    await waitFor(() => expect(result.current.externalEvents).toHaveLength(1));
+    act(() => result.current.setStatusFilter('CANCELLED'));
+    expect(result.current.externalEvents).toHaveLength(1);
+    expect(result.current.rawSessionCount).toBe(0);
+    expect(getExternalCalendarEvents).toHaveBeenCalledTimes(1);
+    unmount();
+  });
+  it('reports a HERA read error separately from a successful fail-open Google response', async () => {
+    getProfessionalAgendaMock.mockResolvedValue(createAgendaResponse('session'));
+    jest.mocked(getGoogleCalendarStatus).mockResolvedValue({ ...connectedCalendar, import: importEnabled });
+    jest.mocked(getExternalCalendarEvents).mockRejectedValue(new Error('HTTP 500'));
+    const { result, unmount } = renderHook(() => useProfessionalAgendaController('user-1'));
+    await waitFor(() => expect(result.current.externalLoadError).toContain('en HERA'));
+    expect(result.current.externalEvents).toEqual([]);
+    unmount();
   });
 
   it('refreshes the calendar connection after returning from its settings', async () => {

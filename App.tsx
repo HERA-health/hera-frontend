@@ -1,3 +1,4 @@
+import { ExternalCalendarResultNotice } from './src/components/scheduling/ExternalCalendarResultNotice';
 import { SESSION_PAYMENTS_VISIBLE } from './src/config/sessionPayments';
 import { PrivacyControls } from './src/components/common/PrivacyControls';
 import { parseDashboardFilters, serializeDashboardFilters } from './src/utils/adminMetricsFilters';
@@ -300,7 +301,7 @@ function ThemedApp() {
                 }}
               >
                 <StatusBar style={isDark ? 'light' : 'dark'} />
-                <RootNavigator />
+                <View style={{ flex: 1 }}><ExternalCalendarResultNotice /><RootNavigator /></View>
               </NavigationContainer>
             </AlertProvider>
           </ProfileCompletionProvider>

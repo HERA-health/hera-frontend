@@ -1,7 +1,7 @@
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { GoogleCalendarScreen } from '../GoogleCalendarScreen';
-import { completeGoogleCalendar } from '../../../services/googleCalendarService';
+import { completeGoogleCalendar, offerCalendarImportSetup } from '../../../services/googleCalendarService';
 import { clearCalendarIntent } from '../../../services/googleCalendarIntent';
 
 const mockDispatch = jest.fn();
@@ -15,7 +15,7 @@ jest.mock('@react-navigation/native', () => ({
 jest.mock('../../../contexts/ThemeContext', () => ({ useTheme: () => ({ theme: require('../../../constants/theme').lightTheme }) }));
 jest.mock('../../../contexts/AuthContext', () => ({ useAuth: () => ({ user: { id: 'professional', type: 'professional' } }) }));
 jest.mock('../../../components/professional/GoogleCalendarCard', () => ({ GoogleCalendarCard: () => null }));
-jest.mock('../../../services/googleCalendarService', () => ({ completeGoogleCalendar: jest.fn() }));
+jest.mock('../../../services/googleCalendarService', () => ({ completeGoogleCalendar: jest.fn(), offerCalendarImportSetup: jest.fn() }));
 jest.mock('../../../services/googleCalendarIntent', () => ({ clearCalendarIntent: jest.fn(), getCalendarIntent: () => null }));
 
 beforeEach(() => { jest.clearAllMocks(); mockAttempt = 'attempt'; });
@@ -44,4 +44,22 @@ test('failed authorization remains visible instead of redirecting as if connecte
   fireEvent.press(screen.getByText('Volver a ajustes de Google'));
   expect(mockNavigation.navigate).toHaveBeenCalledWith('ProfessionalProfile', { initialTab: 'google' });
   expect(clearCalendarIntent).toHaveBeenCalled();
+});
+
+ test('successful optional authorization offers calendar selection after returning to HERA', async () => {
+  jest.mocked(completeGoogleCalendar).mockResolvedValue({ enabled: true, status: 'CONNECTED', email: null, pending: 0, failed: 0, lastSyncedAt: null, errorCode: null, reconciling: false,
+    import: { available: true, enabled: false, permissionRequired: false, revision: 0, disclosureVersion: '2026-11-02', calendars: [], lastSyncedAt: null, errorCode: null } });
+  render(<GoogleCalendarScreen />);
+  await waitFor(() => expect(offerCalendarImportSetup).toHaveBeenCalledWith('professional'));
+  expect(mockDispatch).toHaveBeenCalled();
+});
+
+
+test('pending authorization shows contextual progress without a premature navigation button', () => {
+  jest.mocked(completeGoogleCalendar).mockReturnValue(new Promise(() => {}));
+  render(<GoogleCalendarScreen />);
+  expect(screen.getByText('Conectando Google Calendar')).toBeTruthy();
+  expect(screen.getByRole('progressbar').props.accessibilityState.busy).toBe(true);
+  expect(screen.queryByText('Volver a ajustes de Google')).toBeNull();
+  expect(mockDispatch).not.toHaveBeenCalled();
 });

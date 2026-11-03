@@ -251,7 +251,7 @@ test('explains the data exported and starts a real connection action', async () 
   await screen.findByText('Sin conectar');
   fireEvent.press(screen.getByText('Conectar Google Calendar'));
   expect(screen.getByText(/No se enviarán datos del paciente/)).toBeTruthy();
-  expect(screen.getByText(/no se importan ni bloquean/)).toBeTruthy();
+  expect(screen.getByText(/HERA solo gestionará sus propias copias/)).toBeTruthy();
   fireEvent.press(screen.getByText('Continuar con Google'));
   await waitFor(() => expect(service.connectGoogleCalendar).toHaveBeenCalledWith('professional', '2026-10-09'));
 });
