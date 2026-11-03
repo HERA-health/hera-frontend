@@ -45,11 +45,12 @@ export const ViewToggle: React.FC<ViewToggleProps> = ({
         pressScale={0.96}
         style={styles.button}
         accessibilityLabel="Vista de cuadrícula"
+        accessibilityState={{ selected: viewMode === 'grid' }}
       >
         <Ionicons
           name="grid-outline"
           size={18}
-          color={viewMode === 'grid' ? theme.textOnPrimary : theme.textSecondary}
+          color={viewMode === 'grid' ? theme.primary : theme.textSecondary}
         />
       </AnimatedPressable>
 
@@ -59,11 +60,12 @@ export const ViewToggle: React.FC<ViewToggleProps> = ({
         pressScale={0.96}
         style={styles.button}
         accessibilityLabel="Vista de lista"
+        accessibilityState={{ selected: viewMode === 'list' }}
       >
         <Ionicons
           name="list-outline"
           size={18}
-          color={viewMode === 'list' ? theme.textOnPrimary : theme.textSecondary}
+          color={viewMode === 'list' ? theme.primary : theme.textSecondary}
         />
       </AnimatedPressable>
     </View>
@@ -77,7 +79,7 @@ function createStyles(theme: Theme, isDark: boolean) {
       flexDirection: 'row',
       position: 'relative',
       padding: 4,
-      borderRadius: 16,
+      borderRadius: 12,
       backgroundColor: isDark ? theme.bgElevated : theme.bgCard,
       borderWidth: 1,
       borderColor: theme.borderLight,
@@ -88,13 +90,8 @@ function createStyles(theme: Theme, isDark: boolean) {
       left: 4,
       width: 48,
       height: 40,
-      borderRadius: 12,
-      backgroundColor: theme.primary,
-      shadowColor: theme.shadowPrimary,
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.8,
-      shadowRadius: 10,
-      elevation: 2,
+      borderRadius: 8,
+      backgroundColor: theme.primaryAlpha12,
     },
     button: {
       width: 48,

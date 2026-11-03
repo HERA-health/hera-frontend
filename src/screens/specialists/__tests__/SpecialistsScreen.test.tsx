@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import SpecialistsScreen from '../SpecialistsScreen';
 import { directoryIntent } from '../../../services/heraCommissionService';
 
@@ -23,7 +23,16 @@ jest.mock('../../../services/specialistsService', () => ({
   }]),
 }));
 jest.mock('../../../components/common/ProfileDiscoveryFilters', () => ({ ProfileDiscoveryFilters: () => null }));
-jest.mock('../../../components/common/SearchableProfileSelect', () => ({ SearchableProfileSelect: () => null }));
+jest.mock('../../../components/common/SearchableProfileSelect', () => {
+  const { Pressable, Text } = jest.requireActual<typeof import('react-native')>('react-native');
+  return {
+    SearchableProfileSelect: ({ label, options, values, onChange }: {
+      label: string; options: { value: string }[]; values: string[]; onChange: (values: string[]) => void;
+    }) => <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={() => onChange([options[0].value])}>
+      <Text>{label}: {values.length}</Text>
+    </Pressable>,
+  };
+});
 jest.mock('../components', () => {
   const { Pressable, Text } = jest.requireActual<typeof import('react-native')>('react-native');
   const Card = ({ specialist, onPress }: { specialist: { name: string }; onPress: () => void }) =>
@@ -41,4 +50,34 @@ it('opens a profile from the signed-in directory even when the old attribution s
   fireEvent.press(await screen.findByText('Perfil disponible'));
   expect(mockNavigate).toHaveBeenCalledWith('SpecialistDetail', { specialistId: 'specialist-one', affinity: 0 });
   expect(directoryIntent).not.toHaveBeenCalled();
+});
+
+it('keeps filters in the panel, counts selections and clears every selected group', async () => {
+  render(<SpecialistsScreen />);
+  await screen.findByText('Perfil disponible');
+  expect(screen.queryByText('Especialidades: 0')).toBeNull();
+  fireEvent.press(screen.getByLabelText('Abrir filtros'));
+  await act(async () => {
+    for (const label of ['Especialidades', 'Enfoques terapéuticos', 'Tipo profesional', 'Motivo de consulta']) {
+      fireEvent.press(screen.getByLabelText(label));
+    }
+  });
+  fireEvent.press(screen.getByLabelText('Cerrar filtros'));
+  fireEvent.press(screen.getByLabelText('Filtros: 4 activos'));
+  await act(async () => { fireEvent.press(screen.getByLabelText('Limpiar filtros')); });
+  for (const label of ['Especialidades', 'Enfoques terapéuticos', 'Tipo profesional', 'Motivo de consulta']) {
+    expect(screen.getByText(`${label}: 0`)).toBeTruthy();
+  }
+  fireEvent.press(screen.getByLabelText('Cerrar filtros'));
+  expect(screen.getByLabelText('Abrir filtros')).toBeTruthy();
+});
+
+it('hides specialist controls on the publications tab and restores them on return', async () => {
+  render(<SpecialistsScreen />);
+  await screen.findByText('Perfil disponible');
+  fireEvent.press(screen.getByRole('tab', { name: 'Publicaciones' }));
+  expect(screen.queryByLabelText('Abrir filtros')).toBeNull();
+  expect(screen.getByText('Publicaciones, pronto')).toBeTruthy();
+  fireEvent.press(screen.getByRole('tab', { name: 'Especialistas' }));
+  expect(screen.getByLabelText('Abrir filtros')).toBeTruthy();
 });

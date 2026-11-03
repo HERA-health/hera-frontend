@@ -27,6 +27,13 @@ beforeEach(() => {
 });
 
 describe('patient toolbar', () => {
+  it('avoids a duplicate search on the specialist directory', () => {
+    const view = renderBar('Specialists');
+    expect(view.getByText('Especialistas')).toBeTruthy();
+    expect(view.queryByLabelText('Buscar especialistas')).toBeNull();
+    expect(view.getByRole('button', { name: 'Reservar sesión' })).toBeTruthy();
+  });
+
   it('opens the specialist directory from search and reservation', () => {
     const view = renderBar();
     expect(view.getByText('Inicio')).toBeTruthy();

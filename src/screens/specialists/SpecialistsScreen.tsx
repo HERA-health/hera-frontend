@@ -1,6 +1,7 @@
 import {SearchableProfileSelect} from '../../components/common/SearchableProfileSelect';
 import {PROFESSIONAL_SPECIALTY_OPTIONS, PROFESSIONAL_THERAPEUTIC_APPROACH_OPTIONS} from '../../constants/professionalMatchingOptions';
 import { ProfileDiscoveryFilters } from '../../components/common/ProfileDiscoveryFilters';
+import { DirectoryFiltersSheet } from './components/DirectoryFiltersSheet';
 import { useDiscoveryRevalidation } from '../../hooks/useDiscoveryRevalidation';
 import { affinityPercentage, combineSpecialistResults } from './specialistDiscoveryResults';
 import React, { useCallback, useRef, useEffect, useMemo, useState } from 'react';
@@ -22,7 +23,6 @@ import {
   SpecialistListItem,
   SpecialistsLoadingState,
   LocationFilterDropdown,
-  TopicFilterDropdown,
   ViewToggle,
 } from './components';
 import type { FilterOption, ViewMode } from './components';
@@ -59,19 +59,6 @@ const DISTANCE_OPTIONS = [
   { value: 15, label: '15 km' },
   { value: 25, label: '25 km' },
   { value: 50, label: '50 km' },
-];
-
-const PROFESSIONAL_TYPE_FILTERS: FilterOption[] = PROFESSIONAL_TYPE_OPTIONS.map((option) => ({
-  id: option.id,
-  label: option.label,
-  icon: option.icon,
-}));
-
-const PROFESSIONAL_TYPE_FILTER_GROUPS = [
-  {
-    title: 'Tipo profesional',
-    ids: PROFESSIONAL_TYPE_OPTIONS.map((option) => option.id),
-  },
 ];
 
 const matchingStrings = (value: unknown): string[] => Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : [];
@@ -164,6 +151,7 @@ const SpecialistsScreen: React.FC = () => {
 
   const discoveryRequest = useRef(0);
   const [language, setLanguage] = useState<string>();
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [religion, setReligion] = useState<string>();
   const [specialties, setSpecialties] = useState<string[]>([]);
   const [approaches, setApproaches] = useState<string[]>([]);
@@ -763,6 +751,21 @@ const SpecialistsScreen: React.FC = () => {
     );
   };
 
+  const activeFilterCount = specialties.length + approaches.length + selectedFilters.length
+    + selectedProfessionalTypes.length + Number(Boolean(language)) + Number(Boolean(religion))
+    + Number(proximityEnabled);
+
+  const clearFilters = () => {
+    setSpecialties([]);
+    setApproaches([]);
+    setSelectedFilters([]);
+    setSelectedProfessionalTypes([]);
+    setLanguage(undefined);
+    setReligion(undefined);
+    setProximityEnabled(false);
+    if (sortOption === 'distance') setSortOption('affinity');
+  };
+
   const renderEmptyState = () => (
     <View style={styles.emptyState}>
       <View style={styles.stateIconWrap}>
@@ -772,13 +775,12 @@ const SpecialistsScreen: React.FC = () => {
       <Text style={styles.stateDescription}>
         Prueba con otra búsqueda o ajusta los filtros para ampliar resultados.
       </Text>
-      {(searchQuery || selectedFilters.length > 0 || selectedProfessionalTypes.length > 0) ? (
+      {(searchQuery || activeFilterCount > 0) ? (
         <Button
           variant="outline"
           onPress={() => {
             setSearchQuery('');
-            setSelectedFilters([]); setLanguage(undefined); setReligion(undefined);
-            setSelectedProfessionalTypes([]);
+            clearFilters();
           }}
         >
           Limpiar filtros
@@ -845,32 +847,39 @@ const SpecialistsScreen: React.FC = () => {
   return (
     <View style={styles.screen}>
       <View style={styles.header}>
-        <View style={[styles.headerRow, isDesktop ? styles.headerRowDesktop : null]}>
+        <View style={styles.headerRow}>
           <View style={styles.headerCopy}>
-            <Text style={styles.title}>Encuentra tu especialista</Text>
+            <Text accessibilityRole="header" style={styles.title}>Encuentra tu especialista</Text>
             <Text style={styles.subtitle}>
-              Una selección más clara, más útil y preparada para encontrar tu mejor ajuste.
+              Un espacio para encontrar el apoyo que necesitas.
             </Text>
           </View>
 
-          <View style={[styles.headerControls, isMobile ? styles.headerControlsMobile : null]}>
-            <View style={styles.searchWrap}>
-              <SearchBar value={searchQuery} onChangeText={setSearchQuery} />
-            </View>
-            {!isMobile && user?.type === 'client' ? renderQuestionnaireAction() : null}
-            {!isMobile ? <ViewToggle viewMode={viewMode} onViewModeChange={setViewMode} /> : null}
-          </View>
+          {user?.type === 'client' ? renderQuestionnaireAction() : null}
         </View>
 
-        {isMobile ? (
-          <View style={styles.mobileToolsRow}>
-            <ViewToggle viewMode={viewMode} onViewModeChange={setViewMode} />
-            {user?.type === 'client' ? renderQuestionnaireAction(true) : null}
+        {activeTab === 'specialists' ? (
+          <View style={styles.searchRow}>
+            <View style={styles.searchWrap}>
+              <SearchBar value={searchQuery} onChangeText={setSearchQuery} placeholder={isMobile ? 'Buscar especialista…' : undefined} />
+            </View>
+            <AnimatedPressable
+              onPress={() => setFiltersOpen(true)}
+              hoverLift={false}
+              accessibilityLabel={activeFilterCount ? `Filtros: ${activeFilterCount} ${activeFilterCount === 1 ? 'activo' : 'activos'}` : 'Abrir filtros'}
+              accessibilityState={{ expanded: filtersOpen }}
+              style={[styles.filterButton, activeFilterCount > 0 && styles.filterButtonActive]}
+            >
+              <Ionicons name="options-outline" size={19} color={theme.textPrimary} />
+              <Text style={styles.filterButtonText}>Filtros</Text>
+              {activeFilterCount > 0 ? (
+                <View style={styles.filterCount}><Text style={styles.filterCountText}>{activeFilterCount}</Text></View>
+              ) : null}
+            </AnimatedPressable>
           </View>
         ) : null}
 
-        <View style={[styles.discoveryBar, isDesktop ? styles.discoveryBarDesktop : null]}>
-          <View style={[styles.discoveryMetaGroup, isDesktop ? styles.discoveryMetaGroupDesktop : null]}>
+        <View style={styles.navigationRow}>
             <View style={styles.tabsRow}>
               {(['specialists', 'posts'] as const).map((tab) => {
                 const active = activeTab === tab;
@@ -879,6 +888,8 @@ const SpecialistsScreen: React.FC = () => {
                     key={tab}
                     onPress={() => setActiveTab(tab)}
                     hoverLift={false}
+                    accessibilityRole="tab"
+                    accessibilityState={{ selected: active }}
                     style={[styles.tab, active ? styles.tabActive : undefined]}
                   >
                     <Text style={[styles.tabText, active ? styles.tabTextActive : null]}>
@@ -889,8 +900,22 @@ const SpecialistsScreen: React.FC = () => {
               })}
             </View>
 
+          {activeTab === 'specialists' ? <ViewToggle viewMode={viewMode} onViewModeChange={setViewMode} /> : null}
+        </View>
+      </View>
+
+      <DirectoryFiltersSheet
+        visible={filtersOpen}
+        onClose={() => setFiltersOpen(false)}
+        onClear={clearFilters}
+        hasFilters={activeFilterCount > 0}
+      >
+        <View style={styles.filterPanel}>
+          <Text style={styles.subtitle}>Ajusta la búsqueda a lo que necesitas.</Text>
+
             {user?.type === 'client' ? (
               <LocationFilterDropdown
+                fullWidth
                 enabled={proximityEnabled}
                 maxDistance={maxDistance}
                 distanceOptions={DISTANCE_OPTIONS}
@@ -906,34 +931,32 @@ const SpecialistsScreen: React.FC = () => {
               />
             ) : null}
 
-          </View>
-
-          <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 12}}>
+          <View style={styles.filterFields}>
             <SearchableProfileSelect label="Especialidades" options={PROFESSIONAL_SPECIALTY_OPTIONS.map(option => ({...option, aliases: [...option.aliases]}))} values={specialties} onChange={values => {setSpecialties(values); setShowAllSpecialists(true);}} multiple max={22} emptyLabel="Todas las especialidades" />
             <SearchableProfileSelect label="Enfoques terapéuticos" options={PROFESSIONAL_THERAPEUTIC_APPROACH_OPTIONS.map(option => ({...option, aliases: [...option.aliases]}))} values={approaches} onChange={values => {setApproaches(values); setShowAllSpecialists(true);}} multiple max={12} emptyLabel="Todos los enfoques" />
           </View>
-          <ProfileDiscoveryFilters language={language} religion={religion} onChange={values => { setLanguage(values.language); setReligion(values.religion); setShowAllSpecialists(true); }} />
+          <ProfileDiscoveryFilters stacked language={language} religion={religion} onChange={values => { setLanguage(values.language); setReligion(values.religion); setShowAllSpecialists(true); }} />
           <View style={styles.filtersRail}>
-            <TopicFilterDropdown
-              filters={PROFESSIONAL_TYPE_FILTERS}
-              selectedFilters={selectedProfessionalTypes}
-              onFilterChange={(ids) => setSelectedProfessionalTypes(ids as ProfessionalType[])}
-              triggerLabel="Tipo profesional"
-              panelTitle="Tipo profesional"
-              panelSubtitle="Filtra por la profesión regulada del especialista."
-              allLabel="Todos los tipos"
-              allCaption="Sin limitar por profesión regulada."
-              groups={PROFESSIONAL_TYPE_FILTER_GROUPS}
+            <SearchableProfileSelect
+              label="Tipo profesional"
+              options={PROFESSIONAL_TYPE_OPTIONS.map(option => ({ value: option.id, label: option.label, aliases: [] }))}
+              values={selectedProfessionalTypes}
+              onChange={values => setSelectedProfessionalTypes(PROFESSIONAL_TYPE_OPTIONS.filter(option => values.includes(option.id)).map(option => option.id))}
+              multiple
+              emptyLabel="Todos los tipos"
             />
-            <TopicFilterDropdown
-              filters={FILTER_OPTIONS}
-              selectedFilters={selectedFilters}
-              onFilterChange={setSelectedFilters}
+            <SearchableProfileSelect
+              label="Motivo de consulta"
+              options={FILTER_OPTIONS.map(option => ({ value: option.id, label: option.label, aliases: [] }))}
+              values={selectedFilters}
+              onChange={setSelectedFilters}
+              multiple
+              emptyLabel="Todas las áreas"
             />
           </View>
         </View>
 
-      </View>
+      </DirectoryFiltersSheet>
 
       {activeTab === 'specialists' ? (
         <ScrollView
@@ -1026,28 +1049,30 @@ function createStyles(theme: Theme, isDark: boolean, isMobile: boolean) {
     },
     header: {
       backgroundColor: theme.bgCard,
-      paddingTop: spacing.md,
-      paddingBottom: spacing.md,
+      paddingTop: isMobile ? spacing.md : spacing.lg,
+      paddingHorizontal: isMobile ? spacing.md : spacing.lg,
+      gap: spacing.md,
       borderBottomWidth: 1,
       borderBottomColor: theme.borderLight,
     },
     headerRow: {
-      gap: spacing.md,
-      paddingHorizontal: spacing.lg,
-    },
-    headerRowDesktop: {
       flexDirection: 'row',
+      flexWrap: 'wrap',
       justifyContent: 'space-between',
-      alignItems: 'flex-end',
-      paddingHorizontal: spacing.xxxl,
+      alignItems: 'center',
+      gap: spacing.sm,
     },
     headerCopy: {
-      flex: 1,
+      flexGrow: 1,
+      flexShrink: 1,
+      flexBasis: 340,
       gap: 6,
     },
     title: {
-      fontSize: 30,
-      fontFamily: theme.fontHeading,
+      fontSize: isMobile ? 24 : 28,
+      lineHeight: isMobile ? 31 : 36,
+      letterSpacing: -0.6,
+      fontFamily: theme.fontSansBold,
       color: theme.textPrimary,
     },
     subtitle: {
@@ -1057,47 +1082,40 @@ function createStyles(theme: Theme, isDark: boolean, isMobile: boolean) {
       lineHeight: 20,
       maxWidth: 560,
     },
-    headerControls: {
+    searchRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: spacing.md,
-      flexWrap: 'wrap',
-    },
-    headerControlsMobile: {
-      width: '100%',
+      gap: spacing.sm,
     },
     searchWrap: {
-      minWidth: 280,
-      width: 360,
+      minWidth: 0,
       flex: 1,
     },
-    mobileToolsRow: {
-      paddingHorizontal: spacing.lg,
-      paddingTop: spacing.md,
+    filterButton: {
+      minHeight: 48,
       flexDirection: 'row',
-      justifyContent: 'flex-end',
       alignItems: 'center',
-      gap: spacing.sm,
+      justifyContent: 'center',
+      gap: 8,
+      paddingHorizontal: 14,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: theme.border,
     },
-    discoveryBar: {
-      paddingHorizontal: spacing.lg,
-      paddingTop: spacing.md,
-      gap: spacing.sm,
-    },
-    discoveryBarDesktop: {
+    filterButtonActive: { backgroundColor: theme.primaryAlpha12, borderColor: theme.primaryAlpha20 },
+    filterButtonText: { fontSize: 14, fontFamily: theme.fontSansSemiBold, color: theme.textPrimary },
+    filterCount: { minWidth: 22, height: 22, paddingHorizontal: 5, borderRadius: 11, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.primary },
+    filterCountText: { fontSize: 12, fontFamily: theme.fontSansSemiBold, color: theme.textOnPrimary },
+    navigationRow: {
       flexDirection: 'row',
+      flexWrap: 'wrap',
       alignItems: 'center',
       justifyContent: 'space-between',
-      gap: spacing.md,
-    },
-    discoveryMetaGroup: {
       gap: spacing.sm,
+      paddingBottom: spacing.sm,
     },
-    discoveryMetaGroupDesktop: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      flexShrink: 0,
-    },
+    filterPanel: { padding: spacing.lg, gap: spacing.lg },
+    filterFields: { gap: spacing.lg },
     proximityWrap: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -1160,28 +1178,23 @@ function createStyles(theme: Theme, isDark: boolean, isMobile: boolean) {
       color: theme.textMuted,
     },
     filtersRail: {
-      flex: 1,
-      minWidth: 0,
+      gap: spacing.lg,
     },
     tabsRow: {
       flexDirection: 'row',
-      gap: spacing.sm,
-      flexWrap: 'wrap',
+      gap: isMobile ? 12 : spacing.md,
     },
     tab: {
-      paddingHorizontal: 14,
-      paddingVertical: 8,
-      borderRadius: 999,
-      backgroundColor: isDark ? theme.bgElevated : theme.bgAlt,
-      borderWidth: 1,
-      borderColor: theme.borderLight,
+      minHeight: 44,
+      justifyContent: 'center',
+      borderBottomWidth: 2,
+      borderBottomColor: 'transparent',
     },
     tabActive: {
-      backgroundColor: theme.primaryAlpha12,
-      borderColor: theme.primaryMuted,
+      borderBottomColor: theme.primary,
     },
     tabText: {
-      fontSize: 12,
+      fontSize: isMobile ? 12 : 13,
       fontFamily: theme.fontSansSemiBold,
       color: theme.textSecondary,
     },
@@ -1196,10 +1209,7 @@ function createStyles(theme: Theme, isDark: boolean, isMobile: boolean) {
       minHeight: 42,
       paddingHorizontal: 14,
       paddingVertical: 9,
-      borderRadius: 999,
-      backgroundColor: isDark ? theme.bgElevated : theme.bgAlt,
-      borderWidth: 1,
-      borderColor: theme.borderLight,
+      borderRadius: 10,
     },
     questionnaireActionCompact: {
       width: 42,
@@ -1214,7 +1224,6 @@ function createStyles(theme: Theme, isDark: boolean, isMobile: boolean) {
     },
     questionnaireActionActive: {
       backgroundColor: theme.primaryAlpha12,
-      borderColor: theme.primaryMuted,
     },
     questionnaireActionText: {
       fontSize: 12,

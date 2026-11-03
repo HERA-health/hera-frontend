@@ -19,6 +19,7 @@ interface DistanceOption {
 }
 
 interface LocationFilterDropdownProps {
+  fullWidth?: boolean;
   enabled: boolean;
   maxDistance: number;
   distanceOptions: DistanceOption[];
@@ -28,6 +29,7 @@ interface LocationFilterDropdownProps {
 }
 
 export function LocationFilterDropdown({
+  fullWidth = false,
   enabled,
   maxDistance,
   distanceOptions,
@@ -51,7 +53,7 @@ export function LocationFilterDropdown({
         onPress={() => setOpen(true)}
         hoverLift={false}
         pressScale={0.98}
-        style={styles.trigger}
+        style={[styles.trigger, fullWidth && { minWidth: 0, maxWidth: '100%', width: '100%' }]}
       >
         <View style={styles.triggerCopy}>
           <Text style={styles.triggerLabel}>Ubicación</Text>

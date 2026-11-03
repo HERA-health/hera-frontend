@@ -38,7 +38,7 @@ export function PatientTopBar({ currentRoute, onOpenMobileSidebar }: PatientTopB
   const { user, logout } = useAuth();
   const navigation = useNavigation<AppNavigationProp>();
   const isDesktop = isLargeScreenForRole(width, false);
-  const showSearch = isLargeScreenForRole(width, true);
+  const showSearch = isLargeScreenForRole(width, true) && currentRoute !== 'Specialists';
   const [accountOpen, setAccountOpen] = useState(false);
   const [accountTop, setAccountTop] = useState(64);
   const [avatarFailed, setAvatarFailed] = useState(false);
