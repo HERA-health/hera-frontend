@@ -213,7 +213,7 @@ const styles = StyleSheet.create({
   },
   wideFormContainer: {
     width: '100%',
-    maxWidth: 1040,
+    maxWidth: 1200,
     alignSelf: 'center',
   },
   root: {

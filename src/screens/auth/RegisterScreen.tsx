@@ -18,7 +18,7 @@ import { spacing } from '../../constants/colors';
 import { getRequiredRegistrationDocumentKeys } from '../../constants/legal';
 import { AuthSplitLayout, GoogleAuthButton, PasswordRequirementsChecklist } from '../../components/auth';
 import { getPasswordError, validatePassword } from '../../utils/validation';
-import { normalizeRegistrationPhone, PHONE_CONTACT_HELP, PHONE_FORMAT_HELP, RegistrationPhoneError } from '../../utils/registrationPhone';
+import { normalizeRegistrationPhone, RegistrationPhoneError } from '../../utils/registrationPhone';
 import { LandingHeader } from '../landing/components/LandingHeader';
 
 type RegisterRouteParams = AppRouteProp<'Register'>;
@@ -61,7 +61,7 @@ export function RegisterScreen() {
   const initialUserType: PublicUserType = mapRouteUserType(route.params?.userType);
 
   const [userType, setUserType] = useState<PublicUserType>(initialUserType);
-  const isWide = width >= 1024 && userType !== 'client';
+  const isWide = width >= 1024;
   const [clinicCommercialName, setClinicCommercialName] = useState('');
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
@@ -137,8 +137,8 @@ export function RegisterScreen() {
         accent: 'primary' as const,
         features: [
           { icon: 'business-outline' as const, title: 'Cuenta propia de clínica' },
-          { icon: 'people-circle-outline' as const, title: 'Base preparada para equipo' },
-          { icon: 'shield-checkmark-outline' as const, title: 'Separación clara de permisos' },
+          { icon: 'people-circle-outline' as const, title: 'Organiza el equipo de tu centro' },
+          { icon: 'shield-checkmark-outline' as const, title: 'Gestiona los permisos de acceso' },
         ],
       };
     }
@@ -342,7 +342,7 @@ export function RegisterScreen() {
       features={introCopy.features}
       formScrollRef={formScrollRef}
       form={
-        <View ref={formContentRef} collapsable={false} style={userType === 'client' ? styles.patientForm : undefined}>
+        <View ref={formContentRef} collapsable={false} style={[styles.formCard, { backgroundColor: theme.bgCard, borderColor: theme.border, padding: pairedFields ? spacing.xl : spacing.md }]}>
           {legalDocuments.length === 0 ? <Button variant="ghost" onPress={() => setLegalRevision(v => v + 1)}>Reintentar carga de condiciones</Button> : null}
           <View style={styles.header}>
             <AnimatedPressable
@@ -390,9 +390,6 @@ export function RegisterScreen() {
             </View>
           ) : null}
 
-          <Text style={[styles.sectionLabel, { color: theme.textSecondary, fontFamily: theme.fontSansSemiBold }]}>
-            Quiero entrar como
-          </Text>
           <View style={styles.userTypeRow}>
             {([
               { type: 'client', label: 'Paciente', icon: 'person-outline' },
@@ -424,86 +421,28 @@ export function RegisterScreen() {
           </View>
 
           <View style={[styles.registrationBody, isWide && styles.registrationBodyWide]}>
-            <View style={isWide ? styles.sharedColumn : undefined}>
-              {userType === 'professional' ? (
-                <View
-                  ref={phoneFieldRef}
-                  collapsable={false}
-                  style={styles.phoneField}
-                >
-                  <Input
-                    inputRef={phoneInputRef}
-                    label="Teléfono de contacto (obligatorio)"
-                    accessibilityLabel="Teléfono de contacto (obligatorio)"
-                    placeholder="600 123 456"
-                    value={phone}
-                    onChangeText={(value) => { setPhone(value); setPhoneError(''); }}
-                    keyboardType="phone-pad"
-                    autoComplete="tel"
-                    textContentType="telephoneNumber"
-                    maxLength={40}
-                    error={phoneError}
-                    supportingTextStyle={{ fontSize: 13, lineHeight: 18, color: phoneError ? theme.error : theme.textSecondary }}
-                    helperText={`${PHONE_FORMAT_HELP}\n${PHONE_CONTACT_HELP}`}
-                    leftIcon={<Ionicons name="call-outline" size={18} color={theme.textMuted} />}
-                  />
-                </View>
-              ) : null}
-
-              {isClinic ? (
-                <Input
-                  label="Nombre de la clínica"
-                  placeholder="Clínica HERA Norte"
-                  value={clinicCommercialName}
-                  onChangeText={setClinicCommercialName}
-                  autoCapitalize="words"
-                  leftIcon={<Ionicons name="business-outline" size={18} color={theme.textMuted} />}
-                />
-              ) : null}
-
-              <View style={styles.termsRow}>
-                <AnimatedPressable
-                  accessibilityRole="checkbox"
-                  accessibilityState={{ checked: termsAccepted }}
-                  accessibilityLabel="Aceptar la documentación legal aplicable"
-                  onPress={() => { if (legalDocuments.length) setTermsAccepted((value) => !value); }}
-                  hoverLift={false}
-                  pressScale={0.99}
-                  hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
-                >
-                  <View
-                    style={[
-                      styles.checkbox,
-                      {
-                        backgroundColor: termsAccepted ? theme.primary : theme.bgCard,
-                        borderColor: termsAccepted ? theme.primary : theme.border,
-                      },
-                    ]}
-                  >
-                    {termsAccepted && <Ionicons name="checkmark" size={14} color="#FFFFFF" />}
+            <View style={[styles.featurePanel, isWide ? styles.featureColumn : styles.featurePanelCompact, { backgroundColor: theme.bgMuted }]}>
+              {introCopy.features.map(feature => (
+                <View key={feature.title} style={styles.featureRow}>
+                  <View style={[styles.featureIcon, !isWide && styles.featureIconCompact, { backgroundColor: theme.bgCard, borderColor: theme.border }]}>
+                    <Ionicons name={feature.icon} size={22} color={theme.textSecondary} />
                   </View>
-                </AnimatedPressable>
-                <Text style={[styles.termsText, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>
-                  <Text onPress={() => { if (legalDocuments.length) setTermsAccepted(value => !value); }}>Confirmo haber recibido la</Text>{' '}
-                  {registrationLink('PRIVACY_POLICY', 'política de privacidad')}
-                  {' y acepto los '}
-                  {registrationLink('TERMS_OF_SERVICE', userType === 'professional' ? 'términos para especialistas' : userType === 'clinic' ? 'términos de uso' : 'términos para pacientes')}
-                  {userType === 'professional' ? (
-                    <>
-                      {' (incluidas las condiciones de comisiones del Directorio) y el '}
-                      {registrationLink('PROFESSIONAL_DATA_PROCESSING_TERMS', 'acuerdo de tratamiento de datos')}
-                    </>
-                  ) : null}
-                  .
-                </Text>
-              </View>
-
+                  <Text style={[styles.featureText, { fontFamily: theme.fontSansSemiBold, color: theme.textPrimary }]}>
+                    {feature.title}
+                  </Text>
+                </View>
+              ))}
             </View>
             <View style={isWide ? [styles.emailColumn, { borderLeftColor: theme.border }] : undefined}>
               <GoogleAuthButton
                 onCredential={handleGoogleCredential}
                 disabled={authLoading}
               />
+              {Platform.OS === 'web' && userType === 'professional' ? (
+                <Text style={[styles.googleHint, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>
+                  Para registrarte con Google, introduce tu teléfono y acepta las condiciones.
+                </Text>
+              ) : null}
               <View style={styles.authDivider}>
                 <View style={[styles.authDividerLine, { backgroundColor: theme.border }]} />
                 <Text style={[styles.authDividerText, { color: theme.textSecondary, fontFamily: theme.fontSansSemiBold }]}>
@@ -524,19 +463,52 @@ export function RegisterScreen() {
                   leftIcon={<Ionicons name="person-outline" size={18} color={theme.textMuted} />}
                 />
 
-                <Input
-                  containerStyle={pairedFields ? styles.fieldCell : undefined}
-                  label="Email"
-                  placeholder="tu@email.com"
-                  value={email}
-                  onChangeText={setEmail}
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  autoComplete="email"
-                  leftIcon={<Ionicons name="mail-outline" size={18} color={theme.textMuted} />}
-                />
+                {userType === 'professional' ? (
+                  <View
+                    ref={phoneFieldRef}
+                    collapsable={false}
+                    style={pairedFields ? styles.fieldCell : undefined}
+                  >
+                    <Input
+                      inputRef={phoneInputRef}
+                      label="Teléfono de contacto (obligatorio)"
+                      accessibilityLabel="Teléfono de contacto (obligatorio)"
+                      placeholder="600 123 456"
+                      value={phone}
+                      onChangeText={(value) => { setPhone(value); setPhoneError(''); }}
+                      keyboardType="phone-pad"
+                      autoComplete="tel"
+                      textContentType="telephoneNumber"
+                      maxLength={40}
+                      error={phoneError}
+                      supportingTextStyle={{ fontSize: 13, lineHeight: 18, color: theme.error }}
+                      leftIcon={<Ionicons name="call-outline" size={18} color={theme.textMuted} />}
+                    />
+                  </View>
+                ) : null}
 
+                {isClinic ? (
+                  <Input
+                    containerStyle={pairedFields ? styles.fieldCell : undefined}
+                    label="Nombre de la clínica"
+                    placeholder="Clínica HERA Norte"
+                    value={clinicCommercialName}
+                    onChangeText={setClinicCommercialName}
+                    autoCapitalize="words"
+                    leftIcon={<Ionicons name="business-outline" size={18} color={theme.textMuted} />}
+                  />
+                ) : null}
               </View>
+              <Input
+                label="Email"
+                placeholder="tu@email.com"
+                value={email}
+                onChangeText={setEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoComplete="email"
+                leftIcon={<Ionicons name="mail-outline" size={18} color={theme.textMuted} />}
+              />
               <View style={pairedFields ? styles.fieldRow : undefined}>
                 <Input
                   containerStyle={pairedFields ? styles.fieldCell : undefined}
@@ -601,6 +573,43 @@ export function RegisterScreen() {
               </View>
               <PasswordRequirementsChecklist password={password} />
 
+              <View style={styles.termsRow}>
+                <AnimatedPressable
+                  accessibilityRole="checkbox"
+                  accessibilityState={{ checked: termsAccepted }}
+                  accessibilityLabel="Aceptar la documentación legal aplicable"
+                  onPress={() => { if (legalDocuments.length) setTermsAccepted((value) => !value); }}
+                  hoverLift={false}
+                  pressScale={0.99}
+                  hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
+                >
+                  <View
+                    style={[
+                      styles.checkbox,
+                      {
+                        backgroundColor: termsAccepted ? theme.primary : theme.bgCard,
+                        borderColor: termsAccepted ? theme.primary : theme.border,
+                      },
+                    ]}
+                  >
+                    {termsAccepted && <Ionicons name="checkmark" size={14} color="#FFFFFF" />}
+                  </View>
+                </AnimatedPressable>
+                <Text style={[styles.termsText, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>
+                  <Text onPress={() => { if (legalDocuments.length) setTermsAccepted(value => !value); }}>Confirmo haber recibido la</Text>{' '}
+                  {registrationLink('PRIVACY_POLICY', 'política de privacidad')}
+                  {' y acepto los '}
+                  {registrationLink('TERMS_OF_SERVICE', userType === 'professional' ? 'términos para especialistas' : userType === 'clinic' ? 'términos de uso' : 'términos para pacientes')}
+                  {userType === 'professional' ? (
+                    <>
+                      {' (incluidas las condiciones de comisiones del Directorio) y el '}
+                      {registrationLink('PROFESSIONAL_DATA_PROCESSING_TERMS', 'acuerdo de tratamiento de datos')}
+                    </>
+                  ) : null}
+                  .
+                </Text>
+              </View>
+
               <Button
                 onPress={handleRegister}
                 variant="primary"
@@ -645,10 +654,9 @@ const styles = StyleSheet.create({
     height: 78,
     zIndex: 1,
   },
-  patientForm: {
-    width: '100%',
-    maxWidth: 680,
-    alignSelf: 'center',
+  formCard: {
+    borderWidth: 1,
+    borderRadius: 22,
   },
   header: {
     flexDirection: 'row',
@@ -689,10 +697,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
   },
-  sectionLabel: {
-    fontSize: 14,
-    marginBottom: spacing.sm,
-  },
   userTypeRow: {
     flexDirection: 'row',
     gap: spacing.sm,
@@ -722,8 +726,38 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     gap: 32,
   },
-  sharedColumn: {
-    flex: 4,
+  featurePanel: {
+    padding: spacing.md,
+    borderRadius: 18,
+    gap: spacing.md,
+  },
+  featurePanelCompact: {
+    gap: spacing.sm,
+  },
+  featureIconCompact: {
+    width: 32,
+    height: 32,
+  },
+  featureRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  featureIcon: {
+    width: 42,
+    height: 42,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  featureText: {
+    flex: 1,
+    fontSize: 16,
+    lineHeight: 23,
+  },
+  featureColumn: {
+    flex: 3,
     minWidth: 0,
   },
   emailColumn: {
@@ -753,7 +787,9 @@ const styles = StyleSheet.create({
     gap: 12,
     marginBottom: spacing.md,
   },
-  phoneField: {
+  googleHint: {
+    textAlign: 'center',
+    fontSize: 13,
     marginTop: spacing.sm,
   },
   checkbox: {
