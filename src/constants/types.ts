@@ -105,7 +105,6 @@ export interface Feature {
 /**
  * Navigation types for type-safe navigation
  */
-import type { LegalDocumentKey } from './legal';
 import type { ProfessionalClinicWorkspaceSection } from '../services/clinic/professionalWorkspaceService';
 
 export interface BookingOfficeLocation {
@@ -133,7 +132,7 @@ export type RootStackParamList = {
   HeraCommissions: { accountId?: string; admin?: boolean; specialistId?: string; clientId?: string } | undefined;
   ClinicConsent: { requestId: string; token: string };
   PublicReview: { token: string };
-  LegalDocument: { documentKey: LegalDocumentKey; version?: string };
+  LegalDocument: { documentKey: string; version?: string; audience?: 'CLIENT' | 'PROFESSIONAL' | 'CLINIC' };
   RequiredLegalAcceptance: undefined;
   ClinicPending: undefined;
   ClinicDashboard: undefined;

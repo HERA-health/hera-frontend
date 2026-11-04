@@ -596,6 +596,7 @@ export function ClinicalTab({
               </Text>
             </View>
 
+            <Button variant="ghost" onPress={() => navigation.navigate('LegalDocument', { documentKey: 'PROFESSIONAL_DATA_PROCESSING_TERMS', version: access.accessStatus?.currentDataProcessingAgreementVersion })}>Leer el acuerdo</Button>
             <Button
               variant="primary"
               size="small"

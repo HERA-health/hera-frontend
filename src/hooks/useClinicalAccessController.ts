@@ -153,13 +153,13 @@ export function useClinicalAccessController({
     async (version?: string) => {
       setAccessSubmitting(true);
       try {
-        await clinicalService.acceptDataProcessingAgreement(version);
+        await clinicalService.acceptDataProcessingAgreement(version ?? accessStatus?.currentDataProcessingAgreementVersion);
         await loadStatus();
       } finally {
         setAccessSubmitting(false);
       }
     },
-    [loadStatus]
+    [loadStatus, accessStatus?.currentDataProcessingAgreementVersion]
   );
 
   const setupClinicalPin = useCallback(

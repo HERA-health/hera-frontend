@@ -37,6 +37,7 @@ export function ClinicalPinForm({ mode, resetToken, onForgot, onCompleted }: Pro
   const [loading, setLoading] = useState(mode !== 'request');
   const [ready, setReady] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
+  const [dpaVersion, setDpaVersion] = useState<string>();
   const [dpaAccepted, setDpaAccepted] = useState(false);
   const [sent, setSent] = useState(false);
   const [retryAt, setRetryAt] = useState(0);
@@ -50,6 +51,7 @@ export function ClinicalPinForm({ mode, resetToken, onForgot, onCompleted }: Pro
       const [status, legal] = await Promise.all([clinical.getClinicalAccessStatus(), getLegalStatus()]);
       if (!mounted.current) return;
       setTermsAccepted(legal.acceptedDocuments.some((doc) => doc.documentKey === 'CLINICAL_MODULE_TERMS' && doc.version === LEGAL_DOCUMENT_VERSION));
+      setDpaVersion(status.currentDataProcessingAgreementVersion);
       setDpaAccepted(clinical.hasAcceptedCurrentDataProcessingAgreement(status));
       setReady(true);
     } catch (err: unknown) { if (mounted.current) setError(getErrorMessage(err, 'No se pudo comprobar el acceso clínico.')); }
@@ -111,8 +113,8 @@ export function ClinicalPinForm({ mode, resetToken, onForgot, onCompleted }: Pro
         <Button loading={busy} onPress={() => void run(async () => { await acceptLegalDocuments(['CLINICAL_MODULE_TERMS'], 'clinical-pin'); await load(); })}>Aceptar condiciones clínicas</Button>
       </> : !dpaAccepted ? <>
         <Text style={textStyle}>Para proteger la información de tus pacientes, revisa y acepta el encargo de tratamiento vigente.</Text>
-        <Button variant="ghost" onPress={() => navigation.navigate('LegalDocument', { documentKey: 'PROFESSIONAL_DATA_PROCESSING_TERMS' })}>Leer encargo de tratamiento</Button>
-        <Button loading={busy} onPress={() => void run(async () => { await clinical.acceptDataProcessingAgreement(); await load(); })}>Aceptar y continuar</Button>
+        <Button variant="ghost" onPress={() => navigation.navigate('LegalDocument', { documentKey: 'PROFESSIONAL_DATA_PROCESSING_TERMS', version: dpaVersion })}>Leer encargo de tratamiento</Button>
+        <Button loading={busy} onPress={() => void run(async () => { await clinical.acceptDataProcessingAgreement(dpaVersion); await load(); })}>Aceptar y continuar</Button>
       </> : <>
         <Text style={textStyle}>{mode === 'setup' ? 'Elige un PIN de 6 dígitos. Es el mismo para todos tus expedientes y es distinto de la contraseña de tu cuenta.' : 'Al cambiar el PIN, tendrás que volver a desbloquear el área clínica en tus dispositivos. Tus expedientes se conservarán.'}</Text>
         {mode === 'change' ? <PinCodeInput label="PIN actual" value={current} onChange={setCurrent} masked={!visible} /> : null}

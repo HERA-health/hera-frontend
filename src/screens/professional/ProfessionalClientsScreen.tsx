@@ -482,7 +482,7 @@ export function ProfessionalClientsScreen() {
     try {
       setDpaSubmitting(true);
       setError(null);
-      await clinicalService.acceptDataProcessingAgreement();
+      await clinicalService.acceptDataProcessingAgreement(clinicalAccessStatus?.currentDataProcessingAgreementVersion);
       setHasAcceptedDpa(true);
 
       if (options.openFormAfterAccept) {
@@ -505,7 +505,7 @@ export function ProfessionalClientsScreen() {
   const promptDataProcessingAgreement = async (
     options: { openFormAfterAccept?: boolean; resetFormBeforeOpen?: boolean } = {}
   ) => {
-    const action = await appAlert.choose<'accept' | 'cancel'>({
+    const action = await appAlert.choose<'accept' | 'cancel' | 'read'>({
       title: 'Encargo de tratamiento',
       tone: 'info',
       dismissible: true,
@@ -514,10 +514,12 @@ export function ProfessionalClientsScreen() {
         'Este acuerdo permite que HERA trate los datos que introduzcas siguiendo tus instrucciones como profesional, con medidas de seguridad y confidencialidad. No sustituye al consentimiento informado del paciente ni te obliga a crear una historia clínica; solo habilita el uso seguro de pacientes de tu consulta en HERA.',
       actions: [
         { label: 'Ahora no', value: 'cancel', role: 'cancel' },
+        { label: 'Leer el acuerdo', value: 'read' },
         { label: 'Aceptar y continuar', value: 'accept', role: 'confirm' },
       ],
     });
 
+    if (action === 'read') navigation.navigate('LegalDocument', { documentKey: 'PROFESSIONAL_DATA_PROCESSING_TERMS', version: clinicalAccessStatus?.currentDataProcessingAgreementVersion });
     if (action === 'accept') {
       await handleAcceptDataProcessingAgreement(options);
     }

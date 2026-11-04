@@ -1,5 +1,6 @@
+import { legalReaderUrl } from '../../services/legalReader';
 import { getLegalCatalog } from '../../services/legalService';
-import { LEGAL_DOCUMENTS, type LegalDocumentContent } from '../../constants/legal';
+import { type LegalDocumentContent } from '../../constants/legal';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Platform, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -78,7 +79,22 @@ export function RegisterScreen() {
   const [localError, setLocalError] = useState('');
   const [legalDocuments, setLegalDocuments] = useState<LegalDocumentContent[]>([]);
   const [legalRevision, setLegalRevision] = useState(0);
-  useEffect(() => { let active = true; setTermsAccepted(false); setLegalDocuments([]); getLegalCatalog(mapFrontendUserTypeToBackend(userType)).then(docs => { if (active) setLegalDocuments(docs); }).catch(() => { if (active) setLocalError('No se pudieron cargar las condiciones. Reintenta.'); }); return () => { active = false; }; }, [legalRevision, userType]);
+  useEffect(() => {
+    let active = true;
+    const audience = mapFrontendUserTypeToBackend(userType);
+    setTermsAccepted(false);
+    setLegalDocuments([]);
+    getLegalCatalog(audience).then(docs => {
+      if (!active) return;
+      const complete = getRequiredRegistrationDocumentKeys(audience).every(key =>
+        docs.some(doc => doc.key === key && doc.version && doc.contentHash));
+      if (!complete) throw new Error('Catálogo incompleto');
+      setLegalDocuments(docs);
+    }).catch(() => {
+      if (active) setLocalError('No se pudieron cargar las condiciones. Reintenta.');
+    });
+    return () => { active = false; };
+  }, [legalRevision, userType]);
   const currentProofs = (keys: ReturnType<typeof getRequiredRegistrationDocumentKeys>) => keys.map(documentKey => { const doc = legalDocuments.find(item => item.key === documentKey); if (!doc) throw new Error('Espera a que se carguen los documentos.'); return { documentKey, version: doc.version, contentHash: doc.contentHash }; });
 
   useEffect(() => {
@@ -165,16 +181,18 @@ export function RegisterScreen() {
     navigation.navigate('Landing');
   };
 
-  const openTerms = () => {
-    navigation.navigate('LegalDocument', { documentKey: 'TERMS_OF_SERVICE', version: legalDocuments.find(doc => doc.key === 'TERMS_OF_SERVICE')?.version ?? LEGAL_DOCUMENTS.TERMS_OF_SERVICE.version });
-  };
-
-  const openPrivacy = () => {
-    navigation.navigate('LegalDocument', { documentKey: 'PRIVACY_POLICY', version: legalDocuments.find(doc => doc.key === 'PRIVACY_POLICY')?.version ?? LEGAL_DOCUMENTS.PRIVACY_POLICY.version });
-  };
-
-  const openProfessionalTerms = () => {
-    navigation.navigate('LegalDocument', { documentKey: 'PROFESSIONAL_DATA_PROCESSING_TERMS', version: legalDocuments.find(doc => doc.key === 'PROFESSIONAL_DATA_PROCESSING_TERMS')?.version ?? LEGAL_DOCUMENTS.PROFESSIONAL_DATA_PROCESSING_TERMS.version });
+  const registrationLink = (documentKey: LegalDocumentContent['key'], label: string) => {
+    const doc = legalDocuments.find(item => item.key === documentKey);
+    if (!doc) return <Text>{label}</Text>;
+    const audience = mapFrontendUserTypeToBackend(userType);
+    if (Platform.OS === 'web') {
+      return React.createElement('a', {
+        href: legalReaderUrl(documentKey, doc.version, audience), target: '_blank', rel: 'noopener noreferrer',
+        style: { color: theme.primary }, 'aria-label': label + ' (abre otra pestaña)',
+      }, label);
+    }
+    return <Text accessibilityRole="link" style={[styles.inlineLink, { color: theme.primary }]}
+      onPress={() => navigation.navigate('LegalDocument', { documentKey, version: doc.version, audience })}>{label}</Text>;
   };
 
   const handleRegister = async () => {
@@ -443,43 +461,42 @@ export function RegisterScreen() {
                 />
               ) : null}
 
-              <AnimatedPressable
-                onPress={() => { if (legalDocuments.length) setTermsAccepted((value) => !value); }}
-                hoverLift={false}
-                pressScale={0.99}
-                style={styles.termsRow}
-              >
-                <View
-                  style={[
-                    styles.checkbox,
-                    {
-                      backgroundColor: termsAccepted ? theme.primary : theme.bgCard,
-                      borderColor: termsAccepted ? theme.primary : theme.border,
-                    },
-                  ]}
+              <View style={styles.termsRow}>
+                <AnimatedPressable
+                  accessibilityRole="checkbox"
+                  accessibilityState={{ checked: termsAccepted }}
+                  accessibilityLabel="Aceptar la documentación legal aplicable"
+                  onPress={() => { if (legalDocuments.length) setTermsAccepted((value) => !value); }}
+                  hoverLift={false}
+                  pressScale={0.99}
+                  hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
                 >
-                  {termsAccepted && <Ionicons name="checkmark" size={14} color="#FFFFFF" />}
-                </View>
+                  <View
+                    style={[
+                      styles.checkbox,
+                      {
+                        backgroundColor: termsAccepted ? theme.primary : theme.bgCard,
+                        borderColor: termsAccepted ? theme.primary : theme.border,
+                      },
+                    ]}
+                  >
+                    {termsAccepted && <Ionicons name="checkmark" size={14} color="#FFFFFF" />}
+                  </View>
+                </AnimatedPressable>
                 <Text style={[styles.termsText, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>
-                  Confirmo haber recibido la{' '}
-                  <Text style={[styles.inlineLink, { color: theme.primary }]} onPress={openPrivacy}>
-                    política de privacidad
-                  </Text>
+                  <Text onPress={() => { if (legalDocuments.length) setTermsAccepted(value => !value); }}>Confirmo haber recibido la</Text>{' '}
+                  {registrationLink('PRIVACY_POLICY', 'política de privacidad')}
                   {' y acepto los '}
-                  <Text style={[styles.inlineLink, { color: theme.primary }]} onPress={openTerms}>
-                    términos
-                  </Text>
+                  {registrationLink('TERMS_OF_SERVICE', userType === 'professional' ? 'términos para especialistas' : userType === 'clinic' ? 'términos aplicables a clínicas' : 'términos para pacientes')}
                   {userType === 'professional' ? (
                     <>
-                      {' (incluidas las condiciones de comisiones del Directorio) y las '}
-                      <Text style={[styles.inlineLink, { color: theme.primary }]} onPress={openProfessionalTerms}>
-                        condiciones profesionales
-                      </Text>
+                      {' (incluidas las condiciones de comisiones del Directorio) y el '}
+                      {registrationLink('PROFESSIONAL_DATA_PROCESSING_TERMS', 'acuerdo de tratamiento de datos')}
                     </>
                   ) : null}
                   .
                 </Text>
-              </AnimatedPressable>
+              </View>
 
             </View>
             <View style={isWide ? [styles.emailColumn, { borderLeftColor: theme.border }] : undefined}>

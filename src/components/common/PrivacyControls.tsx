@@ -37,7 +37,13 @@ export function PrivacyControls({ children }: { children?: React.ReactNode }) {
       if (revision !== generation.current) return;
       setPreference(next); setError('');
       configureAnalytics(next?.enabled === true && next.version === VERSION);
-      if (!next?.decidedAt) setOpen(true);
+      const requested = Platform.OS === 'web' && new URLSearchParams(window.location.search).get('preferencias') === 'cookies';
+      if (!next?.decidedAt || requested) setOpen(true);
+      if (requested) {
+        const target = new URL(window.location.href);
+        target.searchParams.delete('preferencias');
+        window.history.replaceState(window.history.state, '', target.href);
+      }
     } catch (cause) { if (revision === generation.current) setError(getErrorMessage(cause, 'No hemos podido cargar tu elección. Las estadísticas de uso siguen desactivadas.')); }
   }, [user?.id]);
   useEffect(() => {
@@ -74,7 +80,8 @@ export function PrivacyControls({ children }: { children?: React.ReactNode }) {
           {error ? <Text accessibilityRole="alert" style={{ color: theme.warning }}>{error}</Text> : null}
           <Button variant="outline" disabled={busy} onPress={() => void save(true)}>Permitir estadísticas de uso</Button>
           <Button variant="outline" disabled={busy} onPress={() => void save(false)}>{preference?.enabled ? 'Desactivar estadísticas de uso' : 'No permitir estadísticas de uso'}</Button>
-          <Button variant="ghost" onPress={() => void Linking.openURL('https://health-hera.com/legal/privacidad')}>Leer política de privacidad</Button>
+          <Button variant="ghost" onPress={() => void Linking.openURL('https://www.health-hera.com/legal/privacidad')}>Leer política de privacidad</Button>
+          <Button variant="ghost" onPress={() => void Linking.openURL('https://www.health-hera.com/legal/cookies')}>Leer política de cookies</Button>
           <Button variant="ghost" disabled={busy} onPress={() => setOpen(false)}>Cerrar</Button>
         </ScrollView>
       </View>

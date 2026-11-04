@@ -1,3 +1,4 @@
+import { PUBLIC_HEADER_LINKS } from '../../../constants/publicHeaderLinks';
 import React, { useEffect } from 'react';
 import {
   Platform,
@@ -36,15 +37,6 @@ interface LandingHeaderProps {
   onViewPlans?: () => void;
   onScrollToSection?: (section: LandingSectionAnchor) => void;
 }
-
-const NAV_ITEMS: ReadonlyArray<{ id: LandingSectionAnchor; label: string }> = [
-  { id: 'featuredSpecialists', label: 'Especialistas' },
-  { id: 'howItWorks', label: 'Cómo funciona' },
-  { id: 'forSpecialists', label: 'Para profesionales' },
-  { id: 'specializations', label: 'Especialidades' },
-  { id: 'about', label: 'Quiénes somos' },
-  { id: 'faq', label: 'FAQ' },
-];
 
 const WEB_SCROLLBAR_GUTTER = 16;
 const MOBILE_BREAKPOINT = 768;
@@ -187,7 +179,7 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
 
         {isWide ? (
           <View style={styles.navLinks}>
-            {(onScrollToSection ? NAV_ITEMS : []).map((item) => (
+            {(onScrollToSection ? PUBLIC_HEADER_LINKS : []).map((item) => (
               <React.Fragment key={item.id}>
                 <AnimatedPressable
                   onPress={() => onScrollToSection?.(item.id)}

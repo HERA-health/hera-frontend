@@ -111,6 +111,7 @@ export const FooterSection: React.FC<FooterSectionProps> = ({
       title: 'HERA',
       links: [
         { label: 'Quiénes somos', section: 'about' },
+        { label: 'Política de cookies', href: '/legal/cookies' },
         { label: 'Política de privacidad', href: getLegalDocumentUrl('PRIVACY_POLICY') },
         { label: 'Términos y condiciones', href: getLegalDocumentUrl('TERMS_OF_SERVICE') },
         ...(openPrivacy ? [{ label: 'Preferencias de privacidad', onPress: openPrivacy }] : []),
@@ -125,7 +126,7 @@ export const FooterSection: React.FC<FooterSectionProps> = ({
     } else if (link.section) {
       onScrollToSection?.(link.section);
     } else if (link.href) {
-      void Linking.openURL(link.href).catch(() => undefined);
+      void Linking.openURL(link.href.startsWith('/') ? 'https://www.health-hera.com' + link.href : link.href);
     }
   };
 

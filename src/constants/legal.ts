@@ -64,14 +64,8 @@ export const getRequiredRegistrationDocumentKeys = (
     : base;
 };
 
-export const getLegalDocumentKeyFromSlug = (slug: string): LegalDocumentKey => {
-  const matchingEntry = Object.entries(LEGAL_DOCUMENT_SLUGS).find(([, value]) => value === slug);
-  return (matchingEntry?.[0] as LegalDocumentKey | undefined) ?? 'PRIVACY_POLICY';
-};
-
 export const getLegalDocumentUrl = (key: LegalDocumentKey): string =>
   LEGAL_DOCUMENTS[key].routePath;
 
-export const getLegalDocumentByPath = (path?: string): LegalDocumentContent =>
-  Object.values(LEGAL_DOCUMENTS).find((document) => document.routePath === path)
-  || LEGAL_DOCUMENTS.PRIVACY_POLICY;
+export const legalSlugFor = (value: string) =>
+  Object.entries(LEGAL_DOCUMENT_SLUGS).find(([key]) => key === value)?.[1] ?? value;

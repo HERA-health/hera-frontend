@@ -29,9 +29,7 @@ import { ErrorBoundary } from './src/components/common/ErrorBoundary';
 import { AlertProvider } from './src/components/common/alert';
 import type { RootStackParamList } from './src/constants/types';
 import {
-  getLegalDocumentKeyFromSlug,
-  LEGAL_DOCUMENT_SLUGS,
-  type LegalDocumentKey,
+  legalSlugFor,
 } from './src/constants/legal';
 import { darkTheme, lightTheme } from './src/constants/theme';
 import { GuestConsentPublicScreen } from './src/screens/consent/GuestConsentPublicScreen';
@@ -103,12 +101,12 @@ export const linking: LinkingOptions<RootStackParamList> = {
         },
       },
       LegalDocument: {
-        path: 'legal/:documentKey',
+        path: 'legal/:documentKey/:version?',
         parse: {
-          documentKey: (slug: string) => getLegalDocumentKeyFromSlug(slug),
+          documentKey: (slug: string) => slug,
         },
         stringify: {
-          documentKey: (documentKey) => LEGAL_DOCUMENT_SLUGS[documentKey as LegalDocumentKey],
+          documentKey: legalSlugFor,
         },
       },
       ClinicalPinReset: 'clinical-pin/reset',
@@ -176,6 +174,7 @@ export const linking: LinkingOptions<RootStackParamList> = {
       ProfessionalShowcase: 'profesionales/recorrido',
       Pricing: 'planes',
       Landing: '',
+      Welcome: { path: 'acceso', alias: ['Welcome'] },
       Login: 'login',
       Register: 'register',
       ForgotPassword: 'forgot-password',
