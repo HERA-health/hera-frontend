@@ -11,6 +11,9 @@ import type { RootStackParamList } from '../../constants/types';
 import type { LegalAcceptanceStatus } from '../../services/legalService';
 import { RootNavigator } from '../RootNavigator';
 
+// Navigation tests run without the iOS/Android WebView runtime.
+jest.mock('react-native-webview', () => ({ WebView: () => null }));
+
 type MockAuthState = {
   isAuthenticated: boolean;
   isInitialized: boolean;
