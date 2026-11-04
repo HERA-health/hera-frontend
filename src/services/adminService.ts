@@ -49,6 +49,7 @@ export interface SpecialistListItem {
   id: string;
   specialization: string;
   verificationStatus: VerificationStatusType;
+  verificationSubmittedAt?: string | null;
   createdAt: string;
   sessionCount: number;
   user: {

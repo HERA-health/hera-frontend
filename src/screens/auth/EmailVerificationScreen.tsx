@@ -118,10 +118,13 @@ export function EmailVerificationScreen() {
     );
   }
 
-  // Success state
+  const professionalMessage = verificationSubmitted === true
+    ? 'El carné de colegiado ya se ha enviado.'
+    : 'Para completar el alta, envíe su carné de colegiado.';
   return (
     <SuccessScreen
       type="emailVerified"
+      message={verifiedUserType === 'PROFESSIONAL' ? professionalMessage : undefined}
       onContinue={handleContinue}
     />
   );

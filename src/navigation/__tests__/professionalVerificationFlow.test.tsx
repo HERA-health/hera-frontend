@@ -229,6 +229,15 @@ describe('professional verification flow', () => {
     expect(screen.queryByText('Actualizar cuenta profesional')).toBeNull();
   });
 
+  it('explains the next step when a professional confirms the email without a session', async () => {
+    jest.mocked(authService.verifyEmail).mockResolvedValue({ success: true, message: 'Correo verificado', userType: 'PROFESSIONAL' });
+    const navigationRef = createNavigationContainerRef<RootStackParamList>();
+    render(<AuthProvider><NavigationContainer ref={navigationRef}><RootNavigator /></NavigationContainer></AuthProvider>);
+    await waitFor(() => expect(navigationRef.isReady()).toBe(true));
+    act(() => navigationRef.navigate('EmailVerification', { token: 'new-professional-link' }));
+    expect(await screen.findByText('Para completar el alta, envíe su carné de colegiado.')).toBeTruthy();
+  });
+
   it('continues from a verification link to the workspace when documents are already pending', async () => {
     const pendingUser: authService.AuthResponse['user'] = {
       ...professional, emailVerified: true,
@@ -243,6 +252,7 @@ describe('professional verification flow', () => {
     await waitFor(() => expect(screen.getByText('Actualizar cuenta profesional')).toBeTruthy());
     act(() => navigationRef.navigate('EmailVerification', { token: 'pending-professional-link' }));
     await waitFor(() => expect(screen.getByText('Comenzar')).toBeTruthy());
+    expect(screen.getByText('El carné de colegiado ya se ha enviado.')).toBeTruthy();
     fireEvent.press(screen.getByText('Comenzar'));
     await waitFor(() => expect(navigationRef.getCurrentRoute()?.name).toBe('ProfessionalHome'));
     expect(unhandledAction).not.toHaveBeenCalled();

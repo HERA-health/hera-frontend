@@ -55,6 +55,15 @@ test.each([['+34600123456', 'Teléfono: +34600123456'], [null, 'Teléfono: No in
   expect(screen.getByText(expected).props.selectable).toBe(true);
 });
 
+test.each([
+  [null, 'Carné sin enviar'],
+  ['2026-11-03T12:00:00Z', 'Pendiente de revisión'],
+])('distinguishes pending verification by submission date', async (verificationSubmittedAt, label) => {
+  adminService.getSpecialistDetail.mockResolvedValue({ ...detail(), verificationStatus: 'PENDING', verificationSubmittedAt });
+  await open();
+  expect(screen.getAllByText(label).length).toBeGreaterThan(0);
+});
+
 test('shows the persisted HERA balance and opens this specialist’s transfers', async () => {
   adminService.getSpecialistDetail.mockResolvedValue(detail());
   await open();

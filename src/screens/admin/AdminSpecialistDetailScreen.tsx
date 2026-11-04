@@ -282,7 +282,7 @@ export function AdminSpecialistDetailScreen() {
               </Text>
             </View>
             <View style={styles.pendingBadge}>
-              <Text style={styles.pendingBadgeText}>Pendiente</Text>
+              <Text style={styles.pendingBadgeText}>Pendiente de revisión</Text>
             </View>
           </View>
 

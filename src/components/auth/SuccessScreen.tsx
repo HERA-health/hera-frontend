@@ -18,6 +18,7 @@ import type { SuccessType } from '../../types/auth';
 
 interface SuccessScreenProps {
   type: SuccessType;
+  message?: string;
   onContinue: () => void;
 }
 
@@ -27,6 +28,7 @@ interface SuccessScreenProps {
  */
 export const SuccessScreen: React.FC<SuccessScreenProps> = ({
   type,
+  message,
   onContinue,
 }) => {
   // Animation values
@@ -64,7 +66,7 @@ export const SuccessScreen: React.FC<SuccessScreenProps> = ({
     ? 'Correo verificado'
     : 'Contraseña actualizada';
 
-  const message = type === 'emailVerified'
+  const defaultMessage = type === 'emailVerified'
     ? 'Tu correo ha sido verificado correctamente. Ya puedes acceder a todas las funciones de HERA.'
     : 'Tu contraseña ha sido actualizada correctamente. Ya puedes iniciar sesión con tu nueva contraseña.';
 
@@ -108,7 +110,7 @@ export const SuccessScreen: React.FC<SuccessScreenProps> = ({
         <Text style={styles.title}>{title}</Text>
 
         {/* Message */}
-        <Text style={styles.message}>{message}</Text>
+        <Text style={styles.message}>{message ?? defaultMessage}</Text>
 
         {/* Decorative Divider */}
         <View style={styles.divider}>

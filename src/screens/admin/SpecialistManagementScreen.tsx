@@ -1,3 +1,4 @@
+import { pendingVerificationLabel } from './pendingVerificationLabel';
 import React, { ComponentProps, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
@@ -81,7 +82,7 @@ const formatDate = (dateStr: string) => {
   return new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'short', year: 'numeric' }).format(date);
 };
 
-const getVerificationBadge = (status: VerificationStatusType, theme: Theme): BadgeTone => {
+const getVerificationBadge = (status: VerificationStatusType, submittedAt: string | null | undefined, theme: Theme): BadgeTone => {
   switch (status) {
     case 'VERIFIED':
       return {
@@ -92,7 +93,7 @@ const getVerificationBadge = (status: VerificationStatusType, theme: Theme): Bad
       };
     case 'PENDING':
       return {
-        label: 'Pendiente',
+        label: pendingVerificationLabel(submittedAt),
         backgroundColor: theme.status.pending.bg,
         borderColor: theme.status.pending.border,
         textColor: theme.status.pending.text,
@@ -350,7 +351,7 @@ export function SpecialistManagementScreen() {
 
       <View style={styles.cardsContainer}>
         {specialists.map((specialist) => {
-          const verificationBadge = getVerificationBadge(specialist.verificationStatus, theme);
+          const verificationBadge = getVerificationBadge(specialist.verificationStatus, specialist.verificationSubmittedAt, theme);
           const accountBadge = getAccountBadge(specialist.user.accountStatus, theme);
 
           return (

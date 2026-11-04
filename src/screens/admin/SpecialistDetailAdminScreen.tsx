@@ -1,3 +1,4 @@
+import { pendingVerificationLabel } from './pendingVerificationLabel';
 import { PatientActivityCount } from '../../components/professional/PatientActivityCount';
 import { AdminCommissionSummary } from '../commissions/CommissionLinks';
 import React, { ComponentProps, useCallback, useEffect, useMemo, useState } from 'react';
@@ -102,7 +103,7 @@ const getInsuranceStatusBadge = (
   }
 };
 
-const getVerificationBadge = (status: string, theme: Theme): BadgeTone => {
+const getVerificationBadge = (status: string, submittedAt: string | null | undefined, theme: Theme): BadgeTone => {
   switch (status) {
     case 'VERIFIED':
       return {
@@ -117,7 +118,7 @@ const getVerificationBadge = (status: string, theme: Theme): BadgeTone => {
         bg: theme.status.pending.bg,
         text: theme.status.pending.text,
         border: theme.status.pending.border,
-        label: 'Pendiente',
+        label: pendingVerificationLabel(submittedAt),
         icon: 'time',
       };
     case 'REJECTED':
@@ -442,7 +443,7 @@ export function SpecialistDetailAdminScreen({ route, navigation }: Props) {
 
   if (!specialist) return null;
 
-  const verificationBadge = getVerificationBadge(specialist.verificationStatus, theme);
+  const verificationBadge = getVerificationBadge(specialist.verificationStatus, specialist.verificationSubmittedAt, theme);
   const accountBadge = getAccountBadge(specialist.user.accountStatus, theme);
   const insuranceBadge = getInsuranceStatusBadge(specialist.insuranceReviewStatus, theme);
 
