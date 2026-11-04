@@ -1,4 +1,3 @@
-import { PatientActivityCount } from '../../components/professional/PatientActivityCount';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -121,7 +120,6 @@ export function DashboardScreen() {
             value={period.month} onSelect={month => changePeriod({ period: 'month', year: period.year, month })} /></View>}
         </View>
       </View>
-      <PatientActivityCount />
       <View style={styles.periodLine}>
         <Text style={styles.periodLabel}>{periodLabel}{visible?.period.inProgress ? ' · En curso' : ''}</Text>
         <Text style={styles.caption}>Comparación con el {period.period === 'month' ? 'mes' : 'año'} anterior completo</Text>

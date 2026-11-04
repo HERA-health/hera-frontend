@@ -1,4 +1,3 @@
-jest.mock('../../../services/patientDirectoryService', () => ({ getPatientActivity: jest.fn(async () => ({ activePatients: 17, windowDays: 60, cutoff: '2026-08-19T12:00:00Z', computedAt: '2026-10-18T12:00:00Z', stale: false, unavailable: false })) }));
 import React from 'react';
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import { DashboardScreen } from '../DashboardScreen';
@@ -54,6 +53,8 @@ beforeEach(() => { jest.mocked(getStatistics).mockReset().mockResolvedValue(fixt
 it('renders all planned blocks and preserves secondary information', async () => {
   const view = render(<DashboardScreen />);
   await waitFor(() => expect(view.getByText('Ingresos cobrados')).toBeTruthy());
+  expect(view.queryByText(/Pacientes activos · últimos 60 días/)).toBeNull();
+  expect(view.queryByText('Actualizar actividad')).toBeNull();
   for (const label of ['Pacientes nuevos', 'Pacientes atendidos en el período', 'Ingresos y sesiones', 'Origen de tus pacientes', 'Actividad de sesiones', 'Evolución de pacientes', 'Valoraciones', 'Sesiones por día', 'Domingo', 'No asistidas']) expect(view.getByText(label)).toBeTruthy();
   expect(view.getByText('Sin reseñas en este periodo.')).toBeTruthy();
   expect(view.getByText('↗ +24%')).toBeTruthy();
