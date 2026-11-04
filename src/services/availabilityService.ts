@@ -48,8 +48,6 @@ export interface WeeklyScheduleSnapshot {
 }
 
 const INVALID_WEEKLY_SCHEDULE_MESSAGE = 'Formato de disponibilidad no válido';
-const WEEKLY_SCHEDULE_MIN_MINUTES = 7 * 60;
-const WEEKLY_SCHEDULE_MAX_MINUTES = 23 * 60;
 const WEEKLY_SCHEDULE_STEP_MINUTES = 30;
 const WEEKLY_SCHEDULE_MIN_RANGE_MINUTES = 30;
 const MAX_WEEKLY_SCHEDULE_RANGES_PER_DAY = 32;
@@ -61,14 +59,16 @@ const getTimeMinutes = (time: string): number => {
   return hour * 60 + minute;
 };
 
+const weeklyScheduleEndSchema = weeklyScheduleTimeSchema.or(z.literal('24:00'));
+
 const canonicalWeeklyScheduleRangeSchema = z.object({
   start: weeklyScheduleTimeSchema,
-  end: weeklyScheduleTimeSchema,
+  end: weeklyScheduleEndSchema,
 }).strict();
 
 const databaseWeeklyScheduleRangeSchema = z.object({
   startTime: weeklyScheduleTimeSchema,
-  endTime: weeklyScheduleTimeSchema,
+  endTime: weeklyScheduleEndSchema,
 }).passthrough().transform(({ startTime, endTime }) => ({
   start: startTime,
   end: endTime,
@@ -86,14 +86,6 @@ const weeklyScheduleRangeSchema = z.union([
       code: z.ZodIssueCode.custom,
       message: 'Schedule range start must be before end',
       path: ['end'],
-    });
-  }
-
-  if (startMinutes < WEEKLY_SCHEDULE_MIN_MINUTES || endMinutes > WEEKLY_SCHEDULE_MAX_MINUTES) {
-    context.addIssue({
-      code: z.ZodIssueCode.custom,
-      message: 'Schedule range must stay within 07:00-23:00',
-      path: ['start'],
     });
   }
 

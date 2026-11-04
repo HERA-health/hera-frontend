@@ -1,6 +1,10 @@
 import { formatMadridDateKey, getMadridDateKey, parseMadridDateTime } from '../madridTime';
 
 describe('madridTime', () => {
+  it('resolves the first half hour of a Madrid day', () => {
+    expect(parseMadridDateTime('2026-06-15', '00:00')?.iso).toBe('2026-06-14T22:00:00.000Z');
+  });
+
   it('converts summer Madrid date/time to UTC ISO', () => {
     expect(parseMadridDateTime('2026-06-15', '10:00')?.iso).toBe(
       '2026-06-15T08:00:00.000Z'

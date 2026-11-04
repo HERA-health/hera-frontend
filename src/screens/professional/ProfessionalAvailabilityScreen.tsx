@@ -3,8 +3,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useFocusedRateLimitRecovery } from '../../hooks/useGeneralRateLimit';
 import { showAppAlert, useAppAlert, useAppAlertState } from '../../components/common/alert';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Modal, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
-import { Calendar } from 'react-native-calendars';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { borderRadius, layout, shadows, spacing } from '../../constants/colors';
 import { Theme } from '../../constants/theme';
@@ -72,11 +71,14 @@ const DAYS: DayConfig[] = [
   { name: 'sunday', label: 'Domingo', shortLabel: 'Dom' },
 ];
 
-const AVAILABILITY_START_HOUR = 7;
-const AVAILABILITY_END_HOUR = 23;
+const GRID_ROW_HEIGHT = 22;
+const GRID_ROW_GAP = 1;
+const GRID_HOUR_HEIGHT = 2 * (GRID_ROW_HEIGHT + GRID_ROW_GAP);
+const GRID_INITIAL_HOUR = 7;
+const GRID_VISIBLE_HOURS = 16;
 
 const TIME_SLOTS: TimeSlot[] = [];
-for (let hour = AVAILABILITY_START_HOUR; hour < AVAILABILITY_END_HOUR; hour += 1) {
+for (let hour = 0; hour < 24; hour += 1) {
   TIME_SLOTS.push({ hour, minute: 0, label: `${hour.toString().padStart(2, '0')}:00` });
   TIME_SLOTS.push({ hour, minute: 30, label: `${hour.toString().padStart(2, '0')}:30` });
 }
@@ -141,7 +143,7 @@ const isValidTimeValue = (time: unknown): time is string => (
 );
 
 const isValidTimeRange = (range: Partial<TimeRange> | null | undefined): range is TimeRange => (
-  isValidTimeValue(range?.start) && isValidTimeValue(range?.end)
+  isValidTimeValue(range?.start) && (range.end === '24:00' || isValidTimeValue(range.end))
 );
 
 const getTimeMinutes = (time: string): number => {
@@ -150,7 +152,7 @@ const getTimeMinutes = (time: string): number => {
 };
 
 const formatPresetHour = (time: string): string => {
-  if (!isValidTimeValue(time)) return '';
+  if (time !== '24:00' && !isValidTimeValue(time)) return '';
   const [hour, minute] = time.split(':');
   return minute === '00' ? String(Number(hour)) : time;
 };
@@ -162,10 +164,6 @@ const formatCompactTimeRanges = (ranges: TimeRange[]): string => (
   ranges.map(formatCompactTimeRange).filter(Boolean).join(' · ')
 );
 const formatPresetRanges = (ranges: TimeRange[]): string => `${formatCompactTimeRanges(ranges)} h`;
-const formatFullTimeRange = (range: TimeRange): string => (
-  isValidTimeRange(range) ? `${range.start}-${range.end}` : ''
-);
-
 const getDayLabel = (dayName: DayOfWeek): string => DAYS.find((day) => day.name === dayName)?.label ?? dayName;
 
 const createDaySlotsForRanges = (ranges: TimeRange[]): DaySlots => {
@@ -211,33 +209,6 @@ const getSettledValue = <T,>(
   }
 
   throw result.reason instanceof Error ? result.reason : new Error(fallbackMessage);
-};
-
-const getDayNameFromDate = (dateString: string): DayOfWeek => {
-  const weekday = new Date(`${dateString}T12:00:00`).getDay();
-  const dayMap: Record<number, DayOfWeek> = {
-    0: 'sunday',
-    1: 'monday',
-    2: 'tuesday',
-    3: 'wednesday',
-    4: 'thursday',
-    5: 'friday',
-    6: 'saturday',
-  };
-  return dayMap[weekday];
-};
-
-const getInitialPreviewDate = (enabledDays: EnabledDays): string => {
-  const today = new Date();
-  for (let offset = 0; offset < 14; offset += 1) {
-    const candidate = new Date(today);
-    candidate.setDate(today.getDate() + offset);
-    const dateString = candidate.toISOString().split('T')[0];
-    if (enabledDays[getDayNameFromDate(dateString)]) {
-      return dateString;
-    }
-  }
-  return today.toISOString().split('T')[0];
 };
 
 const convertScheduleToSlots = (schedule: availabilityService.WeeklySchedule): WeeklySlots => {
@@ -321,6 +292,8 @@ const calculateWeeklySummary = (weeklySlots: WeeklySlots) => {
 export function ProfessionalAvailabilityScreen({ navigation }: Props) {
   const appAlert = useAppAlert();
   const { isVisible: isAppAlertVisible } = useAppAlertState();
+  const gridRef = useRef<ScrollView>(null);
+  const initializedGridRef = useRef<ScrollView | null>(null);
   const { width } = useWindowDimensions();
   const { theme, isDark } = useTheme();
   const styles = useMemo(() => createStyles(theme, isDark, width), [theme, isDark, width]);
@@ -337,11 +310,9 @@ export function ProfessionalAvailabilityScreen({ navigation }: Props) {
   const [exceptions, setExceptions] = useState<availabilityService.AvailabilityException[]>([]);
   const [hasChanges, setHasChanges] = useState(false);
   const [showExceptionModal, setShowExceptionModal] = useState(false);
-  const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [selectedExceptionType, setSelectedExceptionType] =
     useState<AvailabilityExceptionTypeId>('vacation');
   const [savingExceptionRange, setSavingExceptionRange] = useState(false);
-  const [previewSelectedDate, setPreviewSelectedDate] = useState('');
   const [bufferTime, setBufferTime] = useState(15);
   const [scheduleRevision, setScheduleRevision] = useState<string | null>(null);
   const [selectedPresetId, setSelectedPresetId] = useState<QuickPresetId | null>(null);
@@ -421,7 +392,7 @@ export function ProfessionalAvailabilityScreen({ navigation }: Props) {
   useFocusedRateLimitRecovery(() => { if (!hasChanges) void loadData(); });
   useProfessionalTourAutoStart(
     'professional_availability_v1',
-    !loading && !loadError && !showExceptionModal && !showPreviewModal && !isAppAlertVisible,
+    !loading && !loadError && !showExceptionModal && !isAppAlertVisible,
   );
 
   const prepareAvailabilityPresetsStep = useCallback(
@@ -460,18 +431,6 @@ export function ProfessionalAvailabilityScreen({ navigation }: Props) {
     'professional.availability.save',
     prepareAvailabilitySaveStep,
   );
-
-  useEffect(() => {
-    if (isMobile && showPreviewModal) {
-      setShowPreviewModal(false);
-    }
-  }, [isMobile, showPreviewModal]);
-
-  useEffect(() => {
-    if (showPreviewModal) {
-      setPreviewSelectedDate(getInitialPreviewDate(enabledDays));
-    }
-  }, [enabledDays, showPreviewModal]);
 
   const toggleSlot = useCallback((day: DayOfWeek, time: string) => {
     if (!enabledDays[day]) return;
@@ -696,23 +655,6 @@ export function ProfessionalAvailabilityScreen({ navigation }: Props) {
     theme.textPrimary,
     theme.warningBg,
   ]);
-  const previewDayName = useMemo<DayOfWeek>(
-    () => getDayNameFromDate(previewSelectedDate || getInitialPreviewDate(enabledDays)),
-    [enabledDays, previewSelectedDate]
-  );
-  const previewRanges = useMemo(
-    () => weeklyRangeSummary[previewDayName],
-    [previewDayName, weeklyRangeSummary]
-  );
-  const previewMarkedDates = useMemo<CalendarMarkedDates>(() => (
-    previewSelectedDate
-      ? { [previewSelectedDate]: { selected: true, selectedColor: theme.primary } }
-      : {}
-  ), [previewSelectedDate, theme.primary]);
-  const previewDayLabel = useMemo(
-    () => getDayLabel(previewDayName).toLowerCase(),
-    [previewDayName]
-  );
   const calendarTheme = useMemo(() => ({
     backgroundColor: theme.bgElevated,
     calendarBackground: theme.bgElevated,
@@ -849,34 +791,20 @@ export function ProfessionalAvailabilityScreen({ navigation }: Props) {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <View style={styles.headerCopy}>
-          <View style={styles.headerTitleRow}>
-            <Text style={styles.pageTitle}>Configurar disponibilidad</Text>
-            {hasChanges ? (
-              <View style={styles.unsavedBadge}>
-                <Ionicons name="ellipse" size={8} color={theme.warning} />
-                <Text style={styles.unsavedText}>Cambios sin guardar</Text>
-              </View>
-            ) : null}
-          </View>
-          <Text style={styles.pageSubtitle}>Define tu patrón semanal y las excepciones sin perder visibilidad de la agenda.</Text>
-        </View>
-        <View style={styles.headerActions}>
-          {!isMobile ? (
-            <View style={styles.headerButtonWrap}>
-              <Button variant="outline" size="medium" onPress={() => setShowPreviewModal(true)} icon={<Ionicons name="eye-outline" size={18} color={theme.primary} />} fullWidth>
-                Vista previa
-              </Button>
+        <View style={styles.headerTitleRow}>
+          <Text style={styles.pageTitle}>Configurar disponibilidad</Text>
+          {hasChanges ? (
+            <View style={styles.unsavedBadge}>
+              <Ionicons name="ellipse" size={8} color={theme.warning} />
+              <Text style={styles.unsavedText}>Cambios sin guardar</Text>
             </View>
           ) : null}
-          <View style={styles.headerButtonWrap}>
-            <TourTarget id="professional.availability.save" fill style={styles.fullWidthTourTarget}>
-              <Button variant="primary" size="medium" onPress={handleSave} disabled={!hasChanges || saving} loading={saving} icon={<Ionicons name="checkmark" size={18} color={theme.textOnPrimary} />} fullWidth>
-                Guardar
-              </Button>
-            </TourTarget>
-          </View>
         </View>
+        <TourTarget id="professional.availability.save">
+          <Button variant="primary" size={isMobile ? "medium" : "small"} onPress={handleSave} disabled={!hasChanges || saving} loading={saving} icon={<Ionicons name="checkmark" size={18} color={theme.textOnPrimary} />}>
+            Guardar
+          </Button>
+        </TourTarget>
       </View>
 
       <ScrollView
@@ -1019,7 +947,7 @@ export function ProfessionalAvailabilityScreen({ navigation }: Props) {
                             </Text>
                           </AnimatedPressable>
                         </View>
-                        <View style={styles.quickDaysGrid}>
+                        <ScrollView horizontal contentContainerStyle={styles.quickDaysGrid}>
                           {DAYS.map((day) => {
                             const isSelected = selectedPresetDaysSet.has(day.name);
                             const isEnabled = enabledDays[day.name];
@@ -1032,6 +960,7 @@ export function ProfessionalAvailabilityScreen({ navigation }: Props) {
                                   isSelected && styles.quickDayChipActive,
                                 ]}
                                 onPress={() => togglePresetDay(day.name)}
+                                accessibilityState={{ selected: isSelected }}
                                 hoverLift={false}
                                 accessibilityLabel={`Seleccionar ${day.label} para patrón`}
                               >
@@ -1042,7 +971,7 @@ export function ProfessionalAvailabilityScreen({ navigation }: Props) {
                               </AnimatedPressable>
                             );
                           })}
-                        </View>
+                        </ScrollView>
                       </View>
 
                       <View style={styles.quickStep}>
@@ -1086,7 +1015,7 @@ export function ProfessionalAvailabilityScreen({ navigation }: Props) {
             <TourTarget id="professional.availability.weekly-grid" fill style={styles.fullWidthTourTarget}>
               <View style={styles.gridIntro}>
                 <Text style={styles.gridTitle}>Disponibilidad semanal</Text>
-                <Text style={styles.gridSubtitle}>Activa días y pulsa en las franjas para añadir o quitar horas concretas.</Text>
+                <Text style={styles.gridSubtitle}>Activa los días y pulsa las franjas para editar tu horario. Desplázate para ver las 24 horas.</Text>
                 {isMobile && mobileRangeChips.length > 0 ? (
                   <ScrollView
                     horizontal
@@ -1138,7 +1067,18 @@ export function ProfessionalAvailabilityScreen({ navigation }: Props) {
                 );
               })}
             </View>
-            <View style={styles.gridBody}>
+            <ScrollView
+              ref={gridRef}
+              style={styles.gridBody}
+              nestedScrollEnabled
+              onContentSizeChange={() => {
+                const grid = gridRef.current;
+                if (grid && initializedGridRef.current !== grid) {
+                  grid.scrollTo({ y: GRID_INITIAL_HOUR * GRID_HOUR_HEIGHT, animated: false });
+                  initializedGridRef.current = grid;
+                }
+              }}
+            >
               {TIME_SLOTS.map((slot) => (
                 <View key={slot.label} style={styles.gridRow}>
                   <View style={[styles.timeCol, styles.timeColBody]}>
@@ -1171,7 +1111,7 @@ export function ProfessionalAvailabilityScreen({ navigation }: Props) {
                   })}
                 </View>
               ))}
-            </View>
+            </ScrollView>
             <View style={styles.legend}>
               <View style={styles.legendItem}>
                 <View style={[styles.legendBox, styles.legendAvailable]} />
@@ -1217,97 +1157,6 @@ export function ProfessionalAvailabilityScreen({ navigation }: Props) {
         onSelectType={setSelectedExceptionType}
         onSubmit={handleAddExceptionRange}
       />
-
-      <Modal visible={!isMobile && showPreviewModal} transparent animationType="slide" onRequestClose={() => setShowPreviewModal(false)}>
-        <View style={styles.previewOverlay}>
-          <View style={styles.previewContent}>
-            <View style={styles.previewHeader}>
-              <View style={styles.previewHeaderCopy}>
-                <View style={styles.previewBadge}>
-                  <Ionicons name="sparkles-outline" size={14} color={theme.primary} />
-                  <Text style={styles.previewBadgeText}>Vista de cliente</Text>
-                </View>
-                <Text style={styles.previewTitle}>Vista del cliente</Text>
-                <Text style={styles.previewSubtitle}>Así se verá tu agenda al reservar una sesión.</Text>
-              </View>
-              <AnimatedPressable onPress={() => setShowPreviewModal(false)} style={styles.modalCloseButton} hoverLift={false}>
-                <Ionicons name="close" size={22} color={theme.textSecondary} />
-              </AnimatedPressable>
-            </View>
-            <ScrollView
-              style={styles.previewBody}
-              contentContainerStyle={styles.previewBodyContent}
-              showsVerticalScrollIndicator={false}
-            >
-              <View style={styles.previewLayout}>
-                <View style={styles.previewCalendarPanel}>
-                  <Text style={styles.previewSectionTitle}>Calendario visible</Text>
-                  <Text style={styles.previewSectionCaption}>El cliente seleccionará el día y verá solo tus franjas activas.</Text>
-                  <View style={styles.previewCalendarShell}>
-                    <View style={styles.previewCalendar}>
-                      <Calendar
-                        theme={calendarTheme}
-                        markedDates={previewMarkedDates}
-                        onDayPress={(day) => setPreviewSelectedDate(day.dateString)}
-                      />
-                    </View>
-                  </View>
-                </View>
-
-                <View style={styles.previewAside}>
-                  <View style={styles.previewInfoCard}>
-                    <View style={styles.previewInfoHeader}>
-                      <View style={[styles.iconShell, { backgroundColor: theme.primaryAlpha12 }]}>
-                        <Ionicons name="time-outline" size={18} color={theme.primary} />
-                      </View>
-                      <View style={styles.previewInfoCopy}>
-                        <Text style={styles.previewInfoTitle}>Horarios disponibles</Text>
-                        <Text style={styles.previewInfoText}>Bloques completos visibles para el {previewDayLabel}.</Text>
-                      </View>
-                    </View>
-
-                    <ScrollView
-                      style={styles.previewSlotsScroll}
-                      contentContainerStyle={styles.previewSlots}
-                      nestedScrollEnabled
-                      showsVerticalScrollIndicator={previewRanges.length > 8}
-                    >
-                      {previewRanges.length > 0 ? (
-                        previewRanges.map((range) => (
-                          <View key={`${range.start}-${range.end}`} style={styles.previewSlot}>
-                            <Text style={styles.previewSlotText}>{formatFullTimeRange(range)}</Text>
-                          </View>
-                        ))
-                      ) : (
-                        <Text style={styles.emptyText}>Todavía no hay horarios disponibles para el {previewDayLabel}.</Text>
-                      )}
-                    </ScrollView>
-                  </View>
-
-                  <View style={styles.previewInfoCard}>
-                    <View style={styles.previewInfoHeader}>
-                      <View style={[styles.iconShell, { backgroundColor: theme.secondaryAlpha12 }]}>
-                        <Ionicons name="information-circle-outline" size={18} color={theme.secondary} />
-                      </View>
-                      <View style={styles.previewInfoCopy}>
-                        <Text style={styles.previewInfoTitle}>Qué transmite esta vista</Text>
-                        <Text style={styles.previewInfoText}>
-                          Una agenda clara, profesional y fácil de reservar desde cualquier dispositivo.
-                        </Text>
-                      </View>
-                    </View>
-                  </View>
-                </View>
-              </View>
-            </ScrollView>
-            <View style={styles.previewFooter}>
-              <Button variant="outline" size="medium" onPress={() => setShowPreviewModal(false)} fullWidth>
-                Cerrar
-              </Button>
-            </View>
-          </View>
-        </View>
-      </Modal>
     </View>
   );
 }
@@ -1322,26 +1171,26 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
     loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     loadingText: { marginTop: spacing.md, fontSize: 15, color: theme.textSecondary, fontFamily: theme.fontSans },
     header: {
-      flexDirection: isMobile ? 'column' : 'row',
+      flexDirection: 'row',
       justifyContent: 'space-between',
-      alignItems: isMobile ? 'stretch' : 'center',
+      alignItems: 'center',
       gap: spacing.md,
       paddingHorizontal: spacing.lg,
       paddingLeft: isMobile ? layout.mobileShellLeftInset : spacing.lg,
-      paddingVertical: spacing.md,
+      paddingVertical: spacing.sm,
       backgroundColor: theme.bgCard,
       borderBottomWidth: 1,
       borderBottomColor: theme.border,
       ...shadows.sm,
     },
-    headerCopy: { flex: 1, gap: 6 },
     headerTitleRow: {
+      flex: 1,
       flexDirection: isMobile ? 'column' : 'row',
       alignItems: isMobile ? 'flex-start' : 'center',
-      gap: spacing.sm,
+      flexWrap: 'wrap',
+      gap: spacing.xs,
     },
-    pageTitle: { fontSize: isMobile ? 28 : 18, fontWeight: '800', color: theme.textPrimary, fontFamily: theme.fontHeading },
-    pageSubtitle: { fontSize: 14, lineHeight: 20, color: theme.textSecondary, maxWidth: 640, fontFamily: theme.fontSans },
+    pageTitle: { fontSize: 18, fontWeight: '800', color: theme.textPrimary, fontFamily: theme.fontHeading },
     unsavedBadge: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -1354,15 +1203,6 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
       borderColor: isDark ? theme.warning : theme.border,
     },
     unsavedText: { fontSize: 12, fontWeight: '600', color: theme.warning, fontFamily: theme.fontSansSemiBold },
-    headerActions: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: spacing.sm,
-      alignItems: 'center',
-      justifyContent: 'flex-end',
-      width: isMobile ? '100%' as unknown as number : undefined,
-    },
-    headerButtonWrap: { minWidth: isMobile ? 0 : 144, flex: isMobile ? 1 : 0 },
     fullWidthTourTarget: { width: '100%' },
     mainScroll: { flex: 1 },
     mainScrollContent: { paddingBottom: 120 },
@@ -1486,8 +1326,8 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
     quickPresetDescription: { marginTop: isMobile ? 1 : 2, fontSize: isMobile ? 10 : 11, lineHeight: isMobile ? 13 : 15, color: theme.textMuted, fontFamily: theme.fontSans },
     quickPresetDescriptionActive: { color: theme.textSecondary },
     quickDaysHeader: {
-      flexDirection: isMobile ? 'column' : 'row',
-      alignItems: isMobile ? 'stretch' : 'center',
+      flexDirection: 'row',
+      alignItems: 'center',
       justifyContent: 'space-between',
       gap: spacing.sm,
     },
@@ -1496,10 +1336,10 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
-      alignSelf: isMobile ? 'stretch' : 'flex-start',
-      gap: 8,
-      paddingVertical: 8,
-      paddingHorizontal: 12,
+      minHeight: isMobile ? 44 : 32,
+      gap: spacing.xs,
+      paddingVertical: spacing.xs,
+      paddingHorizontal: spacing.sm,
       borderRadius: borderRadius.md,
       borderWidth: 1,
       borderColor: theme.border,
@@ -1513,14 +1353,15 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
     quickSelectAllTextActive: { color: theme.primary },
     quickDaysGrid: {
       flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: spacing.sm,
+      flexGrow: 1,
+      gap: spacing.xs,
     },
     quickDayChip: {
-      minWidth: isMobile ? 76 : 96,
-      minHeight: 46,
-      paddingVertical: 9,
-      paddingHorizontal: 12,
+      flex: 1,
+      minWidth: isMobile ? 44 : 68,
+      minHeight: 44,
+      paddingVertical: spacing.xs,
+      paddingHorizontal: 2,
       borderRadius: borderRadius.md,
       borderWidth: 1,
       borderColor: theme.border,
@@ -1538,7 +1379,7 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
     },
     quickDayText: { fontSize: 13, fontWeight: '800', color: theme.textPrimary, fontFamily: theme.fontSansBold },
     quickDayTextActive: { color: theme.primary },
-    quickDayState: { marginTop: 2, fontSize: 10, fontWeight: '600', color: theme.textMuted, fontFamily: theme.fontSansSemiBold },
+    quickDayState: { textAlign: 'center', marginTop: 2, fontSize: 10, fontWeight: '600', color: theme.textMuted, fontFamily: theme.fontSansSemiBold },
     quickDayStateActive: { color: theme.primary },
     quickConfirmPanel: {
       flexDirection: isMobile ? 'column' : 'row',
@@ -1638,8 +1479,8 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
       textAlign: 'center',
     },
     dayRangeSummaryDisabled: { color: theme.textMuted },
-    gridBody: { backgroundColor: theme.borderLight },
-    gridRow: { flexDirection: 'row', height: 22, gap: 1, marginBottom: 1 },
+    gridBody: { height: GRID_VISIBLE_HOURS * GRID_HOUR_HEIGHT, flexGrow: 0, backgroundColor: theme.borderLight },
+    gridRow: { flexDirection: 'row', height: GRID_ROW_HEIGHT, gap: 1, marginBottom: GRID_ROW_GAP },
     timeLabel: { fontSize: 10, fontWeight: '600', color: theme.textMuted, fontFamily: theme.fontSansSemiBold },
     timeColBody: { backgroundColor: theme.bgCard },
     slotCell: { flex: 1, backgroundColor: theme.bgCard },
@@ -1703,7 +1544,6 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
     },
     miniChartBar: { width: '100%', borderRadius: 8 },
     miniChartLabel: { fontSize: 10, fontWeight: '600', color: theme.textMuted, fontFamily: theme.fontSansSemiBold },
-    emptyText: { fontSize: 13, color: theme.textMuted, textAlign: 'center', fontFamily: theme.fontSans },
     settingRow: { marginBottom: spacing.md },
     settingRowLast: { marginBottom: 0 },
     settingLabel: { marginBottom: spacing.sm, fontSize: 13, fontWeight: '700', color: theme.textPrimary, fontFamily: theme.fontSansBold },
@@ -1755,129 +1595,6 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
     },
     billingDurationHintError: {
       color: theme.warning,
-    },
-    modalCloseButton: { width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-    previewOverlay: {
-      flex: 1,
-      backgroundColor: theme.overlay,
-      justifyContent: 'center',
-      alignItems: 'center',
-      padding: spacing.lg,
-    },
-    previewContent: {
-      width: '100%',
-      maxWidth: 980,
-      maxHeight: '92%',
-      borderTopLeftRadius: borderRadius.xl,
-      borderTopRightRadius: borderRadius.xl,
-      borderBottomLeftRadius: borderRadius.xl,
-      borderBottomRightRadius: borderRadius.xl,
-      backgroundColor: theme.bgElevated,
-      borderWidth: 1,
-      borderColor: theme.border,
-      ...shadows.xl,
-    },
-    previewHeader: {
-      flexDirection: 'row',
-      alignItems: 'flex-start',
-      justifyContent: 'space-between',
-      padding: spacing.lg,
-      borderBottomWidth: 1,
-      borderBottomColor: theme.border,
-    },
-    previewHeaderCopy: { flex: 1, gap: spacing.sm, paddingRight: spacing.sm },
-    previewBadge: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 6,
-      alignSelf: 'flex-start',
-      paddingHorizontal: 10,
-      paddingVertical: 6,
-      borderRadius: borderRadius.full,
-      backgroundColor: theme.primaryAlpha12,
-      borderWidth: 1,
-      borderColor: theme.primaryAlpha20,
-    },
-    previewBadgeText: { fontSize: 12, fontWeight: '700', color: theme.primary, fontFamily: theme.fontSansBold },
-    previewTitle: { fontSize: 18, fontWeight: '800', color: theme.textPrimary, fontFamily: theme.fontHeading },
-    previewSubtitle: { marginTop: 2, fontSize: 13, lineHeight: 18, color: theme.textSecondary, fontFamily: theme.fontSans },
-    previewBody: {
-      flexShrink: 1,
-    },
-    previewBodyContent: {
-      padding: spacing.lg,
-      paddingBottom: spacing.lg,
-    },
-    previewLayout: {
-      flexDirection: 'row',
-      gap: spacing.lg,
-      alignItems: 'stretch',
-    },
-    previewCalendarPanel: {
-      flex: 1,
-      width: '100%',
-      flexShrink: 0,
-      marginBottom: 0,
-    },
-    previewAside: {
-      width: 300,
-      gap: spacing.md,
-      flexShrink: 0,
-      marginTop: 0,
-    },
-    previewSectionTitle: { fontSize: 15, fontWeight: '700', color: theme.textPrimary, fontFamily: theme.fontHeading },
-    previewSectionCaption: {
-      marginTop: 4,
-      marginBottom: spacing.md,
-      fontSize: 13,
-      lineHeight: 18,
-      color: theme.textSecondary,
-      fontFamily: theme.fontSans,
-    },
-    previewCalendarShell: {
-      flexShrink: 0,
-      position: 'relative',
-      borderRadius: borderRadius.lg,
-      overflow: 'hidden',
-      borderWidth: 1,
-      borderColor: theme.border,
-      backgroundColor: theme.bgElevated,
-    },
-    previewCalendar: {
-      backgroundColor: theme.bgElevated,
-    },
-    previewInfoCard: {
-      padding: spacing.md,
-      borderRadius: borderRadius.lg,
-      borderWidth: 1,
-      borderColor: theme.border,
-      backgroundColor: isDark ? theme.surfaceMuted : theme.bgMuted,
-      gap: spacing.md,
-    },
-    previewInfoHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm },
-    previewInfoCopy: { flex: 1, gap: 2 },
-    previewInfoTitle: { fontSize: 14, fontWeight: '700', color: theme.textPrimary, fontFamily: theme.fontSansBold },
-    previewInfoText: { fontSize: 12, lineHeight: 17, color: theme.textSecondary, fontFamily: theme.fontSans },
-    previewSlotsScroll: {
-      maxHeight: isMobile ? 156 : 220,
-    },
-    previewSlots: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, paddingRight: spacing.xs },
-    previewSlot: {
-      paddingVertical: 8,
-      paddingHorizontal: 14,
-      borderRadius: borderRadius.md,
-      backgroundColor: theme.primaryAlpha12,
-      borderWidth: 1,
-      borderColor: theme.primary,
-    },
-    previewSlotText: { fontSize: 13, fontWeight: '600', color: theme.primary, fontFamily: theme.fontSansSemiBold },
-    previewFooter: {
-      paddingHorizontal: spacing.lg,
-      paddingTop: spacing.sm,
-      paddingBottom: spacing.lg,
-      borderTopWidth: 1,
-      borderTopColor: theme.borderLight,
-      backgroundColor: theme.bgElevated,
     },
   });
 };

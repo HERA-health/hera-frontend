@@ -619,7 +619,7 @@ describe('ProfessionalAvailabilityScreen', () => {
     expect(screen.getByText('Elegir horario')).toBeTruthy();
   });
 
-  it('keeps manual grid slots available until 23:00', async () => {
+  it('saves both midnight edges of the same weekday', async () => {
     const props = {
       navigation: { navigate: jest.fn() },
     } as unknown as React.ComponentProps<typeof ProfessionalAvailabilityScreen>;
@@ -628,7 +628,8 @@ describe('ProfessionalAvailabilityScreen', () => {
 
     await screen.findByText('Patrones rápidos');
     fireEvent.press(screen.getByLabelText('Activar Lunes'));
-    fireEvent.press(screen.getByLabelText('Lunes 22:30-23:00'));
+    fireEvent.press(screen.getByLabelText('Lunes 00:00-00:30'));
+    fireEvent.press(screen.getByLabelText('Lunes 23:30-24:00'));
 
     await waitFor(() => {
       expect(screen.getByText('Cambios sin guardar')).toBeTruthy();
@@ -639,7 +640,7 @@ describe('ProfessionalAvailabilityScreen', () => {
     await waitFor(() => {
       expect(mockedAvailabilityService.updateWeeklySchedule).toHaveBeenCalledWith(
         {
-          monday: [{ start: '22:30', end: '23:00' }],
+          monday: [{ start: '00:00', end: '00:30' }, { start: '23:30', end: '24:00' }],
           tuesday: null,
           wednesday: null,
           thursday: null,
@@ -764,11 +765,7 @@ describe('ProfessionalAvailabilityScreen', () => {
     });
   });
 
-  it('shows full availability ranges in preview instead of raw slot starts', async () => {
-    mockedAvailabilityService.getMyWeeklyScheduleSnapshot.mockResolvedValue(createScheduleSnapshot({
-      ...emptyWeeklySchedule,
-      monday: [{ start: '07:00', end: '23:00' }],
-    }));
+  it('shows save without the preview action', async () => {
     const props = {
       navigation: { navigate: jest.fn() },
     } as unknown as React.ComponentProps<typeof ProfessionalAvailabilityScreen>;
@@ -776,10 +773,8 @@ describe('ProfessionalAvailabilityScreen', () => {
     render(<ProfessionalAvailabilityScreen {...props} />);
 
     await screen.findByText('Patrones rápidos');
-    fireEvent.press(screen.getByText('Vista previa'));
-
-    expect(screen.getByText('07:00-23:00')).toBeTruthy();
-    expect(screen.queryByText('22:30')).toBeNull();
+    expect(screen.getByText('Guardar')).toBeTruthy();
+    expect(screen.queryByText('Vista previa')).toBeNull();
   });
 });
 

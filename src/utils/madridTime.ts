@@ -59,7 +59,6 @@ const getTimeZoneDateParts = (date: Date, timeZone: string): DateKeyParts & Time
     day: 'numeric',
     hour: 'numeric',
     minute: 'numeric',
-    hour12: false,
     hourCycle: 'h23',
   });
   const parts = formatter.formatToParts(date);

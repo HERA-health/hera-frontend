@@ -79,7 +79,7 @@ describe('availabilityService private professional reads', () => {
             ...emptyWeeklySchedule,
             monday: [
               { startTime: '08:00', endTime: '14:00' },
-              { startTime: '16:00', endTime: '20:00' },
+              { startTime: '16:00', endTime: '24:00' },
             ],
           },
           scheduleRevision: 'rev-current',
@@ -94,7 +94,7 @@ describe('availabilityService private professional reads', () => {
         ...emptyWeeklySchedule,
         monday: [
           { start: '08:00', end: '14:00' },
-          { start: '16:00', end: '20:00' },
+          { start: '16:00', end: '24:00' },
         ],
       },
       scheduleRevision: 'rev-current',
@@ -187,7 +187,7 @@ describe('availabilityService private professional reads', () => {
         data: {
           schedule: {
             ...emptyWeeklySchedule,
-            monday: [{ start: '06:30', end: '08:00' }],
+            monday: [{ start: '23:30', end: '24:30' }],
           },
           specialistId: 'specialist-1',
         },
