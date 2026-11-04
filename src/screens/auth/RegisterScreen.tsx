@@ -487,7 +487,7 @@ export function RegisterScreen() {
                   <Text onPress={() => { if (legalDocuments.length) setTermsAccepted(value => !value); }}>Confirmo haber recibido la</Text>{' '}
                   {registrationLink('PRIVACY_POLICY', 'política de privacidad')}
                   {' y acepto los '}
-                  {registrationLink('TERMS_OF_SERVICE', userType === 'professional' ? 'términos para especialistas' : userType === 'clinic' ? 'términos aplicables a clínicas' : 'términos para pacientes')}
+                  {registrationLink('TERMS_OF_SERVICE', userType === 'professional' ? 'términos para especialistas' : userType === 'clinic' ? 'términos de uso' : 'términos para pacientes')}
                   {userType === 'professional' ? (
                     <>
                       {' (incluidas las condiciones de comisiones del Directorio) y el '}
