@@ -21,6 +21,8 @@ import { publicProfilePrice } from './publicProfilePresentation';
 import { useProfileObstruction } from './useProfileObstruction';
 
 interface Props {
+  presentationContext?: 'public' | 'patient';
+  assistedStart?: boolean;
   specialist: Specialist;
   reviews: Review[];
   reviewsVisible: boolean;
@@ -34,7 +36,7 @@ interface Props {
   onBookSession: (slot?: SelectedProfileSlot, optionId?: string) => void;
   onOpenCertificate: (certificate: CertificateItem) => void;
   onReviewSubmitted: () => void;
-  onScrollChange: (scrolled: boolean) => void;
+  onScrollChange?: (scrolled: boolean) => void;
 }
 
 export function PublicSpecialistProfileLayout(props: Props) {
@@ -43,16 +45,23 @@ export function PublicSpecialistProfileLayout(props: Props) {
 }
 
 function ProfileContent({ specialist, reviews, reviewsVisible, canBook, isAuthenticated, isClient, initialOptionId, renderPackageAction, notice,
-  onBrowseSpecialists, onBookSession, onOpenCertificate, onReviewSubmitted, onScrollChange }: Props) {
+  onBrowseSpecialists, onBookSession, onOpenCertificate, onReviewSubmitted, onScrollChange,
+  presentationContext = 'public', assistedStart = false }: Props) {
   const { theme } = useTheme();
-  const { width } = useWindowDimensions();
+  const { width: windowWidth } = useWindowDimensions();
+  const [containerWidth, setContainerWidth] = useState<number | null>(null);
+  const embedded = presentationContext === 'patient';
+  const width = embedded ? containerWidth ?? windowWidth : windowWidth;
+  const contentTop = embedded ? 16 : 78;
+  const headerOcclusion = embedded ? 0 : 78;
+  const bookingLabel = assistedStart ? 'Pedir ayuda para la primera cita' : 'Reservar';
   const [desktop, setDesktop] = useState(width >= 1200);
   const mobile = width < 768;
   const [optionId, setOptionId] = useState(initialOptionId);
   const option = specialist.publicOptions?.find(item => item.optionId === optionId) ?? specialist.publicOptions?.[0];
   const resolvedOptionId = option?.optionId;
   const [slotState, setSlotState] = useState<{ optionId?: string; slot: SelectedProfileSlot } | null>(null);
-  const selectedSlot = slotState?.optionId === resolvedOptionId ? slotState?.slot ?? null : null;
+  const selectedSlot = !assistedStart && slotState?.optionId === resolvedOptionId ? slotState?.slot ?? null : null;
   const [validatedOptionId, setValidatedOptionId] = useState<string | null>(null);
   const selectionValidated = validatedOptionId === (resolvedOptionId ?? 'default');
   const [availabilityNotice, setAvailabilityNotice] = useState('');
@@ -93,10 +102,10 @@ function ProfileContent({ specialist, reviews, reviewsVisible, canBook, isAuthen
     if (!canBook || (slot && !selectionValidated)) return;
     onBookSession(slot, resolvedOptionId);
   };
-  const ctaTop = 78 + columnsY + summaryY + cta.y - scrollY;
-  const ctaVisible = cta.height > 0 && ctaTop >= 78 && ctaTop + cta.height <= viewportHeight;
+  const ctaTop = contentTop + columnsY + summaryY + cta.y - scrollY;
+  const ctaVisible = cta.height > 0 && ctaTop >= headerOcclusion && ctaTop + cta.height <= viewportHeight;
   const showBar = !desktop && canBook && !packagesOpen && !obstructed && !ctaVisible;
-  const jumpTo = (y: number) => scrollRef.current?.scrollTo({ y: Math.max(0, 78 + columnsY + y - 96), animated: false });
+  const jumpTo = (y: number) => scrollRef.current?.scrollTo({ y: Math.max(0, contentTop + columnsY + y - headerOcclusion - 18), animated: false });
   const section = styles.section;
   const hasPublishedReviews = reviewsVisible && specialist.reviewCount > 0 && reviews.length > 0;
   const reviewSection = reviewsVisible ? <View key="reviews" style={section} onLayout={event => { reviewsY.current = event.nativeEvent.layout.y; }}>
@@ -104,12 +113,13 @@ function ProfileContent({ specialist, reviews, reviewsVisible, canBook, isAuthen
       reviews={reviews} rating={specialist.rating} reviewCount={specialist.reviewCount} isAuthenticated={isAuthenticated} isClient={isClient} onReviewSubmitted={onReviewSubmitted} />
   </View> : null;
   const summary = <PublicBookingSummary specialist={specialist} option={option} selectedSlot={selectedSlot} canBook={canBook}
-    packageAction={renderPackageAction?.(setPackagesOpen)}
+    packageAction={!assistedStart ? renderPackageAction?.(setPackagesOpen) : undefined}
+    bookingLabel={bookingLabel}
     selectionValidated={selectionValidated}
     onContinue={() => continueBooking(selectedSlot ?? undefined)}
     onCtaLayout={(y, height) => setCta(current => current.y === y && current.height === height ? current : { y, height })} />;
   const bookingDetails = <>
-    {canBook ? <View style={[styles.panel, { backgroundColor: theme.bgCard, borderColor: theme.borderLight }]}>
+    {canBook && !assistedStart ? <View style={[styles.panel, { backgroundColor: theme.bgCard, borderColor: theme.borderLight }]}>
       {availabilityNotice ? <Text accessibilityRole="alert" style={{ color: theme.textPrimary, fontFamily: theme.fontSansSemiBold, fontSize: 13, lineHeight: 20 }}>{availabilityNotice}</Text> : null}
       <SelectableAvailabilityPreview key={resolvedOptionId ?? 'default'} compact revalidateOnFocus specialistId={specialist.id}
         optionId={resolvedOptionId} nextAvailable={specialist.nextAvailable} selectedSlot={selectedSlot}
@@ -120,10 +130,11 @@ function ProfileContent({ specialist, reviews, reviewsVisible, canBook, isAuthen
   </>;
   const gallery = specialist.photoGallery?.length ? <PhotoGallerySection compact photoGallery={specialist.photoGallery} specialistName={specialist.name} /> : null;
   const location = specialist.offersInPerson && specialist.address ? <PublicProfileLocation specialist={specialist} /> : null;
-  return <View style={styles.root}>
+  return <View testID="specialist-profile-layout" style={[styles.root, embedded && { backgroundColor: theme.bgMuted }]}
+    onLayout={embedded ? event => setContainerWidth(event.nativeEvent.layout.width) : undefined}>
     <ScrollView ref={scrollRef} onLayout={event => setViewportHeight(event.nativeEvent.layout.height)}
-      scrollEventThrottle={32} onScroll={event => { const y = event.nativeEvent.contentOffset.y; setScrollY(y); onScrollChange(y > 24); }}
-      contentContainerStyle={[styles.scrollContent, { paddingHorizontal: mobile ? 20 : 32, paddingBottom: desktop ? 64 : barHeight + 32 }]}>
+      scrollEventThrottle={32} onScroll={event => { const y = event.nativeEvent.contentOffset.y; setScrollY(y); onScrollChange?.(y > 24); }}
+      contentContainerStyle={[styles.scrollContent, { paddingTop: contentTop, paddingHorizontal: mobile ? 20 : 32, paddingBottom: desktop ? 64 : barHeight + 32 }]}>
       <View style={styles.container}>
         {notice}
         <Pressable accessibilityRole="link" accessibilityLabel="Ver todos los especialistas" onPress={onBrowseSpecialists} style={styles.back}>
@@ -131,7 +142,7 @@ function ProfileContent({ specialist, reviews, reviewsVisible, canBook, isAuthen
         </Pressable>
         <View onLayout={event => setColumnsY(event.nativeEvent.layout.y)} style={[styles.columns, desktop && styles.columnsDesktop]}>
           <View style={styles.main}>
-            <PublicProfileHero specialist={specialist} reviewsVisible={reviewsVisible} onPractice={() => jumpTo(practiceY.current)}
+            <PublicProfileHero specialist={specialist} layoutWidth={embedded ? width : undefined} reviewsVisible={reviewsVisible} onPractice={() => jumpTo(practiceY.current)}
               onReviews={() => jumpTo(reviewsY.current)} onShare={() => void actions.shareProfile()}
               onFavorite={() => void actions.toggleFavorite()} showFavorite={isAuthenticated && isClient}
               isFavorite={actions.isFavorite} favoriteLoading={actions.favoriteLoading} />
@@ -164,7 +175,7 @@ function ProfileContent({ specialist, reviews, reviewsVisible, canBook, isAuthen
           <Text style={{ color: theme.textSecondary, fontFamily: theme.fontSans, fontSize: 12, lineHeight: 18 }}>{option?.durationMinutes ? `${option.durationMinutes} min · por sesión` : 'por sesión'}</Text>
         </View>
         <Button disabled={Boolean(selectedSlot && !selectionValidated)} onPress={() => continueBooking(selectedSlot ?? undefined)} style={{ flex: 1, minWidth: 170, maxWidth: 260, paddingHorizontal: 12 }}
-          textStyle={{ fontSize: 13 }}>Reservar</Button>
+          textStyle={{ fontSize: 13 }}>{bookingLabel}</Button>
       </View>
     </SafeAreaView> : null}
 

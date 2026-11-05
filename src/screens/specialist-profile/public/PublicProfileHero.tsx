@@ -12,6 +12,7 @@ import { publicProfileExcerpt } from './publicProfilePresentation';
 import { LanguageIcon } from '../../../components/common/LanguageIcon';
 
 interface Props {
+  layoutWidth?: number;
   specialist: Specialist;
   onPractice: () => void;
   onReviews: () => void;
@@ -23,9 +24,10 @@ interface Props {
   favoriteLoading: boolean;
 }
 
-export function PublicProfileHero({ specialist, onPractice, onReviews, reviewsVisible = true, onShare, onFavorite, showFavorite, isFavorite, favoriteLoading }: Props) {
+export function PublicProfileHero({ specialist, onPractice, onReviews, reviewsVisible = true, onShare, onFavorite, showFavorite, isFavorite, favoriteLoading, layoutWidth }: Props) {
   const { theme } = useTheme();
-  const { width } = useWindowDimensions();
+  const { width: windowWidth } = useWindowDimensions();
+  const width = layoutWidth ?? windowWidth;
   const mobile = width < 768;
   const desktop = width >= 1200;
   const { options } = useProfileOptions();

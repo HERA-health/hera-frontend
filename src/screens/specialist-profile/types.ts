@@ -225,10 +225,6 @@ export interface VideoSectionProps {
   gradientColors: [string, string];
 }
 
-export interface ProfileSkeletonProps {
-  isDesktop?: boolean;
-}
-
 // Specialization icon mapping
 export const SPECIALIZATION_ICONS: Record<string, string> = {
   'Ansiedad': '😰',

@@ -15,7 +15,6 @@ import ProfileAvailabilityPreview from './ProfileAvailabilityPreview';
 import ProfileDisclosureSection from './ProfileDisclosureSection';
 import PhotoGallerySection from './PhotoGallerySection';
 import VideoSection from './VideoSection';
-import ProfileSkeleton from './ProfileSkeleton';
 
 export {
   ProfileHero,
@@ -31,5 +30,4 @@ export {
   ProfileDisclosureSection,
   PhotoGallerySection,
   VideoSection,
-  ProfileSkeleton,
 };

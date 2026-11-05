@@ -1,5 +1,6 @@
 import React from 'react';
-import { Pressable, Text } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text } from 'react-native';
+import * as native from 'react-native';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
 import { useProfileOptions } from '../../../../hooks/useProfileOptions';
 import { useDiscoveryRevalidation } from '../../../../hooks/useDiscoveryRevalidation';
@@ -48,6 +49,50 @@ const props = {
   onReviewSubmitted: jest.fn(), onScrollChange: jest.fn(),
 };
 const summary = () => within(screen.getByTestId('public-booking-summary'));
+
+it('uses the patient container width for both columns and portrait, and keeps the public header spacing by default', async () => {
+  const dimensions = jest.spyOn(native, 'useWindowDimensions').mockReturnValue({ width: 1536, height: 864, scale: 1, fontScale: 1 });
+  try {
+    const view = render(<PublicSpecialistProfileLayout {...props} presentationContext="patient" />);
+    const resizeContainer = (width: number) => fireEvent(screen.getByTestId('specialist-profile-layout'), 'layout', { nativeEvent: { layout: { width, height: 770, x: 0, y: 0 } } });
+    resizeContainer(1100);
+    expect(screen.getByTestId('public-profile-booking-bar')).toBeTruthy();
+    expect(view.UNSAFE_getByType(PublicProfileHero).props.layoutWidth).toBe(1100);
+    expect(StyleSheet.flatten(view.UNSAFE_getAllByType(ScrollView)[0].props.contentContainerStyle).paddingTop).toBe(16);
+    resizeContainer(1250);
+    expect(screen.queryByTestId('public-profile-booking-bar')).toBeNull();
+    expect(view.UNSAFE_getByType(PublicProfileHero).props.layoutWidth).toBe(1250);
+    view.rerender(<PublicSpecialistProfileLayout {...props} />);
+    expect(view.UNSAFE_getByType(PublicProfileHero).props.layoutWidth).toBeUndefined();
+    expect(StyleSheet.flatten(view.UNSAFE_getAllByType(ScrollView)[0].props.contentContainerStyle).paddingTop).toBe(78);
+    await act(async () => {});
+  } finally { dimensions.mockRestore(); }
+});
+
+it('keeps the patient booking bar hidden when the CTA is visible above the former public-header offset', async () => {
+  const view = render(<PublicSpecialistProfileLayout {...props} presentationContext="patient" />);
+  const scroll = view.UNSAFE_getAllByType(ScrollView)[0];
+  fireEvent(scroll, 'layout', { nativeEvent: { layout: { height: 844, width: 390, x: 0, y: 0 } } });
+  const { PublicBookingSummary } = jest.requireActual<typeof import('../PublicBookingSummary')>('../PublicBookingSummary');
+  act(() => view.UNSAFE_getByType(PublicBookingSummary).props.onCtaLayout(10, 44));
+  expect(screen.queryByTestId('public-profile-booking-bar')).toBeNull();
+  fireEvent.scroll(scroll, { nativeEvent: { contentOffset: { y: 100, x: 0 } } });
+  expect(screen.getByTestId('public-profile-booking-bar')).toBeTruthy();
+  await act(async () => {});
+});
+
+it('uses the assisted action in both CTAs and suppresses time selection and packages', async () => {
+  render(<PublicSpecialistProfileLayout {...props} presentationContext="patient" assistedStart
+    renderPackageAction={() => <Text>Comprar bono de sesiones</Text>} />);
+  expect(screen.queryByText('Disponibilidad')).toBeNull();
+  expect(screen.queryByText('Comprar bono de sesiones')).toBeNull();
+  expect(sessions.getAvailableSlots).not.toHaveBeenCalled();
+  fireEvent.press(within(screen.getByTestId('public-profile-booking-bar')).getByText('Pedir ayuda para la primera cita'));
+  expect(props.onBookSession).toHaveBeenCalledWith(undefined, 'video');
+  fireEvent.press(summary().getByText('Pedir ayuda para la primera cita'));
+  expect(props.onBookSession).toHaveBeenCalledTimes(2);
+  await act(async () => {});
+});
 
 it('shows declared experience and does not restore legacy years after removal', async () => {
   const view = render(<PublicSpecialistProfileLayout {...props} specialist={{ ...specialist, yearsInPractice: 1, experienceYears: 10 }} />);

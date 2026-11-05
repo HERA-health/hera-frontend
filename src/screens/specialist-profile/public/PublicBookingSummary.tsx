@@ -9,6 +9,7 @@ import { formatProfileSlotLabel } from '../profilePresentation';
 import { publicAvailabilityLabel, publicModalityLabel, publicProfilePrice } from './publicProfilePresentation';
 
 export interface PublicBookingSummaryProps {
+  bookingLabel?: string;
   specialist: Specialist;
   option?: PublicPriceOption;
   selectedSlot: SelectedProfileSlot | null;
@@ -19,7 +20,7 @@ export interface PublicBookingSummaryProps {
   packageAction?: React.ReactNode;
 }
 
-export function PublicBookingSummary({ specialist, option, selectedSlot, canBook, selectionValidated, onContinue, onCtaLayout, packageAction }: PublicBookingSummaryProps) {
+export function PublicBookingSummary({ specialist, option, selectedSlot, canBook, selectionValidated, onContinue, onCtaLayout, packageAction, bookingLabel = 'Reservar' }: PublicBookingSummaryProps) {
   const { theme } = useTheme();
   const body = { color: theme.textSecondary, fontFamily: theme.fontSans };
   const strong = { color: theme.textPrimary, fontFamily: theme.fontSansSemiBold };
@@ -51,7 +52,7 @@ export function PublicBookingSummary({ specialist, option, selectedSlot, canBook
         style={{ minHeight: 44, paddingVertical: 10, paddingHorizontal: 12 }}
         textStyle={{ fontSize: 13 }}
         icon={canBook ? <Ionicons name="arrow-forward" size={17} color={theme.actionPrimaryText} /> : undefined} iconPosition="right">
-        {canBook ? 'Reservar' : 'No acepta reservas ahora'}
+        {canBook ? bookingLabel : 'No acepta reservas ahora'}
       </Button>
       </View>
       {packageAction}

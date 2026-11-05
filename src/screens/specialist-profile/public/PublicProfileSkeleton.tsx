@@ -1,14 +1,18 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { ActivityIndicator, View, useWindowDimensions } from 'react-native';
 import { useTheme } from '../../../contexts/ThemeContext';
 
-export function PublicProfileSkeleton() {
+export function PublicProfileSkeleton({ presentationContext = 'public' }: { presentationContext?: 'public' | 'patient' }) {
   const { theme } = useTheme();
-  const { width } = useWindowDimensions();
+  const { width: windowWidth } = useWindowDimensions();
+  const [containerWidth, setContainerWidth] = useState<number | null>(null);
+  const embedded = presentationContext === 'patient';
+  const width = embedded ? containerWidth ?? windowWidth : windowWidth;
   const mobile = width < 768;
   const desktop = width >= 1200;
   return <View accessibilityLabel="Cargando perfil" accessibilityState={{ busy: true }}
-    style={{ paddingTop: 130, paddingHorizontal: mobile ? 20 : 32 }}>
+    onLayout={embedded ? event => setContainerWidth(event.nativeEvent.layout.width) : undefined}
+    style={{ paddingTop: embedded ? 68 : 130, paddingHorizontal: mobile ? 20 : 32, ...(embedded ? { flex: 1, backgroundColor: theme.bgMuted } : {}) }}>
     <View style={{ width: '100%', maxWidth: 1440, alignSelf: 'center', flexDirection: desktop ? 'row' : 'column', gap: 32 }}>
       <View style={{ flex: 1, minWidth: 0, gap: 24 }}>
         <View style={{ flexDirection: 'row', gap: mobile ? 16 : 28 }}>

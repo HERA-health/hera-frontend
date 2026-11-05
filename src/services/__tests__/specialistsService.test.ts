@@ -25,6 +25,8 @@ import {
   getFeaturedSpecialists,
   getAllSpecialists,
   getPublicSpecialistDetails,
+  getSpecialistDetails,
+  SpecialistDetailsError,
   getPublicSpecialistDirectory,
   invalidateSpecialistsCache,
   getSpecialistPersonalization,
@@ -41,6 +43,18 @@ import {
 
 const mockedApi = api as jest.Mocked<typeof api>;
 const mockedWebBrowser = jest.mocked(WebBrowser);
+
+describe('authenticated specialist profile errors', () => {
+  it.each([401, 403, 404, 410, 503])('preserves HTTP %s for access loss and refresh handling', async status => {
+    mockedApi.get.mockRejectedValueOnce({ isAxiosError: true, response: { status, data: { message: 'No disponible' } } });
+    await expect(getSpecialistDetails('one')).rejects.toMatchObject({ name: 'SpecialistDetailsError', status });
+  });
+
+  it('recognizes session expiry after the API interceptor has attempted refresh', async () => {
+    mockedApi.get.mockRejectedValueOnce(Object.assign(new Error('Sesión caducada'), { code: 'SESSION_EXPIRED' }));
+    await expect(getSpecialistDetails('one')).rejects.toEqual(new SpecialistDetailsError('Sesión caducada', 401));
+  });
+});
 
 describe('specialistsService personalization', () => {
   beforeEach(() => {

@@ -636,6 +636,13 @@ export const getPublicSpecialistDirectory = async (
 /**
  * Gets detailed information about a specific specialist
  */
+export class SpecialistDetailsError extends Error {
+  constructor(message: string, readonly status?: number) {
+    super(message);
+    this.name = 'SpecialistDetailsError';
+  }
+}
+
 export const getSpecialistDetails = async (specialistId: string): Promise<SpecialistData> => {
   if (!specialistId || specialistId === 'undefined' || specialistId === 'null' || specialistId.trim() === '') {
     throw new Error('Invalid specialist ID: Cannot fetch details for undefined or null specialist');
@@ -645,7 +652,11 @@ export const getSpecialistDetails = async (specialistId: string): Promise<Specia
     const response = await api.get<{ success: boolean; data: SpecialistData }>(`/specialists/${specialistId}`);
     return response.data.data;
   } catch (error: unknown) {
-    throw new Error(getErrorMessage(error, 'Error al cargar detalles del especialista'));
+    const sessionExpired = error instanceof Error && 'code' in error && error.code === 'SESSION_EXPIRED';
+    throw new SpecialistDetailsError(
+      getErrorMessage(error, 'Error al cargar detalles del especialista'),
+      sessionExpired ? 401 : isAxiosError(error) ? error.response?.status : undefined,
+    );
   }
 };
 
