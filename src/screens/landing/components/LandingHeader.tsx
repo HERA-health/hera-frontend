@@ -34,7 +34,6 @@ interface LandingHeaderProps {
   accessIconName?: React.ComponentProps<typeof Ionicons>['name'];
   onLogoPress?: () => void;
   onFindSpecialist?: () => void;
-  onQuestionnaire?: () => void;
   onExploreProfessionals?: () => void;
   onAccess: () => void;
   onViewPlans?: () => void;
@@ -56,7 +55,6 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
   accessIconName = 'arrow-forward',
   onLogoPress,
   onFindSpecialist,
-  onQuestionnaire,
   onExploreProfessionals,
   onAccess,
   onViewPlans,
@@ -65,7 +63,6 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
   const { width } = useWindowDimensions();
   const { theme, isDark } = useTheme();
   const isMobile = width < MOBILE_BREAKPOINT;
-  const questionnaireSeparateRow = Boolean(onQuestionnaire) && width < BRAND_DESCRIPTOR_BREAKPOINT;
   // The extra catalogue link needs the same room as the landing's full navigation.
   const isWide = width >= (context === 'landing' || onViewPlans ? BRAND_DESCRIPTOR_BREAKPOINT : WIDE_HEADER_BREAKPOINT);
   const showBrandDescriptor = width >= BRAND_DESCRIPTOR_BREAKPOINT && (!onViewPlans || width >= 1600);
@@ -127,7 +124,7 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
   ) : null;
 
   const navigationLinks = (
-    <View style={[styles.navLinks, onQuestionnaire && styles.navigationRow]}>
+    <View style={styles.navLinks}>
       {(onScrollToSection ? PUBLIC_HEADER_LINKS : []).map((item) => (
         <React.Fragment key={item.id}>
           <AnimatedPressable
@@ -208,11 +205,10 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
           ) : null}
         </View>
 
-        {isWide && !onQuestionnaire ? navigationLinks : null}
+        {isWide ? navigationLinks : null}
 
         <View style={styles.actions}>
           {!isWide ? plansLink : null}
-          {onQuestionnaire && !questionnaireSeparateRow ? <AnimatedPressable accessibilityRole="link" href="/cuestionario" onPress={onQuestionnaire} style={[styles.secondaryAction, {borderColor: theme.border}]}><Text style={{color: theme.primary, fontFamily: theme.fontSansSemiBold}}>Hacer el cuestionario</Text></AnimatedPressable> : null}
           <ThemeToggleButton size="sm" />
 
           {!isMobile && !isDirectory && onFindSpecialist ? (
@@ -247,7 +243,7 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
             </AnimatedPressable>
           ) : null}
 
-          {!isMobile && !isWide && !isAccess && onExploreProfessionals && (context !== 'landing' || width >= (onQuestionnaire ? BRAND_DESCRIPTOR_BREAKPOINT : COMPACT_PROFESSIONAL_LINK_BREAKPOINT)) ? (
+          {!isMobile && !isWide && !isAccess && onExploreProfessionals && (context !== 'landing' || width >= COMPACT_PROFESSIONAL_LINK_BREAKPOINT) ? (
             <AnimatedPressable
               onPress={onExploreProfessionals}
               href="/?section=forSpecialists"
@@ -296,8 +292,6 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
           ) : null}
         </View>
       </View>
-      {isWide && onQuestionnaire ? navigationLinks : null}
-      {onQuestionnaire && questionnaireSeparateRow ? <AnimatedPressable accessibilityRole="link" href="/cuestionario" onPress={onQuestionnaire} style={{minHeight: 44, paddingHorizontal: 16, justifyContent: 'center', alignItems: 'center', borderTopWidth: 1, borderColor: theme.border}}><Text style={{color: theme.primary, fontFamily: theme.fontSansSemiBold}}>Hacer el cuestionario →</Text></AnimatedPressable> : null}
     </Animated.View>
   );
 };
@@ -373,12 +367,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 12,
-  },
-  navigationRow: {
-    flex: 0,
-    minHeight: 44,
-    paddingHorizontal: 24,
-    paddingBottom: 6,
   },
   navLink: {
     paddingVertical: 8,

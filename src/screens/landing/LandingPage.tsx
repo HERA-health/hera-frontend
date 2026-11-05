@@ -429,7 +429,6 @@ export const LandingPage: React.FC = () => {
       />
 
       <LandingHeader
-        onQuestionnaire={() => navigation.navigate('Questionnaire')}
         onViewPlans={() => navigation.navigate('Pricing')}
         context="landing"
         isScrolled={headerScrolled}
