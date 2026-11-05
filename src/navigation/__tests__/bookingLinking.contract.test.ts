@@ -5,6 +5,12 @@ const readSource = (relativePath: string): string =>
   fs.readFileSync(path.join(__dirname, '..', '..', '..', relativePath), 'utf8');
 
 describe('booking navigation contract', () => {
+  it('uses the patient presentation only inside the workspace layout', () => {
+    const source = readSource('src/navigation/RootNavigator.tsx');
+    expect(source).toContain("displayName: 'BookingRoute', exportName: 'PatientBookingScreen'");
+    expect(source).toContain("displayName: 'PublicBookingRoute', exportName: 'BookingScreen'");
+  });
+
   it('defines a reloadable canonical URL for booking', () => {
     const appSource = readSource('App.tsx');
 

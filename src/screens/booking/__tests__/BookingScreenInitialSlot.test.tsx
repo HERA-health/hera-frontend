@@ -4,6 +4,7 @@ jest.mock('../../../services/patientDirectoryService', () => ({
 }));
 jest.mock('../../../services/sessionPaymentService', () => ({ storePaymentAccess: jest.fn(), paymentAmount: (cents: number) => `${cents / 100} EUR` }));
 import React from 'react';
+import { ScrollView, StyleSheet } from 'react-native';
 jest.mock('../../../services/packagePaymentService', () => ({ storePackagePaymentAccess: jest.fn() }));
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
 
@@ -16,7 +17,9 @@ import * as specialistsService from '../../../services/specialistsService';
 import * as packageService from '../../../services/packageService';
 import { loadPublicBookingOptions, type PrivateServiceOption } from '../../../services/privateCatalogService';
 import { patientPackage } from '../../../components/packages/testing/packageFixtures';
-import { BookingScreen } from '../BookingScreen';
+import { BookingScreen, PatientBookingScreen } from '../BookingScreen';
+import { LandingHeader } from '../../landing/components/LandingHeader';
+import { CompactCalendarColumn, ProfessionalInfoColumn, TimeSlotsColumn } from '../components';
 
 jest.mock('../../../services/packageService', () => ({
   loadPatientPackages: jest.fn(), loadPublicPackageCatalog: jest.fn(), quotePackage: jest.fn(), acquirePackage: jest.fn(),
@@ -129,6 +132,9 @@ jest.mock('../components', () => {
   };
 });
 
+const native = jest.requireActual<typeof import('react-native')>('react-native');
+let dimensionsSpy: jest.SpyInstance<ReturnType<typeof native.useWindowDimensions>, []> | undefined;
+
 const mockedUseTheme = jest.mocked(useTheme);
 const mockedUseAuth = jest.mocked(useAuth);
 const mockedSessionsService = jest.mocked(sessionsService);
@@ -223,6 +229,58 @@ describe('BookingScreen initial slot preselection', () => {
 
   afterEach(() => {
     jest.clearAllMocks();
+    dimensionsSpy?.mockRestore();
+  });
+
+  it('omits the public header while loading, on error, and after retry in the patient workspace', async () => {
+    mockedSpecialistsService.getPublicSpecialistDetails.mockRejectedValueOnce(new Error('Unavailable'));
+    const view = render(<PatientBookingScreen route={routeWithoutInitialSlot} navigation={navigation} />);
+    expect(screen.getByText('Preparando tu reserva')).toBeTruthy();
+    expect(view.UNSAFE_queryAllByType(LandingHeader)).toHaveLength(0);
+    await screen.findByText('No se pudo abrir la reserva');
+    expect(view.UNSAFE_queryAllByType(LandingHeader)).toHaveLength(0);
+    fireEvent.press(screen.getByText('Reintentar'));
+    await screen.findByText('Tipo de servicio');
+    expect(view.UNSAFE_queryAllByType(LandingHeader)).toHaveLength(0);
+    expect(StyleSheet.flatten(view.UNSAFE_getAllByType(ScrollView)[0].props.contentContainerStyle).paddingTop).toBe(16);
+  });
+
+  it('keeps the public header and window-based layout by default, even for a signed-in client', async () => {
+    dimensionsSpy = jest.spyOn(native, 'useWindowDimensions').mockReturnValue({ width: 1536, height: 960, scale: 1, fontScale: 1 });
+    const view = render(<BookingScreen route={routeWithoutInitialSlot} navigation={navigation} />);
+    expect(view.UNSAFE_queryAllByType(LandingHeader)).toHaveLength(1);
+    await screen.findByText('Tipo de servicio');
+    await act(async () => fireEvent(screen.getByTestId('booking-layout'), 'layout', { persist: jest.fn(), nativeEvent: { layout: { width: 700, height: 600, x: 0, y: 0 } } }));
+    expect(view.UNSAFE_queryAllByType(LandingHeader)).toHaveLength(1);
+    expect(screen.getByText('booking:none:none')).toBeTruthy();
+    expect(view.UNSAFE_getByType(CompactCalendarColumn).props.layoutWidth).toBeUndefined();
+    expect(view.UNSAFE_getByType(ProfessionalInfoColumn).props.headerHeight).toBeUndefined();
+    expect(StyleSheet.flatten(view.UNSAFE_getAllByType(ScrollView)[0].props.contentContainerStyle).paddingTop).toBe(80);
+  });
+
+  it('adapts to the patient container and preserves the chosen appointment when the sidebar or viewport changes', async () => {
+    dimensionsSpy = jest.spyOn(native, 'useWindowDimensions').mockReturnValue({ width: 1536, height: 960, scale: 1, fontScale: 1 });
+    mockedSessionsService.getAvailableSlots.mockResolvedValue([{ startTime: '10:00', endTime: '11:00', available: true }]);
+    mockedSessionsService.createSession.mockImplementationOnce(() => new Promise(() => undefined));
+    const view = render(<PatientBookingScreen route={{ params: { ...route.params, optionId: 'VIDEO_CALL', intentToken: 'resize-intent' } }} navigation={navigation} />);
+    await screen.findByText('slots:10:00:1');
+    const resize = (width: number) => act(async () => fireEvent(screen.getByTestId('booking-layout'), 'layout', { persist: jest.fn(), nativeEvent: { layout: { width, height: 700, x: 0, y: 0 } } }));
+    await resize(1100);
+    expect(screen.queryByText('booking:2026-06-25:10:00')).toBeNull();
+    expect(view.UNSAFE_getByType(CompactCalendarColumn).props.layoutWidth).toBe(1100);
+    await resize(1300);
+    expect(screen.getByText('booking:2026-06-25:10:00')).toBeTruthy();
+    expect(view.UNSAFE_getByType(ProfessionalInfoColumn).props).toMatchObject({ availableHeight: 700, headerHeight: 0 });
+    await resize(700);
+    expect(screen.queryByText('booking:2026-06-25:10:00')).toBeNull();
+    expect(view.UNSAFE_getByType(TimeSlotsColumn).props.layoutWidth).toBe(700);
+    expect(screen.getByText('slots:10:00:1')).toBeTruthy();
+    expect(mockedSessionsService.getAvailableSlots).toHaveBeenCalledTimes(1);
+    fireEvent.press(screen.getByText('Confirmar cita'));
+    await waitFor(() => expect(mockedSessionsService.createSession).toHaveBeenCalledWith(expect.objectContaining({
+      specialistId: 'specialist-1', optionId: 'VIDEO_CALL', intentToken: 'resize-intent',
+      date: '2026-06-25T08:00:00.000Z', duration: 60, type: 'VIDEO_CALL',
+    })));
   });
 
   it('shows a loading state instead of unavailable services while the catalog is pending', async () => {

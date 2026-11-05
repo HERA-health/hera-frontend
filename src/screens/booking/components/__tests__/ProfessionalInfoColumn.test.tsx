@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react-native';
+import { fireEvent, render, screen } from '@testing-library/react-native';
 import { StyleSheet } from 'react-native';
 import { lightTheme } from '../../../../constants/theme';
 import { useTheme } from '../../../../contexts/ThemeContext';
@@ -21,6 +21,10 @@ jest.mock('../../../../components/location', () => {
     ),
   };
 });
+
+const native = jest.requireActual<typeof import('react-native')>('react-native');
+let dimensionsSpy: jest.SpyInstance<ReturnType<typeof native.useWindowDimensions>, []> | undefined;
+let restorePlatform: (() => void) | undefined;
 
 const mockedUseTheme = jest.mocked(useTheme);
 
@@ -51,6 +55,23 @@ describe('ProfessionalInfoColumn', () => {
 
   afterEach(() => {
     jest.clearAllMocks();
+    dimensionsSpy?.mockRestore();
+    restorePlatform?.();
+  });
+
+  it('uses the patient viewport height and removes the public header offset for sticky summaries', () => {
+    const platform = jest.replaceProperty(native.Platform, 'OS', 'web');
+    restorePlatform = () => platform.restore();
+    dimensionsSpy = jest.spyOn(native, 'useWindowDimensions').mockReturnValue({ width: 1536, height: 960, scale: 1, fontScale: 1 });
+    const props = { specialist: baseSpecialist, booking: baseBooking,
+      availableSessionTypes: [baseBooking.sessionType], onPrimaryAction: jest.fn(), actionLabel: 'Confirmar cita', sticky: true };
+    const view = render(<ProfessionalInfoColumn {...props} availableHeight={700} headerHeight={0} />);
+    fireEvent(screen.getByTestId('booking-summary-card'), 'layout', { nativeEvent: { layout: { width: 380, height: 640, x: 0, y: 0 } } });
+    expect(StyleSheet.flatten(screen.getByTestId('booking-summary-card').props.style)).toMatchObject({ position: 'sticky', top: 24 });
+    view.rerender(<ProfessionalInfoColumn {...props} availableHeight={650} headerHeight={0} />);
+    expect(StyleSheet.flatten(screen.getByTestId('booking-summary-card').props.style).position).toBeUndefined();
+    view.rerender(<ProfessionalInfoColumn {...props} />);
+    expect(StyleSheet.flatten(screen.getByTestId('booking-summary-card').props.style)).toMatchObject({ position: 'sticky', top: 104 });
   });
 
   it('updates the selected service duration independently of the specialist default', () => {

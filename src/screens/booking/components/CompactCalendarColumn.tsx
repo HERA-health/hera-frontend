@@ -7,6 +7,7 @@ import { useTheme } from '../../../contexts/ThemeContext';
 import { formatMadridDateKey, getMadridDateKey } from '../../../utils/madridTime';
 
 interface CompactCalendarColumnProps {
+  layoutWidth?: number;
   selectedDate: string | null;
   onDateSelect: (date: string) => void;
   availableDates?: string[];
@@ -21,9 +22,10 @@ export function shiftBookingDate(date: string, days: number): string {
   return new Date(Date.UTC(year, month - 1, day + days)).toISOString().slice(0, 10);
 }
 
-export function CompactCalendarColumn({ selectedDate, onDateSelect, minDate, disabled = false, busy = false }: CompactCalendarColumnProps) {
+export function CompactCalendarColumn({ selectedDate, onDateSelect, minDate, disabled = false, busy = false, layoutWidth }: CompactCalendarColumnProps) {
   const { theme, isDark } = useTheme();
-  const { width } = useWindowDimensions();
+  const { width: windowWidth } = useWindowDimensions();
+  const width = layoutWidth ?? windowWidth;
   const count = width >= 1180 ? 7 : width >= 768 ? 5 : 3;
   const today = minDate ?? getMadridDateKey();
   const [start, setStart] = useState(selectedDate && selectedDate >= today ? selectedDate : today);

@@ -9,6 +9,9 @@ jest.mock('../../../../contexts/ThemeContext', () => ({
   useTheme: jest.fn(),
 }));
 
+const native = jest.requireActual<typeof import('react-native')>('react-native');
+let dimensionsSpy: jest.SpyInstance<ReturnType<typeof native.useWindowDimensions>, []> | undefined;
+
 const mockedUseTheme = jest.mocked(useTheme);
 
 describe('TimeSlotsColumn disabled slot UX', () => {
@@ -23,6 +26,17 @@ describe('TimeSlotsColumn disabled slot UX', () => {
 
   afterEach(() => {
     jest.clearAllMocks();
+    dimensionsSpy?.mockRestore();
+  });
+
+  it('limits the time preview to two columns in a narrow patient container', () => {
+    dimensionsSpy = jest.spyOn(native, 'useWindowDimensions').mockReturnValue({ width: 1536, height: 960, scale: 1, fontScale: 1 });
+    const props = { selectedDate: '2026-06-15', selectedTime: null, onTimeSelect: jest.fn(),
+      availableSlots: Array.from({ length: 6 }, (_, index) => ({ startTime: `${10 + index}:00`, endTime: `${11 + index}:00`, available: true })) };
+    const view = render(<TimeSlotsColumn {...props} layoutWidth={700} />);
+    expect(screen.getAllByRole('radio')).toHaveLength(4);
+    view.rerender(<TimeSlotsColumn {...props} />);
+    expect(screen.getAllByRole('radio')).toHaveLength(6);
   });
 
   it('renders disabled slot options without letting patients select them', () => {

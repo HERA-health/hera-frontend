@@ -17,6 +17,7 @@ import type { TimeSlot } from '../../../services/sessionsService';
 import { formatMadridDateKey } from '../../../utils/madridTime';
 
 interface TimeSlotsColumnProps {
+  layoutWidth?: number;
   availabilityKey?: string;
   selectedDate: string | null;
   availableSlots: TimeSlot[];
@@ -47,9 +48,11 @@ const TimeSlotsColumnContent: React.FC<TimeSlotsColumnProps> = ({
   onRetry,
   disabled = false,
   busy = false,
+  layoutWidth,
 }) => {
   const { theme, isDark } = useTheme();
-  const { width } = useWindowDimensions();
+  const { width: windowWidth } = useWindowDimensions();
+  const width = layoutWidth ?? windowWidth;
   const styles = useMemo(
     () => createStyles(theme, isDark),
     [isDark, theme],

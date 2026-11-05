@@ -73,6 +73,7 @@ import {
 type BookingRouteParams = RootStackParamList['Booking'];
 
 interface BookingScreenProps {
+  presentationContext?: 'public' | 'patient';
   referralBooking?: { id: string; access: ReferralAccess };
   route: {
     params: BookingRouteParams;
@@ -165,9 +166,10 @@ function BookingPublicHeader({ navigation, scrolled = false }: { navigation: Boo
 
 }
 
-export const BookingScreen: React.FC<BookingScreenProps> = ({ route, navigation, referralBooking }) => {
+export const BookingScreen: React.FC<BookingScreenProps> = ({ route, navigation, referralBooking, presentationContext = 'public' }) => {
   const { theme } = useTheme();
-  const styles = useMemo(() => createLoadStyles(theme), [theme]);
+  const embedded = presentationContext === 'patient';
+  const styles = useMemo(() => createLoadStyles(theme, embedded), [theme, embedded]);
   const [specialist, setSpecialist] = useState<BookingSpecialist | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loadAttempt, setLoadAttempt] = useState(0);
@@ -216,13 +218,14 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({ route, navigation,
         navigation={navigation}
         specialist={specialist}
         referralBooking={referralBooking}
+        presentationContext={presentationContext}
       />
     );
   }
 
   return (
     <View style={styles.container}>
-      <BookingPublicHeader navigation={navigation} />
+      {!embedded && <BookingPublicHeader navigation={navigation} />}
       <View
         accessibilityRole={loadError ? 'alert' : undefined}
         accessibilityLiveRegion="polite"
@@ -254,11 +257,17 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({ route, navigation,
   );
 };
 
+// The patient navigator supplies the workspace header and sidebar.
+export const PatientBookingScreen: React.FC<BookingScreenProps> = props => (
+  <BookingScreen {...props} presentationContext="patient" />
+);
+
 const BookingExperience: React.FC<BookingExperienceProps> = ({
   route,
   navigation,
   specialist,
   referralBooking,
+  presentationContext = 'public',
 }) => {
   const appAlert = useAppAlert();
   const { isAuthenticated, user } = useAuth();
@@ -299,7 +308,14 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
     && Number.isFinite(officeLocation.latitude)
     && typeof officeLocation.longitude === 'number'
     && Number.isFinite(officeLocation.longitude);
-  const { width } = useWindowDimensions();
+  const { width: windowWidth } = useWindowDimensions();
+  const embedded = presentationContext === 'patient';
+  const [containerSize, setContainerSize] = useState<{ width: number; height: number } | null>(null);
+  const handleContainerLayout = useCallback(({ nativeEvent: { layout } }: LayoutChangeEvent) => {
+    setContainerSize(current => current?.width === layout.width && current.height === layout.height
+      ? current : { width: layout.width, height: layout.height });
+  }, []);
+  const width = embedded ? containerSize?.width ?? windowWidth : windowWidth;
   const { theme, isDark } = useTheme();
   const isDesktop = width >= BREAKPOINTS.desktop;
   const isTablet = width >= BREAKPOINTS.mobile && width < BREAKPOINTS.desktop;
@@ -308,8 +324,8 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
   const isAnonymousBooking = !isAuthenticated && !referralBooking;
   const isAuthenticatedClient = isAuthenticated && user?.type === 'client';
   const styles = useMemo(
-    () => createStyles(theme, isDark, isMobile),
-    [theme, isDark, isDesktop, isMobile],
+    () => createStyles(theme, isDark, isMobile, embedded),
+    [theme, isDark, isMobile, embedded],
   );
 
   const bookingCompletedRef = useRef(false);
@@ -1300,7 +1316,7 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
           ? 'En el siguiente paso comprobaremos tu correo con un código para confirmar la cita.'
           : 'Revisa los datos antes de confirmar.';
 
-  const renderBookingHeader = () => <BookingPublicHeader navigation={navigation} scrolled={headerScrolled} />;
+  const renderBookingHeader = () => !embedded && <BookingPublicHeader navigation={navigation} scrolled={headerScrolled} />;
 
   const renderSectionHeading = (step: number, title: string, subtitle?: string) => (
     <View style={styles.sectionHeading}>
@@ -1352,8 +1368,9 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
       </View>
       <View style={styles.mainSurface}>
         {renderSectionHeading(3, 'Fecha y hora')}
-        <CompactCalendarColumn selectedDate={selectedDate} onDateSelect={handleDateSelect} disabled={loading || !selectedOption} busy={loading} />
+        <CompactCalendarColumn layoutWidth={embedded ? width : undefined} selectedDate={selectedDate} onDateSelect={handleDateSelect} disabled={loading || !selectedOption} busy={loading} />
         <TimeSlotsColumn availabilityKey={`${specialistId}:${selectedOptionId}:${sessionType}`}
+          layoutWidth={embedded ? width : undefined}
           selectedDate={selectedDate} availableSlots={availableSlots} selectedTime={selectedSlot?.startTime || null}
           onTimeSelect={handleTimeSelect} loading={loadingSlots} disabled={loading || !selectedOption} busy={loading}
           error={slotsError} onRetry={handleRetrySlots} />
@@ -1411,6 +1428,8 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
 
   const renderBookingSummary = (sticky: boolean, showAction = true) => (
     <ProfessionalInfoColumn
+      availableHeight={embedded ? containerSize?.height : undefined}
+      headerHeight={embedded ? 0 : undefined}
       specialist={specialist}
       duration={selectedOption ? slotDuration : null}
       serviceName={serviceOptions[0]?.serviceName ?? serviceOptions[0]?.name}
@@ -1575,7 +1594,7 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
 
   if (publicBookingSuccess) {
     return (
-      <View style={styles.container}>
+      <View style={styles.container} testID="booking-layout" onLayout={embedded ? handleContainerLayout : undefined}>
         {renderBookingHeader()}
         <ScrollView
           testID="booking-success-scroll"
@@ -1591,6 +1610,8 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
 
   return (
     <KeyboardAvoidingView
+      testID="booking-layout"
+      onLayout={embedded ? handleContainerLayout : undefined}
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
@@ -1613,6 +1634,7 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
 
 const createLoadStyles = (
   theme: ReturnType<typeof useTheme>['theme'],
+  embedded: boolean,
 ) =>
   StyleSheet.create({
     container: {
@@ -1625,7 +1647,7 @@ const createLoadStyles = (
       alignSelf: 'center',
       alignItems: 'center',
       gap: spacing.md,
-      marginTop: 112,
+      marginTop: embedded ? 32 : 112,
       padding: spacing.xl,
       borderWidth: 1,
       borderColor: theme.border,
@@ -1651,6 +1673,7 @@ const createStyles = (
   theme: ReturnType<typeof useTheme>['theme'],
   isDark: boolean,
   isMobile: boolean,
+  embedded: boolean,
 ) =>
   StyleSheet.create({
     container: {
@@ -1675,12 +1698,12 @@ const createStyles = (
     },
     pageScrollContent: {
       flexGrow: 1,
-      paddingTop: isMobile ? 68 : 80,
+      paddingTop: embedded ? 16 : isMobile ? 68 : 80,
       paddingBottom: isMobile ? 0 : spacing.xxl,
     },
     successScrollContent: {
       flexGrow: 1,
-      paddingTop: 80,
+      paddingTop: embedded ? 16 : 80,
     },
     pageContent: {
       width: '100%',

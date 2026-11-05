@@ -33,6 +33,9 @@ jest.mock('../../../../contexts/ThemeContext', () => ({
   useTheme: jest.fn(),
 }));
 
+const native = jest.requireActual<typeof import('react-native')>('react-native');
+let dimensionsSpy: jest.SpyInstance<ReturnType<typeof native.useWindowDimensions>, []> | undefined;
+
 const mockedUseTheme = jest.mocked(useTheme);
 
 describe('CompactCalendarColumn accessibility and initial month', () => {
@@ -48,6 +51,19 @@ describe('CompactCalendarColumn accessibility and initial month', () => {
 
   afterEach(() => {
     jest.clearAllMocks();
+    dimensionsSpy?.mockRestore();
+  });
+
+  it('fits the visible dates to the supplied container width and preserves the public default', () => {
+    dimensionsSpy = jest.spyOn(native, 'useWindowDimensions').mockReturnValue({ width: 1536, height: 960, scale: 1, fontScale: 1 });
+    const props = { selectedDate: '2026-08-18', minDate: '2026-08-18', onDateSelect: jest.fn() };
+    const view = render(<CompactCalendarColumn {...props} layoutWidth={700} />);
+    expect(screen.getAllByRole('radio')).toHaveLength(3);
+    view.rerender(<CompactCalendarColumn {...props} layoutWidth={1100} />);
+    expect(screen.getAllByRole('radio')).toHaveLength(5);
+    view.rerender(<CompactCalendarColumn {...props} />);
+    expect(screen.getAllByRole('radio')).toHaveLength(7);
+    expect(props.onDateSelect).not.toHaveBeenCalled();
   });
 
   it('opens the calendar on the month of an initial selected date', () => {

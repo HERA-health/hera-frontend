@@ -30,6 +30,8 @@ import {
 import { BookingLocationMap } from './BookingLocationMap';
 
 interface ProfessionalInfoColumnProps {
+  availableHeight?: number;
+  headerHeight?: number;
   specialist: BookingSpecialist;
   duration?: number | null;
   serviceName?: string;
@@ -58,15 +60,17 @@ export const canUseStickyBookingSummary = ({
   contentHeight,
   requested,
   viewportHeight,
+  headerHeight = BOOKING_HEADER_HEIGHT,
 }: {
   contentHeight: number;
   requested: boolean;
   viewportHeight: number;
+  headerHeight?: number;
 }) =>
   requested
   && contentHeight > 0
   && viewportHeight >= (
-    BOOKING_HEADER_HEIGHT
+    headerHeight
     + contentHeight
     + STICKY_TOP_OFFSET
     + STICKY_BOTTOM_GUTTER
@@ -91,9 +95,12 @@ export const ProfessionalInfoColumn: React.FC<ProfessionalInfoColumnProps> = ({
   sticky = false,
   showAction = true,
   verificationContent,
+  availableHeight,
+  headerHeight = BOOKING_HEADER_HEIGHT,
 }) => {
   const { theme, isDark } = useTheme();
-  const { height: viewportHeight } = useWindowDimensions();
+  const { height: windowHeight } = useWindowDimensions();
+  const viewportHeight = availableHeight ?? windowHeight;
   const [contentHeight, setContentHeight] = useState(0);
   const styles = useMemo(
     () => createStyles(theme, isDark),
@@ -123,10 +130,11 @@ export const ProfessionalInfoColumn: React.FC<ProfessionalInfoColumnProps> = ({
       contentHeight,
       requested: sticky,
       viewportHeight,
+      headerHeight,
     })
       ? ({
           position: 'sticky',
-          top: BOOKING_HEADER_HEIGHT + STICKY_TOP_OFFSET,
+          top: headerHeight + STICKY_TOP_OFFSET,
         } as unknown as ViewStyle)
       : undefined;
 

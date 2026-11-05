@@ -266,7 +266,7 @@ const ProfileCompletionRoute = createDeferredRoute<'ProfileCompletion'>(
 );
 const BookingRoute = createDeferredLayoutRoute<'Booking'>(
   () => Platform.OS === 'web' ? import('../screens/booking/BookingScreen') : require('../screens/booking/BookingScreen'),
-  { displayName: 'BookingRoute', exportName: 'BookingScreen' }
+  { displayName: 'BookingRoute', exportName: 'PatientBookingScreen' }
 );
 const PublicBookingRoute = createDeferredRoute<'Booking'>(
   () => Platform.OS === 'web' ? import('../screens/booking/BookingScreen') : require('../screens/booking/BookingScreen'),
