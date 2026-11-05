@@ -429,6 +429,7 @@ export const LandingPage: React.FC = () => {
       />
 
       <LandingHeader
+        onQuestionnaire={() => navigation.navigate('Questionnaire')}
         onViewPlans={() => navigation.navigate('Pricing')}
         context="landing"
         isScrolled={headerScrolled}
@@ -449,6 +450,7 @@ export const LandingPage: React.FC = () => {
         scrollEventThrottle={24}
       >
         <HeroSection
+          onQuestionnaire={() => navigation.navigate('Questionnaire')}
           onFindSpecialist={() => handlePatientCTA('hero')}
           onExploreProfessionals={() => handleExploreProfessionals('hero')}
           onProfessionalAction={() => handleProfessionalRegister('hero')}

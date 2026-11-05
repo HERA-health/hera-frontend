@@ -1,8 +1,5 @@
 import type { Specialist } from '../../constants/types';
 
-export const affinityPercentage = (score?: number): number =>
-  score === undefined ? 0 : Math.round((score / 130) * 100);
-
 export function combineSpecialistResults(
   available: Specialist[],
   matched: Specialist[],
@@ -12,7 +9,8 @@ export function combineSpecialistResults(
   if (restrictToAvailable) {
     return available.map(specialist => {
       const match = matches.get(specialist.id);
-      return match ? { ...specialist, affinityPercentage: match.affinityPercentage, tags: match.tags } : specialist;
+      const compatibleOptionRemains = match?.matchedOptionId && specialist.matchedOptionId === match.matchedOptionId;
+      return match && compatibleOptionRemains ? { ...specialist, matchOrder: match.matchOrder, tags: match.tags, matchedOptionId: match.matchedOptionId, pricePerSession: match.pricePerSession, offersOnline: match.offersOnline, offersInPerson: match.offersInPerson } : specialist;
     });
   }
   return [...matched, ...available.filter(specialist => !matches.has(specialist.id))];

@@ -1,3 +1,4 @@
+import { getQuestionnaireDefinition, type QuestionnaireDefinition } from '../../services/questionnaireService';
 import React, { useEffect, useMemo, useState } from 'react';
 import { StyleSheet, Text, View, ViewStyle } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -61,7 +62,10 @@ export function ClinicalQuestionnairePanel({
   const [visibleItemsCount, setVisibleItemsCount] = useState(ANSWER_PAGE_SIZE);
   const [isExpanded, setIsExpanded] = useState(false);
 
-  const reviewItems = useMemo(() => buildQuestionnaireReviewItems(answers), [answers]);
+  const [definition, setDefinition] = useState<QuestionnaireDefinition | null>(null);
+  const [definitionError, setDefinitionError] = useState(false);
+  useEffect(() => { if (answers?.version === '2') void getQuestionnaireDefinition().then(setDefinition).catch(() => setDefinitionError(true)); }, [answers?.version]);
+  const reviewItems = useMemo(() => buildQuestionnaireReviewItems(answers, definition), [answers, definition]);
   const visibleReviewItems = useMemo(
     () => reviewItems.slice(0, visibleItemsCount),
     [reviewItems, visibleItemsCount]
@@ -134,6 +138,8 @@ export function ClinicalQuestionnairePanel({
         </TourTarget>
       ) : header}
 
+      {answers?.version === '2' && !definition ? <View style={{padding: 16, gap: 12}}><Text style={{color: theme.textSecondary}}>{definitionError ? 'No se pudieron cargar las etiquetas del cuestionario.' : 'Cargando respuestas…'}</Text>{definitionError ? <Button onPress={() => { setDefinitionError(false); void getQuestionnaireDefinition().then(setDefinition).catch(() => setDefinitionError(true)); }}>Reintentar</Button> : null}</View> : null}
+      {answers?.version === '2' && (answers.therapyType === 'couple' || answers.therapyType === 'family') ? <Text style={{color: theme.textSecondary, paddingVertical: 12}}>Perspectiva de la persona que cumplimenta el cuestionario para terapia {answers.therapyType === 'couple' ? 'de pareja' : 'familiar'}.</Text> : null}
       {!completedQuestionnaire || questionnaireAvailability === 'NOT_STARTED' ? (
         <View style={[styles.emptyState, { backgroundColor: theme.bgMuted, borderColor: theme.border }]}>
           <Ionicons name="chatbox-ellipses-outline" size={22} color={theme.textMuted} />

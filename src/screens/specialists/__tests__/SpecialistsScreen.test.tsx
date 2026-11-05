@@ -48,7 +48,7 @@ it('opens a profile from the signed-in directory even when the old attribution s
   jest.mocked(directoryIntent).mockImplementation(() => { throw new Error('Auxiliary service unavailable'); });
   render(<SpecialistsScreen />);
   fireEvent.press(await screen.findByText('Perfil disponible'));
-  expect(mockNavigate).toHaveBeenCalledWith('SpecialistDetail', { specialistId: 'specialist-one', affinity: 0 });
+  expect(mockNavigate).toHaveBeenCalledWith('SpecialistDetail', { specialistId: 'specialist-one', optionId: undefined });
   expect(directoryIntent).not.toHaveBeenCalled();
 });
 

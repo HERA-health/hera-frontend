@@ -137,3 +137,20 @@ it.each(['Paciente', 'Clínica'])('clears phone errors and omits phone when swit
   await waitFor(() => expect(mockGoogle).toHaveBeenCalledTimes(2));
   expect(mockGoogle.mock.calls[1][0]).not.toHaveProperty('phone');
 });
+
+
+it('registers a patient with separate name and surnames and an optional phone', async () => {
+  mockParams = { userType: 'CLIENT' };
+  render(<RegisterScreen />);
+  await waitFor(() => expect(mockLegalCatalog).toHaveBeenCalledTimes(1));
+  fireEvent.changeText(screen.getByPlaceholderText('Tu nombre'), 'Ana');
+  fireEvent.changeText(screen.getByLabelText('Apellidos'), 'García López');
+  fireEvent.changeText(screen.getByPlaceholderText('tu@email.com'), 'patient@example.test');
+  fireEvent.changeText(screen.getByPlaceholderText('Crea tu contraseña'), 'Password1!');
+  fireEvent.changeText(screen.getByPlaceholderText('Repite tu contraseña'), 'Password1!');
+  acceptTerms();
+  fireEvent.press(screen.getByRole('button', { name: /Crear cuenta/ }));
+  await waitFor(() => expect(mockRegister).toHaveBeenCalledTimes(1));
+  expect(mockRegister.mock.calls[0][2]).toBe('Ana García López');
+  expect(mockRegister.mock.calls[0][7]).toBeUndefined();
+});

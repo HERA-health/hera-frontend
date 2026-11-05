@@ -135,6 +135,7 @@ export function AdminPanelTabbedScreen({
 
   return (
     <View style={styles.container}>
+      <AnimatedPressable accessibilityRole="button" onPress={() => navigation.navigate('AdminMatchingAdvice')} style={{padding: 16}}><Text style={{color: theme.primary, fontFamily: theme.fontSansSemiBold}}>Solicitudes de orientación de pacientes</Text></AnimatedPressable>
       {isMobileShell ? (
         <View style={styles.mobileTabSelector}>
           <SimpleDropdown

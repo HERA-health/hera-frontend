@@ -128,6 +128,8 @@ interface Experience {
 interface Certificate extends ServiceCertificate {}
 
 interface SpecialistProfileData {
+  declaredGender: 'woman' | 'man' | 'nonbinary' | null;
+  practiceContexts: string[];
   // Basic Info
   fullName: string;
   professionalTitle: string;
@@ -393,6 +395,8 @@ const mapServiceProfileToFormData = (profile: ServiceProfileData): SpecialistPro
   },
   specialties: profile.specialties || [],
   therapeuticApproaches: profile.therapeuticApproaches || [],
+  declaredGender: profile.declaredGender ?? null,
+  practiceContexts: profile.practiceContexts ?? [],
   languages: profile.languages || ['spanish'],
   education: (profile.education as Education[]) || [],
   experience: (profile.experience as Experience[]) || [],
@@ -649,6 +653,7 @@ export function SpecialistProfileScreen() {
     customSpecialties: [], customTherapeuticApproaches: [], matchingNeedsReview: false, perspective: emptyPerspective(),
     specialties: [],
     therapeuticApproaches: [],
+    declaredGender: null, practiceContexts: [],
     languages: ['spanish'],
     education: [],
     experience: [],
@@ -1047,6 +1052,8 @@ export function SpecialistProfileScreen() {
         else if (originalData.perspective.hasDeclaration) updateData.perspectiveOperation = {action: 'delete'};
       }
       assignIfChanged('therapeuticApproaches', 'therapeuticApproaches', profileData.therapeuticApproaches);
+      assignIfChanged('declaredGender', 'declaredGender', profileData.declaredGender);
+      assignIfChanged('practiceContexts', 'practiceContexts', profileData.practiceContexts);
       assignIfChanged('languages', 'languages', profileData.languages);
       assignIfChanged('education', 'education', profileData.education);
       assignIfChanged('experience', 'experience', profileData.experience);
@@ -2398,6 +2405,10 @@ export function SpecialistProfileScreen() {
           getMatchingCompletionDescription(profileData),
         )}
         <ProfessionalMatchingEditor
+          declaredGender={profileData.declaredGender}
+          practiceContexts={profileData.practiceContexts}
+          onGenderChange={value => updateField('declaredGender', value)}
+          onContextsChange={values => updateField('practiceContexts', values)}
           name={profileData.fullName}
           title={profileData.professionalTitle}
           avatar={profileData.avatar}

@@ -168,7 +168,7 @@ describe('PublicSpecialistsScreen', () => {
     expect(screen.queryByLabelText('Aplicar filtro de edad')).toBeNull();
     expect(screen.queryByText('Solo especialistas que publican su edad.')).toBeNull();
 
-    fireEvent.press(screen.getByText('Cualquiera ▾'));
+    fireEvent.press(screen.getByRole('button', { name: 'Idioma de las sesiones: Cualquiera' }));
     fireEvent.press(screen.getByRole('radio', { name: 'Árabe' }));
     await waitFor(() => expect(mockedDirectory).toHaveBeenLastCalledWith(expect.objectContaining({ language: 'arabic', page: 1 })));
     if (isMobile) fireEvent.press(screen.getByText('Ver especialistas'));
@@ -484,14 +484,14 @@ describe('PublicSpecialistsScreen', () => {
       expect(screen.queryByText('Idioma de las sesiones')).toBeNull();
       expect(screen.getByRole('button', { name: 'Filtros' }).props.accessibilityState.expanded).toBe(false);
       fireEvent.press(screen.getByRole('button', { name: 'Filtros' }));
-      fireEvent.press(screen.getByText('Cualquiera ▾'));
+      fireEvent.press(screen.getByRole('button', { name: 'Idioma de las sesiones: Cualquiera' }));
       fireEvent.press(screen.getByRole('radio', { name: 'Árabe' }));
       await waitFor(() => expect(mockedDirectory).toHaveBeenLastCalledWith(expect.objectContaining({ language: 'arabic' })));
       fireEvent.press(screen.getByText('Ver especialistas'));
       expect(screen.queryByText('Idioma de las sesiones')).toBeNull();
       expect(screen.getByRole('button', { name: 'Filtros, 1 activos' }).props.accessibilityState.expanded).toBe(false);
       fireEvent.press(screen.getByRole('button', { name: 'Filtros, 1 activos' }));
-      expect(screen.getByText('Árabe ▾')).toBeTruthy();
+      expect(screen.getByRole('button', { name: 'Idioma de las sesiones: Árabe' })).toBeTruthy();
       fireEvent.press(screen.getByRole('button', { name: 'Cerrar filtros' }));
       fireEvent.press(screen.getByText('Limpiar filtros'));
       await waitFor(() => expect(mockedDirectory).toHaveBeenLastCalledWith(expect.objectContaining({ language: undefined })));

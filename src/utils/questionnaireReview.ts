@@ -1,3 +1,4 @@
+import type { QuestionnaireDefinition } from '../services/questionnaireService';
 import {
   categoryLabels,
   questionnaire,
@@ -30,10 +31,21 @@ const mapAnswerLabel = (question: Question, value: string): string => {
 };
 
 export const buildQuestionnaireReviewItems = (
-  answers?: ClinicalQuestionnaireAnswers | null
+  answers?: ClinicalQuestionnaireAnswers | null, definition?: QuestionnaireDefinition | null
 ): QuestionnaireReviewItem[] => {
   if (!answers) {
     return [];
+  }
+
+  if (answers.version === '2') {
+    if (!definition) return [];
+    return definition.steps.flatMap((step, index) => step.fields.flatMap(field => {
+      const values = normalizeAnswerValues(answers[field]);
+      return values.length ? [{ questionId: field, category: String(index), categoryLabel: step.title,
+        question: definition.labels[field] ?? field,
+        answers: values.map(value => definition.choices[field]?.find(option => option.value === value)?.label ?? value),
+      }] : [];
+    }));
   }
 
   return questionnaire.reduce<QuestionnaireReviewItem[]>((items, question) => {

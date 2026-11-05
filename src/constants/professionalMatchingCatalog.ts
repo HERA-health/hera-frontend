@@ -1,6 +1,10 @@
 // Canonical profile catalog. Keep the frontend/backend copies aligned (contract test).
 export interface ProfessionalMatchingOption { value: string; label: string; aliases: readonly string[] }
 export const PROFESSIONAL_SPECIALTY_OPTIONS = [
+  { value: 'borderline', label: 'Trastorno límite de la personalidad (TLP)', aliases: ['tlp'] },
+  { value: 'bipolar', label: 'Trastorno bipolar', aliases: [] },
+  { value: 'adhd', label: 'TDAH', aliases: ['trastorno por déficit de atención e hiperactividad'] },
+  { value: 'autism', label: 'Autismo / TEA', aliases: ['tea', 'autismo'] },
   {
     "value": "anxiety",
     "label": "Ansiedad",
@@ -233,7 +237,7 @@ export const PROFESSIONAL_THERAPEUTIC_APPROACH_OPTIONS = [
     "aliases": []
   }
 ] as const;
-export const SPECIALTY_VALUES = ["anxiety","depression","stress","ocd","sleep","trauma","grief","eating","couples","sexuality","self-esteem","addiction","personality","neurodivergence","neuropsychology","children-adolescents","parenting-family","burnout","health","chronic-pain","self-harm","psychosis"] as const;
+export const SPECIALTY_VALUES = ["borderline","bipolar","adhd","autism","anxiety","depression","stress","ocd","sleep","trauma","grief","eating","couples","sexuality","self-esteem","addiction","personality","neurodivergence","neuropsychology","children-adolescents","parenting-family","burnout","health","chronic-pain","self-harm","psychosis"] as const;
 export const THERAPEUTIC_APPROACH_VALUES = ["cbt","contextual","emdr","systemic","couple-therapy","psychodynamic","humanistic","existential","eft","ipt","mindfulness","integrative"] as const;
 export const matchingChoiceKey = (value: string): string => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().replace(/\s+/g, ' ').toLowerCase();
 export const resolveMatchingChoice = (value: string, options: readonly ProfessionalMatchingOption[]): string | undefined => {

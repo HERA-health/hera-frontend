@@ -130,7 +130,6 @@ export interface SelectedProfileSlot {
 // Props interfaces for components
 export interface ProfileHeroProps {
   specialist: Specialist;
-  affinity?: number;
   onBookPress: () => void;
   onRatingPress?: () => void;
   gradientColors: [string, string];
@@ -182,6 +181,7 @@ export interface ReviewCardProps {
 }
 
 export interface StickyBookingBarProps {
+  assistedStart?: boolean;
   specialistName: string;
   pricePerSession: number;
   onBookPress: () => void;
@@ -192,6 +192,7 @@ export interface StickyBookingBarProps {
 }
 
 export interface BookingSidebarProps {
+  assistedStart?: boolean;
   optionId?: string;
   onOptionChange?: (optionId: string) => void;
   specialist: Specialist;
@@ -207,7 +208,6 @@ export interface BookingSidebarProps {
 
 export interface CompactHeroProps {
   specialist: Specialist;
-  affinity?: number;
   onRatingPress?: () => void;
   gradientColors: [string, string];
 }

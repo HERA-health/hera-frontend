@@ -30,7 +30,7 @@ test('pending acquisition uses the shared country selector and specific package 
   fireEvent.press(screen.getByLabelText('Condiciones de pago del bono'));
   expect(screen.getByText(/no inicia una devolución bancaria/)).toBeTruthy();
   expect(screen.queryByText(/24 horas/)).toBeNull();
-  fireEvent.press(screen.getByText('Seleccionar país ▾'));
+  fireEvent.press(screen.getByRole('button', { name: 'País de residencia: Seleccionar país' }));
   fireEvent.press(screen.getByText('España'));
   fireEvent.press(screen.getByLabelText('Acepto las condiciones de pago del bono'));
   fireEvent.press(screen.getByText('Pagar bono'));

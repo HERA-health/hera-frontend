@@ -1,3 +1,4 @@
+// Legacy v1 labels for clinical history only. The active questionnaire comes from the backend definition.
 export type QuestionType = 'single' | 'multiple';
 
 export interface QuestionOption {

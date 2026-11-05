@@ -1,3 +1,4 @@
+import { QuestionnaireDraftProvider } from './src/contexts/QuestionnaireDraftContext';
 import { ExternalCalendarResultNotice } from './src/components/scheduling/ExternalCalendarResultNotice';
 import { SESSION_PAYMENTS_VISIBLE } from './src/config/sessionPayments';
 import { PrivacyControls } from './src/components/common/PrivacyControls';
@@ -71,6 +72,10 @@ export const linking: LinkingOptions<RootStackParamList> = {
         SessionPayment: 'pagos/reserva/:bookingId',
         PackagePayment: 'pagos/bono/:patientPackageId',
       } : {}),
+      Questionnaire: 'cuestionario',
+      QuestionnaireResults: 'cuestionario/resultados',
+      MatchingAdvice: 'orientacion',
+      AdminMatchingAdvice: 'admin/orientacion',
       ProfessionalTariffs: 'profesional/tarifas',
       GoogleCalendarIntegration: 'integrations/google-calendar',
       GoogleCalendarSession: 'calendar/session/:sessionId',
@@ -288,6 +293,7 @@ function ThemedApp() {
     <ErrorBoundary>
       <SafeAreaProvider>
         <AuthProvider>
+        <QuestionnaireDraftProvider>
           <PrivacyControls>
           <View style={{ flex: 1 }}>
           <ProfileCompletionProvider>
@@ -306,6 +312,7 @@ function ThemedApp() {
           </ProfileCompletionProvider>
           </View>
           </PrivacyControls>
+        </QuestionnaireDraftProvider>
         </AuthProvider>
       </SafeAreaProvider>
     </ErrorBoundary>

@@ -74,17 +74,7 @@ const getCountdown = (dateStr: string): { label: string; isUrgent: boolean } => 
   return { label: days === 1 ? 'Mañana' : `En ${days} días`, isUrgent: false };
 };
 
-const getAffinityColor = (affinity: number, theme: Theme): string => {
-  const pct = affinity > 1 ? affinity : affinity * 100;
-  if (pct >= 80) return theme.success;
-  if (pct >= 60) return theme.warningAmber;
-  return theme.secondary;
-};
-
-const getAffinityLabel = (affinity: number): string =>
-  `${Math.round(affinity > 1 ? affinity : affinity * 100)}%`;
-
-type QuickActionScreen = 'Sessions' | 'Specialists' | 'Questionnaire' | 'Profile';
+type QuickActionScreen = 'MatchingAdvice' | 'Sessions' | 'Specialists' | 'Questionnaire' | 'Profile';
 type HomeNavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -325,6 +315,7 @@ export default function HomeScreen() {
             color: theme.textSecondary,
             bg: theme.bgAlt,
           },
+          { icon: 'chatbubbles-outline', label: 'Orientación', screen: 'MatchingAdvice', color: theme.primary, bg: theme.primaryAlpha12 },
           { icon: 'person-outline', label: 'Mi perfil', screen: 'Profile', color: theme.textSecondary, bg: theme.bgAlt },
         ] as Array<{ icon: React.ComponentProps<typeof Ionicons>['name']; label: string; screen: QuickActionScreen; color: string; bg: string }>).map(({ icon, label, screen, color, bg }) => (
           <AnimatedPressable
@@ -535,7 +526,7 @@ export default function HomeScreen() {
     <AnimatedPressable
       key={specialist.id}
       style={[compact ? styles.specialistCardCompact : styles.specialistCard, { backgroundColor: theme.bgCard, shadowColor: theme.shadowNeutral }]}
-      onPress={() => void openDirectory(specialist.id)}
+      onPress={() => navigation.navigate('SpecialistDetail', { specialistId: specialist.id, optionId: specialist.matchedOptionId ?? undefined })}
       pressScale={0.985}
     >
       <View style={styles.specialistAvatarWrap}>
@@ -546,11 +537,6 @@ export default function HomeScreen() {
             <Text style={compact ? styles.specialistAvatarInitialSm : styles.specialistAvatarInitial}>
               {specialist.user.name.charAt(0).toUpperCase()}
             </Text>
-          </View>
-        )}
-        {specialist.affinity != null && (
-          <View style={[styles.affinityBadge, { backgroundColor: getAffinityColor(specialist.affinity, theme) }]}>
-            <Text style={styles.affinityText}>{getAffinityLabel(specialist.affinity)}</Text>
           </View>
         )}
         {specialist.firstVisitFree && (
@@ -565,6 +551,7 @@ export default function HomeScreen() {
       <Text style={[compact ? styles.specialistSpecSm : styles.specialistSpec, { color: theme.textSecondary, fontFamily: theme.fontSans }]} numberOfLines={compact ? 1 : 2}>
         {getProfessionalTypeLabel(specialist.professionalType, specialist.professionalTypeLabel)}
       </Text>
+      {specialist.matchingReasons?.[0] ? <Text style={{ color: theme.primary, fontFamily: theme.fontSans, fontSize: 13 }} numberOfLines={2}>{specialist.matchingReasons[0].label}</Text> : null}
       <View style={styles.ratingRow}>
         <Ionicons name="star" size={11} color={theme.starRating} />
         <Text style={[styles.ratingText, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>{specialist.rating} ({specialist.reviewCount})</Text>
@@ -1282,21 +1269,6 @@ const styles = StyleSheet.create({
   specialistSpecSm: {
     fontSize: 10,
     textAlign: 'center',
-  },
-  affinityBadge: {
-    position: 'absolute',
-    top: -4,
-    right: -8,
-    paddingVertical: 2,
-    paddingHorizontal: 5,
-    borderRadius: 7,
-    borderWidth: 1.5,
-    borderColor: '#FFFFFF',
-  },
-  affinityText: {
-    fontSize: 9,
-    fontWeight: '800',
-    color: '#FFFFFF',
   },
   freeBadge: {
     position: 'absolute',

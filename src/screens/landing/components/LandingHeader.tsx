@@ -7,6 +7,7 @@ import {
   View,
   useWindowDimensions,
   type ViewStyle,
+  type LayoutChangeEvent,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import Animated, {
@@ -26,12 +27,14 @@ import type { LandingSectionAnchor } from '../types';
 export type LandingHeaderContext = 'landing' | 'directory' | 'access' | 'pricing';
 
 interface LandingHeaderProps {
+  onLayout?: (event: LayoutChangeEvent) => void;
   context: LandingHeaderContext;
   isScrolled: boolean;
   accessLabel?: string;
   accessIconName?: React.ComponentProps<typeof Ionicons>['name'];
   onLogoPress?: () => void;
   onFindSpecialist?: () => void;
+  onQuestionnaire?: () => void;
   onExploreProfessionals?: () => void;
   onAccess: () => void;
   onViewPlans?: () => void;
@@ -46,12 +49,14 @@ const COMPACT_PROFESSIONAL_LINK_BREAKPOINT = 1024;
 const WORDMARK_BREAKPOINT = 360;
 
 export const LandingHeader: React.FC<LandingHeaderProps> = ({
+  onLayout,
   context,
   isScrolled,
   accessLabel = 'Acceder',
   accessIconName = 'arrow-forward',
   onLogoPress,
   onFindSpecialist,
+  onQuestionnaire,
   onExploreProfessionals,
   onAccess,
   onViewPlans,
@@ -60,6 +65,7 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
   const { width } = useWindowDimensions();
   const { theme, isDark } = useTheme();
   const isMobile = width < MOBILE_BREAKPOINT;
+  const questionnaireSeparateRow = Boolean(onQuestionnaire) && width < BRAND_DESCRIPTOR_BREAKPOINT;
   // The extra catalogue link needs the same room as the landing's full navigation.
   const isWide = width >= (context === 'landing' || onViewPlans ? BRAND_DESCRIPTOR_BREAKPOINT : WIDE_HEADER_BREAKPOINT);
   const showBrandDescriptor = width >= BRAND_DESCRIPTOR_BREAKPOINT && (!onViewPlans || width >= 1600);
@@ -120,8 +126,33 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
     </AnimatedPressable>
   ) : null;
 
+  const navigationLinks = (
+    <View style={[styles.navLinks, onQuestionnaire && styles.navigationRow]}>
+      {(onScrollToSection ? PUBLIC_HEADER_LINKS : []).map((item) => (
+        <React.Fragment key={item.id}>
+          <AnimatedPressable
+            onPress={() => onScrollToSection?.(item.id)}
+            href={`/?section=${item.id}`}
+            hoverLift={false}
+            pressScale={0.96}
+            accessibilityRole="link"
+            accessibilityLabel={`Ir a ${item.label}`}
+            style={styles.navLink}
+          >
+            <Text style={[styles.navLinkText, { color: theme.textSecondary, fontFamily: theme.fontSansMedium }]}>
+              {item.label}
+            </Text>
+          </AnimatedPressable>
+          {item.id === 'forSpecialists' ? plansLink : null}
+        </React.Fragment>
+      ))}
+      {!onScrollToSection ? plansLink : null}
+    </View>
+  );
+
   return (
     <Animated.View
+      onLayout={onLayout}
       style={[
         styles.container,
         Platform.OS === 'web' && !isMobile && styles.containerWeb,
@@ -177,37 +208,11 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
           ) : null}
         </View>
 
-        {isWide ? (
-          <View style={styles.navLinks}>
-            {(onScrollToSection ? PUBLIC_HEADER_LINKS : []).map((item) => (
-              <React.Fragment key={item.id}>
-                <AnimatedPressable
-                  onPress={() => onScrollToSection?.(item.id)}
-                  href={`/?section=${item.id}`}
-                  hoverLift={false}
-                  pressScale={0.96}
-                  accessibilityRole="link"
-                  accessibilityLabel={`Ir a ${item.label}`}
-                  style={styles.navLink}
-                >
-                  <Text
-                    style={[
-                      styles.navLinkText,
-                      { color: theme.textSecondary, fontFamily: theme.fontSansMedium },
-                    ]}
-                  >
-                    {item.label}
-                  </Text>
-                </AnimatedPressable>
-                {item.id === 'forSpecialists' ? plansLink : null}
-              </React.Fragment>
-            ))}
-            {!onScrollToSection ? plansLink : null}
-          </View>
-        ) : null}
+        {isWide && !onQuestionnaire ? navigationLinks : null}
 
         <View style={styles.actions}>
           {!isWide ? plansLink : null}
+          {onQuestionnaire && !questionnaireSeparateRow ? <AnimatedPressable accessibilityRole="link" href="/cuestionario" onPress={onQuestionnaire} style={[styles.secondaryAction, {borderColor: theme.border}]}><Text style={{color: theme.primary, fontFamily: theme.fontSansSemiBold}}>Hacer el cuestionario</Text></AnimatedPressable> : null}
           <ThemeToggleButton size="sm" />
 
           {!isMobile && !isDirectory && onFindSpecialist ? (
@@ -242,7 +247,7 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
             </AnimatedPressable>
           ) : null}
 
-          {!isMobile && !isWide && !isAccess && onExploreProfessionals && (context !== 'landing' || width >= COMPACT_PROFESSIONAL_LINK_BREAKPOINT) ? (
+          {!isMobile && !isWide && !isAccess && onExploreProfessionals && (context !== 'landing' || width >= (onQuestionnaire ? BRAND_DESCRIPTOR_BREAKPOINT : COMPACT_PROFESSIONAL_LINK_BREAKPOINT)) ? (
             <AnimatedPressable
               onPress={onExploreProfessionals}
               href="/?section=forSpecialists"
@@ -291,6 +296,8 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
           ) : null}
         </View>
       </View>
+      {isWide && onQuestionnaire ? navigationLinks : null}
+      {onQuestionnaire && questionnaireSeparateRow ? <AnimatedPressable accessibilityRole="link" href="/cuestionario" onPress={onQuestionnaire} style={{minHeight: 44, paddingHorizontal: 16, justifyContent: 'center', alignItems: 'center', borderTopWidth: 1, borderColor: theme.border}}><Text style={{color: theme.primary, fontFamily: theme.fontSansSemiBold}}>Hacer el cuestionario →</Text></AnimatedPressable> : null}
     </Animated.View>
   );
 };
@@ -366,6 +373,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 12,
+  },
+  navigationRow: {
+    flex: 0,
+    minHeight: 44,
+    paddingHorizontal: 24,
+    paddingBottom: 6,
   },
   navLink: {
     paddingVertical: 8,

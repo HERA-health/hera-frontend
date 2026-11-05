@@ -10,6 +10,8 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { disconnectGoogleCalendar } from '../../services/googleCalendarService';
 import { withdrawReligion } from '../../services/profileDiscoveryService';
+import { withdrawAllQuestionnaireConsents } from '../../services/questionnaireService';
+import { useQuestionnaireDraft } from '../../contexts/QuestionnaireDraftContext';
 import { acceptLegalDocuments, type LegalDocumentStatus, type LegalAcceptanceStatus } from '../../services/legalService';
 import { LEGAL_DOCUMENTS, type LegalDocumentKey } from '../../constants/legal';
 import type { AppNavigationProp } from '../../constants/types';
@@ -24,6 +26,7 @@ interface RequiredLegalAcceptanceScreenProps {
 
 export function RequiredLegalAcceptanceScreen({ requiredDocumentKeys, documents, onAccepted }: RequiredLegalAcceptanceScreenProps) {
   const { logout, user } = useAuth();
+  const questionnaireDraft = useQuestionnaireDraft();
   const navigation = useNavigation<AppNavigationProp>();
   const focused = useIsFocused();
   const { theme } = useTheme();
@@ -33,7 +36,7 @@ export function RequiredLegalAcceptanceScreen({ requiredDocumentKeys, documents,
   const privacyVisible = useContext(PrivacyControlsVisibleContext);
   const [accepted, setAccepted] = useState(false);
   const [optionsOpen, setOptionsOpen] = useState(false);
-  const [pending, setPending] = useState<'accept' | 'religion' | 'calendar' | 'logout' | null>(null);
+  const [pending, setPending] = useState<'accept' | 'religion' | 'questionnaire' | 'calendar' | 'logout' | null>(null);
   const busy = useRef(false);
   const bodyRef = useRef<ScrollView>(null);
   const [error, setError] = useState('');
@@ -115,6 +118,15 @@ export function RequiredLegalAcceptanceScreen({ requiredDocumentKeys, documents,
             </AnimatedPressable>
             <Text style={[styles.note, { color: theme.textMuted, fontFamily: theme.fontSans }]}>Esta aceptación no activa las estadísticas de uso, Google Calendar ni Google Meet.</Text>
             {optionsOpen ? <View style={[styles.options, { borderTopColor: theme.border }]}>
+              {user?.type === 'client' ? <>
+                <Text style={textStyle}>Puedes detener las recomendaciones de tu cuestionario y de tus búsquedas asistidas sin aceptar estas condiciones. El contenido guardado sigue sujeto a su política de conservación.</Text>
+                <Button variant="outline" size="small" fullWidth loading={pending === 'questionnaire'} disabled={pending !== null}
+                  onPress={() => void runAction('questionnaire', async () => {
+                    await withdrawAllQuestionnaireConsents();
+                    questionnaireDraft.clear();
+                    setMessage('Se ha retirado el consentimiento para las recomendaciones de tus cuestionarios.');
+                  })}>Retirar consentimiento de mis cuestionarios</Button>
+              </> : null}
               <Text style={[styles.optionsTitle, { color: theme.textPrimary, fontFamily: theme.fontSansSemiBold }]}>Tus opciones de privacidad</Text>
               <Text style={[styles.optionNote, textStyle]}>Puedes gestionarlas sin aceptar las nuevas condiciones.</Text>
               {openPrivacy ? <Button variant="outline" size="small" fullWidth disabled={pending !== null} onPress={openPrivacy}>Preferencias de privacidad</Button> : null}

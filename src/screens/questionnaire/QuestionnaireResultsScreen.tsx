@@ -1,808 +1,470 @@
-import { useDirectoryNavigation } from '../../hooks/useDirectoryNavigation';
-import React, { useEffect, useMemo, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  useWindowDimensions,
-  Animated,
-  Platform,
+  ActivityIndicator,
   Image,
+  ScrollView,
+  Text,
+  View,
+  useWindowDimensions,
 } from 'react-native';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import {
+  useNavigation,
+  useRoute,
+  type RouteProp,
+} from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import type { RouteProp } from '@react-navigation/native';
-import Ionicons from '@expo/vector-icons/Ionicons';
-
-import { spacing, borderRadius } from '../../constants/colors';
 import type { RootStackParamList } from '../../constants/types';
 import { useTheme } from '../../contexts/ThemeContext';
-import type { Theme } from '../../constants/theme';
-import { Button, AnimatedPressable, Card } from '../../components/common';
-import type { MatchResult } from '../../utils/matchingAlgorithm';
-
-type QuestionnaireResultsNavigationProp = NativeStackNavigationProp<RootStackParamList>;
-type QuestionnaireResultsRouteProp = RouteProp<RootStackParamList, 'QuestionnaireResults'>;
-
-const getResultsPalette = (theme: Theme, isDark: boolean) => ({
-  accent: theme.primary,
-  accentStrong: theme.primaryDark,
-  accentSoft: theme.primaryLight,
-  secondary: theme.secondary,
-  success: theme.success,
-  successBg: theme.successBg,
-  warning: theme.warning,
-  warningBg: theme.warningBg,
-  bg: theme.bg,
-  cardBg: theme.bgCard,
-  surface: isDark ? theme.bgElevated : theme.bgMuted,
-  text: theme.textPrimary,
-  textSecondary: theme.textSecondary,
-  textMuted: theme.textMuted,
-  border: theme.border,
-  borderLight: theme.borderLight,
-});
-
-type ResultsPalette = ReturnType<typeof getResultsPalette>;
+import { Button } from '../../components/common/Button';
+import {
+  getMatchedSpecialists,
+  addFavoriteSpecialist,
+  type SpecialistData,
+  invalidateSpecialistsCache,
+} from '../../services/specialistsService';
+import {
+  getAssistedResults,
+  withdrawQuestionnaireConsent,
+} from '../../services/questionnaireService';
+import { getErrorMessage } from '../../constants/errors';
+import {
+  PROFESSIONAL_SPECIALTY_OPTIONS,
+  PROFESSIONAL_THERAPEUTIC_APPROACH_OPTIONS,
+} from '../../constants/professionalMatchingCatalog';
+import { useProfileOptions } from '../../hooks/useProfileOptions';
+import { optionLabel } from '../../utils/profileOptions';
 
 export function QuestionnaireResultsScreen() {
-  const openDirectory = useDirectoryNavigation();
-  const navigation = useNavigation<QuestionnaireResultsNavigationProp>();
-  const route = useRoute<QuestionnaireResultsRouteProp>();
+  const { theme } = useTheme();
   const { width } = useWindowDimensions();
-  const { theme, isDark } = useTheme();
-  const palette = useMemo(() => getResultsPalette(theme, isDark), [theme, isDark]);
-  const styles = useMemo(() => createStyles(theme, isDark, palette), [theme, isDark, palette]);
-
-  const results = (route.params?.results || []) as MatchResult[];
-  const isDesktop = width >= 1100;
-  const isTablet = width >= 768 && width < 1100;
-  const topMatch = results[0];
-  const otherMatches = results.slice(1, 7);
-
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(24)).current;
-  const cardAnimations = useRef(results.map(() => new Animated.Value(0))).current;
-
-  useEffect(() => {
-    Animated.sequence([
-      Animated.parallel([
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 420,
-          useNativeDriver: true,
-        }),
-        Animated.timing(slideAnim, {
-          toValue: 0,
-          duration: 420,
-          useNativeDriver: true,
-        }),
-      ]),
-      Animated.stagger(
-        80,
-        cardAnimations.map((anim) =>
-          Animated.timing(anim, {
-            toValue: 1,
-            duration: 320,
-            useNativeDriver: true,
-          })
-        )
-      ),
-    ]).start();
-  }, [cardAnimations, fadeAnim, slideAnim]);
-
-  const renderMatchBadge = (percentage: number, prominent = false) => (
-    <View style={[styles.matchBadge, prominent ? styles.matchBadgeProminent : null]}>
-      <Ionicons
-        name="checkmark-circle"
-        size={prominent ? 18 : 16}
-        color={palette.success}
-      />
-      <Text style={[styles.matchBadgeText, prominent ? styles.matchBadgeTextProminent : null]}>
-        {percentage}% compatible
-      </Text>
-    </View>
-  );
-
-  const renderMatchCard = (result: MatchResult, index: number, isTop = false) => {
-    const { specialist, affinityScore, matchedAttributes } = result;
-    const percentage =
-      specialist.affinityPercentage || Math.round((affinityScore / 130) * 100);
-    const animValue = cardAnimations[index] || new Animated.Value(1);
-
-    return (
-      <Animated.View
-        key={specialist.id}
-        style={[
-          isTop ? styles.topMatchWrapper : styles.matchCardWrapper,
-          {
-            opacity: animValue,
-            transform: [
-              {
-                translateY: animValue.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [18, 0],
-                }),
-              },
-            ],
-          },
-        ]}
-      >
-        <Card style={isTop ? { ...styles.matchCard, ...styles.topMatchCard } : styles.matchCard}>
-          {isTop ? (
-            <View style={styles.topMatchBanner}>
-              <Ionicons name="trophy" size={16} color={palette.warning} />
-              <Text style={styles.topMatchBannerText}>Tu mejor match</Text>
-            </View>
-          ) : null}
-
-          <View style={styles.matchHeader}>
-            <View style={styles.avatarStack}>
-              {specialist.avatar ? (
-                <Image source={{ uri: specialist.avatar }} style={styles.avatar} />
-              ) : (
-                <View style={[styles.avatar, { backgroundColor: palette.accent }]}>
-                  <Text style={styles.avatarText}>
-                    {specialist.initial || specialist.name.charAt(0)}
-                  </Text>
-                </View>
-              )}
-              {specialist.firstVisitFree ? (
-                <View style={styles.freeBadge}>
-                  <Text style={styles.freeBadgeText}>Gratis</Text>
-                </View>
-              ) : null}
-            </View>
-
-            <View style={styles.matchHeaderInfo}>
-              <Text style={styles.specialistName} numberOfLines={1}>
-                {specialist.name}
-              </Text>
-              <Text style={styles.specialistSpecialization} numberOfLines={2}>
-                {specialist.specialization}
-              </Text>
-              <View style={styles.ratingRow}>
-                <Ionicons name="star" size={14} color={palette.warning} />
-                <Text style={styles.ratingText}>
-                  {specialist.rating} ({specialist.reviewCount})
-                </Text>
-              </View>
-            </View>
-
-            {renderMatchBadge(percentage, isTop)}
-          </View>
-
-          {matchedAttributes.length > 0 ? (
-            <View style={styles.reasonsPanel}>
-              <Text style={styles.reasonsTitle}>Por qué encaja contigo</Text>
-              <View style={styles.reasonsList}>
-                {matchedAttributes.slice(0, isTop ? 4 : 3).map((attribute) => (
-                  <View key={attribute} style={styles.reasonItem}>
-                    <Ionicons name="checkmark" size={14} color={palette.success} />
-                    <Text style={styles.reasonText}>{attribute}</Text>
-                  </View>
-                ))}
-              </View>
-            </View>
-          ) : null}
-
-          <View style={styles.matchFooter}>
-            <View>
-              <Text style={styles.priceValue}>{specialist.pricePerSession}€/sesión</Text>
-              <Text style={styles.priceHint}>
-                {specialist.firstVisitFree ? 'Con primera visita gratuita' : 'Tarifa por sesión'}
-              </Text>
-            </View>
-
-            <Button
-              onPress={() =>
-                void openDirectory(specialist.id)
-              }
-              size="medium"
-              icon={<Ionicons name="arrow-forward" size={16} color="#FFFFFF" />}
-              iconPosition="right"
-            >
-              Ver perfil
-            </Button>
-          </View>
-        </Card>
-      </Animated.View>
-    );
+  const navigation =
+    useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const route =
+    useRoute<RouteProp<RootStackParamList, 'QuestionnaireResults'>>();
+  const adviceId = route.params?.adviceId;
+  const [specialists, setSpecialists] = useState<SpecialistData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [refresh, setRefresh] = useState(false);
+  const [count, setCount] = useState(3);
+  const [saved, setSaved] = useState<string[]>([]);
+  const requestVersion = useRef(0);
+  const [withdrawing, setWithdrawing] = useState(false);
+  const [privateDraft, setPrivateDraft] = useState(false);
+  const { options } = useProfileOptions();
+  const load = async () => {
+    const version = ++requestVersion.current;
+    setLoading(true);
+    setError('');
+    setSpecialists([]);
+    setRefresh(false);
+    setCount(3);
+    setPrivateDraft(false);
+    try {
+      invalidateSpecialistsCache();
+      if (adviceId) {
+        const result = await getAssistedResults(adviceId);
+        if (version !== requestVersion.current) return;
+        setSpecialists(result.specialists);
+        setRefresh(result.consentWithdrawn);
+        setPrivateDraft(result.privateDraft);
+      }
+      else {
+        const result = await getMatchedSpecialists();
+        if (version !== requestVersion.current) return;
+        setSpecialists(result.specialists);
+        setRefresh(!result.hasCompletedQuestionnaire);
+      }
+    } catch (e) {
+      if (version !== requestVersion.current) return;
+      setError(
+        getErrorMessage(e, 'No hemos podido cargar las recomendaciones.'),
+      );
+    } finally {
+      if (version === requestVersion.current) setLoading(false);
+    }
   };
-
-  if (results.length === 0) {
-    return (
-      <View style={styles.container}>
-        <ScrollView contentContainerStyle={styles.emptyScrollContent} showsVerticalScrollIndicator={false}>
-          <Card style={styles.emptyStateCard}>
-            <View style={styles.emptyIconContainer}>
-              <Ionicons name="search-outline" size={54} color={palette.textMuted} />
-            </View>
-            <Text style={styles.emptyTitle}>No encontramos coincidencias</Text>
-            <Text style={styles.emptyDescription}>
-              No hay especialistas que coincidan con tus requisitos actuales. Puedes revisar tus respuestas o abrir el directorio sin estos requisitos.
-            </Text>
-            <View style={styles.emptyActions}>
-              <Button onPress={() => navigation.navigate('Questionnaire')}>Revisar idioma y respuestas</Button>
-              <Button
-                onPress={() => navigation.navigate('Specialists')}
-                size="large"
-                icon={<Ionicons name="arrow-forward" size={18} color="#FFFFFF" />}
-                iconPosition="right"
-              >
-                Ver todos los especialistas
-              </Button>
-              <Button
-                onPress={() => navigation.navigate('Questionnaire')}
-                variant="outline"
-                size="large"
-                icon={<Ionicons name="refresh" size={18} color={palette.accent} />}
-              >
-                Ajustar preferencias
-              </Button>
-            </View>
-          </Card>
-        </ScrollView>
-      </View>
-    );
-  }
-
+  useEffect(() => {
+    void load();
+    return () => { requestVersion.current++; };
+  }, [adviceId]);
+  const text = {
+    fontFamily: theme.fontSans,
+    fontSize: 16,
+    lineHeight: 24,
+    color: theme.textPrimary,
+  };
+  const labelList = (
+    values: unknown,
+    catalog: ReadonlyArray<{ value: string; label: string }>,
+  ) =>
+    Array.isArray(values)
+      ? values
+          .filter((v): v is string => typeof v === 'string')
+          .map(
+            (value) => catalog.find((c) => c.value === value)?.label ?? value,
+          )
+          .join(' · ')
+      : '';
   return (
-    <View style={styles.container}>
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={[
-          styles.scrollContent,
-          { paddingHorizontal: isDesktop ? spacing.xxxl : spacing.xl },
-        ]}
-        showsVerticalScrollIndicator={isDesktop}
-      >
-        <Animated.View
-          style={[
-            styles.successHeader,
-            {
-              opacity: fadeAnim,
-              transform: [{ translateY: slideAnim }],
-            },
-          ]}
+    <ScrollView
+      style={{ flex: 1, backgroundColor: theme.bg }}
+      contentContainerStyle={{
+        padding: width < 600 ? 20 : 36,
+        alignItems: 'center',
+      }}
+    >
+      <View style={{ maxWidth: 1100, width: '100%', gap: 16 }}>
+        <Text style={{ ...text, color: theme.primary }}>TU PRÓXIMO PASO</Text>
+        <Text
+          accessibilityRole="header"
+          style={{
+            fontFamily: theme.fontDisplay,
+            color: theme.textPrimary,
+            fontSize: width < 600 ? 30 : 38,
+          }}
         >
-          <View style={styles.celebrationWrap}>
-            <Text style={styles.celebrationEmoji}>✨</Text>
-          </View>
-          <Text style={styles.successTitle}>Listo, ya tenemos tus mejores matches</Text>
-          <Text style={styles.successSubtitle}>
-            Encontramos {results.length} especialista{results.length > 1 ? 's' : ''} con buena afinidad
-            para tu momento y tus preferencias.
+          Un profesional con quien empezar.
+        </Text>
+        <Text style={text}>
+          Te mostramos el encaje con sus especialidades y enfoques declarados.
+          El tipo de terapia y las edades indicadas no se usan para seleccionar
+          estos resultados. Confirma con el profesional que atiende tu caso
+          antes de reservar.
+        </Text>
+        {adviceId ? (
+          <Text
+            style={{
+              ...text,
+              padding: 18,
+              borderRadius: 14,
+              backgroundColor: theme.bgMuted,
+            }}
+          >
+            Esta búsqueda incluye menores. {privateDraft ? 'Tu borrador es privado y caduca a los siete días de guardarlo. ' : ''}El equipo puede ayudarte a concertar la primera atención
+            y comprobar quién recibirá la terapia.
           </Text>
-        </Animated.View>
-
-        <Card style={styles.summaryCard}>
-          <View style={styles.summaryHeader}>
-            <View style={styles.summaryIconWrap}>
-              <Ionicons name="clipboard-outline" size={20} color={palette.accent} />
-            </View>
-            <View style={styles.summaryHeaderText}>
-              <Text style={styles.summaryTitle}>Basado en tus preferencias</Text>
-              <Text style={styles.summaryDescription}>
-                Analizamos tus respuestas para priorizar especialidad, estilo terapéutico, disponibilidad y afinidad personal.
-              </Text>
-            </View>
-          </View>
-
-          <AnimatedPressable
-            onPress={() => navigation.navigate('Questionnaire')}
-            style={styles.summaryLink}
-          >
-            <Text style={styles.summaryLinkText}>Editar preferencias</Text>
-            <Ionicons name="chevron-forward" size={16} color={palette.accent} />
-          </AnimatedPressable>
-        </Card>
-
-        {topMatch ? <View style={styles.section}>{renderMatchCard(topMatch, 0, true)}</View> : null}
-
-        {otherMatches.length > 0 ? (
-          <View style={styles.section}>
-            <View style={styles.sectionHeading}>
-              <Text style={styles.sectionTitle}>Otros especialistas recomendados</Text>
-              <Text style={styles.sectionMeta}>{otherMatches.length} alternativas más</Text>
-            </View>
-
-            <View
-              style={[
-                styles.matchesGrid,
-                isDesktop ? styles.matchesGridDesktop : null,
-                isTablet ? styles.matchesGridTablet : null,
-              ]}
-            >
-              {otherMatches.map((result, idx) => (
-                <View
-                  key={result.specialist.id}
-                  style={[
-                    styles.gridItem,
-                    isDesktop ? styles.gridItemDesktop : null,
-                    isTablet ? styles.gridItemTablet : null,
-                  ]}
-                >
-                  {renderMatchCard(result, idx + 1)}
-                </View>
-              ))}
-            </View>
-          </View>
         ) : null}
-
-        <Card style={styles.moreOptionsCard}>
-          <View style={styles.moreOptionsText}>
-            <Text style={styles.moreOptionsTitle}>¿Quieres ver más opciones?</Text>
-            <Text style={styles.moreOptionsDescription}>
-              También puedes explorar el listado completo y comparar otros perfiles por tu cuenta.
-            </Text>
-          </View>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
           <Button
-            onPress={() => navigation.navigate('Specialists')}
             variant="outline"
-            size="medium"
-            icon={<Ionicons name="arrow-forward" size={16} color={palette.accent} />}
-            iconPosition="right"
+            onPress={() =>
+              adviceId
+                ? navigation.navigate('MatchingAdvice', { id: adviceId })
+                : navigation.navigate('Questionnaire')
+            }
           >
-            Ver todos
+            {adviceId
+              ? 'Ver respuestas guardadas'
+              : refresh
+                ? 'Completar cuestionario actualizado'
+                : 'Revisar cuestionario'}
           </Button>
-        </Card>
-
-        <Card style={styles.retakeCard}>
-          <View style={styles.retakeTextBlock}>
-            <Ionicons name="refresh-outline" size={22} color={palette.textSecondary} />
-            <View style={styles.retakeCopy}>
-              <Text style={styles.retakeTitle}>¿Cambiaron tus necesidades?</Text>
-              <Text style={styles.retakeDescription}>
-                Puedes actualizar tus respuestas en cualquier momento para refinar tus recomendaciones.
-              </Text>
-            </View>
-          </View>
           <Button
-            onPress={() => navigation.navigate('Questionnaire')}
-            variant="secondary"
-            size="medium"
-            icon={<Ionicons name="create-outline" size={16} color={theme.secondaryDark} />}
+            variant={adviceId || (!loading && !specialists.length) ? 'primary' : 'outline'}
+            onPress={() =>
+              navigation.navigate('MatchingAdvice', { id: adviceId })
+            }
           >
-            Actualizar cuestionario
+            {adviceId ? 'Solicitar ayuda para empezar' : 'Pedir orientación'}
           </Button>
-        </Card>
-
-        <View style={styles.bottomActions}>
           <Button
-            onPress={() => navigation.navigate('Home')}
             variant="ghost"
-            size="medium"
-            icon={<Ionicons name="home-outline" size={16} color={palette.accent} />}
+            onPress={() => navigation.navigate('MatchingAdvice')}
           >
-            Volver al inicio
+            Mis solicitudes
           </Button>
         </View>
-      </ScrollView>
-    </View>
+        {loading ? (
+          <ActivityIndicator
+            color={theme.primary}
+            accessibilityLabel="Comprobando profesionales y agendas"
+          />
+        ) : null}
+        {!!error && (
+          <View>
+            <Text
+              accessibilityRole="alert"
+              style={{ ...text, color: theme.error }}
+            >
+              {error}
+            </Text>
+            <Button onPress={() => void load()}>Reintentar</Button>
+          </View>
+        )}
+        {!loading && !error && !specialists.length ? (
+          <View
+            style={{
+              padding: 28,
+              borderWidth: 1,
+              borderColor: theme.border,
+              borderRadius: 18,
+              gap: 16,
+            }}
+          >
+            <Text
+              style={{ ...text, fontFamily: theme.fontDisplay, fontSize: 25 }}
+            >
+              {refresh
+                ? adviceId
+                  ? 'Has retirado el consentimiento para nuevas recomendaciones.'
+                  : 'Actualiza tus respuestas para recibir recomendaciones.'
+                : 'No encontramos un encaje suficiente con estas preferencias.'}
+            </Text>
+            <Text style={text}>
+              Puedes pedir orientación al equipo o explorar el directorio por tu
+              cuenta. Los profesionales del directorio no son recomendaciones de
+              este cuestionario.
+            </Text>
+            <Button
+              variant="outline"
+              onPress={() => navigation.navigate('Specialists')}
+            >
+              Explorar directorio
+            </Button>
+          </View>
+        ) : null}
+        {!loading
+          ? specialists.slice(0, count).map((specialist) => {
+              const option = specialist.publicOptions?.find(
+                (o) => o.optionId === specialist.matchedOptionId,
+              );
+              return (
+                <View
+                  key={specialist.id}
+                  style={{
+                    backgroundColor: theme.bgCard,
+                    borderWidth: 1,
+                    borderColor: theme.border,
+                    borderRadius: 22,
+                    padding: width < 600 ? 18 : 24,
+                    gap: 12,
+                  }}
+                >
+                  <View
+                    style={{
+                      flexDirection: 'row',
+                      gap: 14,
+                      alignItems: 'center',
+                    }}
+                  >
+                    {specialist.avatar ? (
+                      <Image
+                        source={{ uri: specialist.avatar }}
+                        style={{ width: width < 600 ? 64 : 80, height: width < 600 ? 76 : 92, borderRadius: 16 }}
+                        accessibilityLabel={`Fotografía de ${specialist.user.name}`}
+                      />
+                    ) : (
+                      <View
+                        style={{
+                          width: 64,
+                          height: 64,
+                          flexShrink: 0,
+                          backgroundColor: theme.primaryAlpha12,
+                          borderRadius: 38,
+                          justifyContent: 'center',
+                          alignItems: 'center',
+                        }}
+                      >
+                        <Text style={{ ...text, fontSize: 30 }}>
+                          {specialist.user.name[0]}
+                        </Text>
+                      </View>
+                    )}
+                    <View style={{ flex: 1, gap: 6 }}>
+                      <Text
+                        style={{
+                          ...text,
+                          fontFamily: theme.fontDisplay,
+                          fontSize: width < 600 ? 22 : 25,
+                        }}
+                      >
+                        {specialist.user.name}
+                      </Text>
+                      <Text style={text}>
+                        {specialist.professionalTitle ||
+                          specialist.professionalTypeLabel}
+                      </Text>
+                      <Text style={{ ...text, color: theme.primary }}>
+                        {specialist.partialMatch
+                          ? 'Coincidencia parcial con tus áreas'
+                          : specialist.matchingReasons?.some(
+                                (reason) => reason.kind === 'direct',
+                              )
+                            ? 'Coincidencia con tus áreas'
+                            : 'Coincide con tu modalidad y presupuesto'}
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={{ gap: 6 }}>
+                    {[
+                      ...new Set(
+                        specialist.matchingReasons?.map(
+                          (r) =>
+                            `${r.kind === 'related' ? 'Relación parcial: ' : ''}${r.label}`,
+                        ) ?? [],
+                      ),
+                    ].map((reason) => (
+                      <Text key={reason} style={text}>
+                        ✓ {reason}
+                      </Text>
+                    ))}
+                  </View>
+                  <Text
+                    style={{ ...text, color: theme.textSecondary }}
+                    numberOfLines={3}
+                  >
+                    {specialist.description}
+                  </Text>
+                  <View style={{ gap: 4 }}>
+                    <Text style={text}>
+                      Especialidades:{' '}
+                      {labelList(
+                        specialist.matchingProfile?.specialties,
+                        PROFESSIONAL_SPECIALTY_OPTIONS,
+                      )}
+                    </Text>
+                    <Text style={text}>
+                      Enfoques:{' '}
+                      {labelList(
+                        specialist.matchingProfile?.therapeuticApproach,
+                        PROFESSIONAL_THERAPEUTIC_APPROACH_OPTIONS,
+                      )}
+                    </Text>
+                    <Text style={text}>
+                      {specialist.languagesSpoken
+                        ?.map((l) => optionLabel(options?.languages ?? [], l))
+                        .join(' · ')}
+                    </Text>
+                  </View>
+                  <View
+                    style={{
+                      backgroundColor: theme.bgMuted,
+                      borderRadius: 14,
+                      padding: 16,
+                      gap: 6,
+                    }}
+                  >
+                    <Text
+                      style={{ ...text, fontFamily: theme.fontSansSemiBold }}
+                    >
+                      {option?.serviceName} ·{' '}
+                      {option?.modality === 'VIDEO_CALL'
+                        ? 'Online'
+                        : `Presencial en ${specialist.officeCity}`}{' '}
+                      · {option?.durationMinutes} min ·{' '}
+                      {specialist.pricePerSession} €
+                    </Text>
+                    <Text style={text}>
+                      {specialist.availabilityStatus === 'UNKNOWN'
+                        ? 'No hemos podido verificar la agenda. Puedes reintentar.'
+                        : specialist.nextAvailable
+                          ? `Próximo hueco: ${new Date(specialist.nextAvailable).toLocaleString('es-ES', { timeZone: 'Europe/Madrid', dateStyle: 'medium', timeStyle: 'short' })} (hora peninsular)`
+                          : 'Sin huecos disponibles en los próximos 30 días.'}
+                    </Text>
+                    {specialist.availabilityStatus === 'UNKNOWN' ? (
+                      <Button
+                        size="small"
+                        variant="ghost"
+                        onPress={() => void load()}
+                      >
+                        Reintentar agenda
+                      </Button>
+                    ) : null}
+                  </View>
+                  <View
+                    style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}
+                  >
+                    <Button
+                      onPress={() =>
+                        adviceId
+                          ? navigation.navigate('MatchingAdvice', {
+                              id: adviceId,
+                              specialistId: specialist.id,
+                            })
+                          : navigation.navigate('Booking', {
+                              specialistId: specialist.id,
+                              optionId: specialist.matchedOptionId ?? undefined,
+                            })
+                      }
+                    >
+                      {adviceId
+                        ? 'Me interesa este profesional'
+                        : 'Elegir una cita'}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onPress={() =>
+                        navigation.navigate('SpecialistDetail', {
+                          adviceId,
+                          specialistId: specialist.id,
+                          optionId: specialist.matchedOptionId ?? undefined,
+                        })
+                      }
+                    >
+                      Ver perfil y formación
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      disabled={saved.includes(specialist.id)}
+                      onPress={() => {
+                        void addFavoriteSpecialist(specialist.id)
+                          .then(() =>
+                            setSaved((ids) => [...ids, specialist.id]),
+                          )
+                          .catch((e) =>
+                            setError(
+                              getErrorMessage(
+                                e,
+                                'No se ha podido guardar el favorito.',
+                              ),
+                            ),
+                          );
+                      }}
+                    >
+                      {saved.includes(specialist.id)
+                        ? 'Guardado en favoritos'
+                        : 'Guardar favorito'}
+                    </Button>
+                  </View>
+                </View>
+              );
+            })
+          : null}
+        {count < specialists.length ? (
+          <Button variant="outline" onPress={() => setCount(count + 3)}>
+            Ver más profesionales
+          </Button>
+        ) : null}
+        {!refresh ? (
+          <Button
+            variant="ghost"
+            loading={withdrawing}
+            onPress={() => {
+              requestVersion.current++;
+              setLoading(false);
+              setWithdrawing(true);
+              void withdrawQuestionnaireConsent(adviceId)
+                .then(() => {
+                  requestVersion.current++;
+                  setRefresh(true);
+                  setSpecialists([]);
+                })
+                .catch((e) =>
+                  setError(
+                    getErrorMessage(
+                      e,
+                      'No se ha podido retirar el consentimiento.',
+                    ),
+                  ),
+                )
+                .finally(() => setWithdrawing(false));
+            }}
+          >
+            Retirar consentimiento para nuevas recomendaciones
+          </Button>
+        ) : null}
+      </View>
+    </ScrollView>
   );
 }
-
-const createStyles = (theme: Theme, isDark: boolean, palette: ResultsPalette) =>
-  StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: palette.bg,
-    },
-    scrollView: {
-      flex: 1,
-    },
-    scrollContent: {
-      paddingTop: spacing.xxl,
-      paddingBottom: spacing.xxxl,
-      maxWidth: 1160,
-      alignSelf: 'center',
-      width: '100%',
-    },
-    emptyScrollContent: {
-      flexGrow: 1,
-      justifyContent: 'center',
-      alignItems: 'center',
-      padding: spacing.xxl,
-    },
-    successHeader: {
-      alignItems: 'center',
-      marginBottom: spacing.xxl,
-      paddingTop: spacing.lg,
-      paddingBottom: spacing.lg,
-    },
-    celebrationWrap: {
-      marginBottom: spacing.md,
-    },
-    celebrationEmoji: {
-      fontSize: 58,
-    },
-    successTitle: {
-      fontSize: 38,
-      fontWeight: '800',
-      color: palette.text,
-      textAlign: 'center',
-      marginBottom: spacing.sm,
-      lineHeight: 44,
-      maxWidth: 760,
-    },
-    successSubtitle: {
-      fontSize: 18,
-      color: palette.textSecondary,
-      textAlign: 'center',
-      lineHeight: 28,
-      maxWidth: 720,
-    },
-    summaryCard: {
-      backgroundColor: palette.cardBg,
-      borderRadius: borderRadius.xl,
-      padding: spacing.xl,
-      marginBottom: spacing.xxl,
-      borderWidth: 1,
-      borderColor: palette.border,
-      ...Platform.select({
-        ios: {
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: 5 },
-          shadowOpacity: isDark ? 0.2 : 0.06,
-          shadowRadius: 18,
-        },
-        android: { elevation: 4 },
-        web: {
-          boxShadow: isDark
-            ? '0 14px 28px rgba(0,0,0,0.24)'
-            : '0 10px 24px rgba(26,36,26,0.08)',
-        },
-      }),
-    },
-    summaryHeader: {
-      flexDirection: 'row',
-      alignItems: 'flex-start',
-      gap: spacing.md,
-      marginBottom: spacing.md,
-    },
-    summaryIconWrap: {
-      width: 44,
-      height: 44,
-      borderRadius: 22,
-      backgroundColor: palette.accentSoft,
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    summaryHeaderText: {
-      flex: 1,
-    },
-    summaryTitle: {
-      fontSize: 18,
-      fontWeight: '700',
-      color: palette.text,
-      marginBottom: spacing.xs,
-    },
-    summaryDescription: {
-      fontSize: 15,
-      color: palette.textSecondary,
-      lineHeight: 24,
-    },
-    summaryLink: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.xs,
-      alignSelf: 'flex-start',
-    },
-    summaryLinkText: {
-      fontSize: 14,
-      fontWeight: '700',
-      color: palette.accent,
-    },
-    section: {
-      marginBottom: spacing.xxl,
-    },
-    sectionHeading: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      gap: spacing.md,
-      marginBottom: spacing.lg,
-      flexWrap: 'wrap',
-    },
-    sectionTitle: {
-      fontSize: 24,
-      fontWeight: '800',
-      color: palette.text,
-    },
-    sectionMeta: {
-      fontSize: 14,
-      fontWeight: '600',
-      color: palette.textMuted,
-    },
-    topMatchWrapper: {
-      width: '100%',
-    },
-    matchCardWrapper: {
-      width: '100%',
-    },
-    matchesGrid: {
-      gap: spacing.md,
-    },
-    matchesGridDesktop: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-    },
-    matchesGridTablet: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-    },
-    gridItem: {
-      width: '100%',
-    },
-    gridItemDesktop: {
-      width: '49%',
-    },
-    gridItemTablet: {
-      width: '48%',
-    },
-    matchCard: {
-      backgroundColor: palette.cardBg,
-      borderRadius: borderRadius.xl,
-      padding: spacing.xl,
-      borderWidth: 1,
-      borderColor: palette.border,
-    },
-    topMatchCard: {
-      borderColor: palette.success,
-      borderWidth: 1.5,
-    },
-    topMatchBanner: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.xs,
-      backgroundColor: palette.warningBg,
-      paddingHorizontal: spacing.md,
-      paddingVertical: spacing.sm,
-      borderRadius: borderRadius.md,
-      alignSelf: 'flex-start',
-      marginBottom: spacing.md,
-    },
-    topMatchBannerText: {
-      fontSize: 13,
-      fontWeight: '700',
-      color: palette.warning,
-    },
-    matchHeader: {
-      flexDirection: 'row',
-      alignItems: 'flex-start',
-      gap: spacing.md,
-      marginBottom: spacing.lg,
-    },
-    avatarStack: {
-      position: 'relative',
-    },
-    avatar: {
-      width: 72,
-      height: 72,
-      borderRadius: 36,
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    avatarText: {
-      fontSize: 28,
-      fontWeight: '700',
-      color: '#FFFFFF',
-    },
-    freeBadge: {
-      position: 'absolute',
-      bottom: -4,
-      right: -4,
-      backgroundColor: palette.success,
-      paddingHorizontal: 8,
-      paddingVertical: 4,
-      borderRadius: 8,
-      borderWidth: 2,
-      borderColor: palette.cardBg,
-    },
-    freeBadgeText: {
-      fontSize: 10,
-      fontWeight: '800',
-      color: '#FFFFFF',
-    },
-    matchHeaderInfo: {
-      flex: 1,
-      minWidth: 0,
-    },
-    specialistName: {
-      fontSize: 24,
-      fontWeight: '800',
-      color: palette.text,
-      marginBottom: 4,
-    },
-    specialistSpecialization: {
-      fontSize: 16,
-      color: palette.textSecondary,
-      marginBottom: spacing.xs,
-    },
-    ratingRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.xs,
-    },
-    ratingText: {
-      fontSize: 14,
-      color: palette.textSecondary,
-      fontWeight: '600',
-    },
-    matchBadge: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.xs,
-      paddingHorizontal: spacing.md,
-      paddingVertical: spacing.sm,
-      borderRadius: 999,
-      backgroundColor: palette.successBg,
-      alignSelf: 'flex-start',
-    },
-    matchBadgeProminent: {
-      paddingHorizontal: spacing.lg,
-      paddingVertical: spacing.md,
-    },
-    matchBadgeText: {
-      fontSize: 14,
-      fontWeight: '700',
-      color: palette.success,
-    },
-    matchBadgeTextProminent: {
-      fontSize: 16,
-    },
-    reasonsPanel: {
-      padding: spacing.lg,
-      borderRadius: borderRadius.lg,
-      backgroundColor: palette.surface,
-      borderWidth: 1,
-      borderColor: palette.borderLight,
-      marginBottom: spacing.lg,
-    },
-    reasonsTitle: {
-      fontSize: 14,
-      fontWeight: '700',
-      color: palette.textMuted,
-      marginBottom: spacing.sm,
-      textTransform: 'uppercase',
-      letterSpacing: 0.6,
-    },
-    reasonsList: {
-      gap: spacing.sm,
-    },
-    reasonItem: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.sm,
-    },
-    reasonText: {
-      flex: 1,
-      fontSize: 15,
-      color: palette.text,
-      lineHeight: 22,
-    },
-    matchFooter: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      gap: spacing.md,
-      flexWrap: 'wrap',
-    },
-    priceValue: {
-      fontSize: 28,
-      fontWeight: '800',
-      color: palette.text,
-    },
-    priceHint: {
-      fontSize: 13,
-      color: palette.textSecondary,
-      marginTop: 2,
-    },
-    moreOptionsCard: {
-      backgroundColor: palette.cardBg,
-      borderRadius: borderRadius.xl,
-      padding: spacing.xl,
-      marginBottom: spacing.lg,
-      borderWidth: 1,
-      borderColor: palette.border,
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      gap: spacing.lg,
-      flexWrap: 'wrap',
-    },
-    moreOptionsText: {
-      flex: 1,
-      minWidth: 260,
-    },
-    moreOptionsTitle: {
-      fontSize: 20,
-      fontWeight: '800',
-      color: palette.text,
-      marginBottom: spacing.xs,
-    },
-    moreOptionsDescription: {
-      fontSize: 15,
-      color: palette.textSecondary,
-      lineHeight: 24,
-    },
-    retakeCard: {
-      backgroundColor: palette.cardBg,
-      borderRadius: borderRadius.xl,
-      padding: spacing.xl,
-      marginBottom: spacing.xl,
-      borderWidth: 1,
-      borderColor: palette.border,
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      gap: spacing.lg,
-      flexWrap: 'wrap',
-    },
-    retakeTextBlock: {
-      flexDirection: 'row',
-      alignItems: 'flex-start',
-      gap: spacing.md,
-      flex: 1,
-      minWidth: 260,
-    },
-    retakeCopy: {
-      flex: 1,
-    },
-    retakeTitle: {
-      fontSize: 18,
-      fontWeight: '700',
-      color: palette.text,
-      marginBottom: spacing.xs,
-    },
-    retakeDescription: {
-      fontSize: 15,
-      color: palette.textSecondary,
-      lineHeight: 24,
-    },
-    bottomActions: {
-      alignItems: 'center',
-      marginTop: spacing.md,
-    },
-    emptyStateCard: {
-      width: '100%',
-      maxWidth: 720,
-      padding: spacing.xxxl,
-      borderRadius: borderRadius.xl,
-      borderWidth: 1,
-      borderColor: palette.border,
-      alignItems: 'center',
-      backgroundColor: palette.cardBg,
-    },
-    emptyIconContainer: {
-      width: 96,
-      height: 96,
-      borderRadius: 48,
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: palette.surface,
-      marginBottom: spacing.lg,
-    },
-    emptyTitle: {
-      fontSize: 28,
-      fontWeight: '800',
-      color: palette.text,
-      textAlign: 'center',
-      marginBottom: spacing.sm,
-    },
-    emptyDescription: {
-      fontSize: 16,
-      color: palette.textSecondary,
-      textAlign: 'center',
-      lineHeight: 24,
-      marginBottom: spacing.xl,
-      maxWidth: 480,
-    },
-    emptyActions: {
-      gap: spacing.md,
-      width: '100%',
-      maxWidth: 360,
-    },
-  });

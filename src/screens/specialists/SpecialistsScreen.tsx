@@ -3,7 +3,7 @@ import {PROFESSIONAL_SPECIALTY_OPTIONS, PROFESSIONAL_THERAPEUTIC_APPROACH_OPTION
 import { ProfileDiscoveryFilters } from '../../components/common/ProfileDiscoveryFilters';
 import { DirectoryFiltersSheet } from './components/DirectoryFiltersSheet';
 import { useDiscoveryRevalidation } from '../../hooks/useDiscoveryRevalidation';
-import { affinityPercentage, combineSpecialistResults } from './specialistDiscoveryResults';
+import { combineSpecialistResults } from './specialistDiscoveryResults';
 import React, { useCallback, useRef, useEffect, useMemo, useState } from 'react';
 import {
   ScrollView,
@@ -94,7 +94,7 @@ const buildMatchingProfile = (matchingProfile?: Record<string, unknown>) => ({
 const mapSpecialistDataToCard = (
   specialist: specialistsService.SpecialistData,
   favoriteIds: Set<string>,
-  affinityOverride?: number
+  matchOrder?: number
 ): Specialist => {
   const name = specialist.user.name;
 
@@ -110,8 +110,8 @@ const mapSpecialistDataToCard = (
     rating: specialist.rating,
     reviewCount: specialist.reviewCount,
     description: specialistsService.normalizeSpecialistDescription(specialist.description),
-    affinityPercentage: affinityOverride ?? affinityPercentage(specialist.affinity),
-    tags: specialist.matchedAttributes || [],
+    matchOrder, matchedOptionId: specialist.matchedOptionId, publicOptions: specialist.publicOptions,
+    tags: specialist.matchingReasons?.map(reason => reason.label) ?? [],
     pricePerSession: specialist.pricePerSession,
     firstVisitFree: specialist.firstVisitFree,
     verified: true,
@@ -156,7 +156,7 @@ const SpecialistsScreen: React.FC = () => {
   const [specialties, setSpecialties] = useState<string[]>([]);
   const [approaches, setApproaches] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [sortOption, setSortOption] = useState<SortOption>('affinity');
+  const [sortOption, setSortOption] = useState<SortOption>('recommended');
   const [activeTab, setActiveTab] = useState<'specialists' | 'posts'>('specialists');
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [selectedFilters, setSelectedFilters] = useState<string[]>([]);
@@ -212,15 +212,12 @@ const SpecialistsScreen: React.FC = () => {
         hasQuestionnaire = matchedResponse.hasCompletedQuestionnaire;
 
         if (hasQuestionnaire && matchedResponse.specialists.length > 0) {
-          matchedData = matchedResponse.specialists.map((specialist) => {
-            const affinityPercentage = specialist.affinity ? Math.round((specialist.affinity / 130) * 100) : 0;
-            const mapped = mapSpecialistDataToCard(specialist, favoriteIds, affinityPercentage);
+          matchedData = matchedResponse.specialists.map((specialist, index) => {
+            const mapped = mapSpecialistDataToCard(specialist, favoriteIds, index);
 
             return {
               ...mapped,
-              tags: (specialist.matchedAttributes || [])
-                .map((attr) => attributeLabels[attr] || attr)
-                .filter(Boolean),
+              tags: mapped.tags,
             };
           });
         }
@@ -323,9 +320,9 @@ const SpecialistsScreen: React.FC = () => {
   const handleSpecialistPress = useCallback((specialistId: string) => {
     const specialist = matchedSpecialists.find((item) => item.id === specialistId)
       || allSpecialists.find((item) => item.id === specialistId);
-    const affinity = specialist ? specialist.affinityPercentage / 100 : undefined;
 
-    navigation.navigate('SpecialistDetail', { specialistId, affinity });
+
+    navigation.navigate('SpecialistDetail', { specialistId, optionId: specialist?.matchedOptionId ?? undefined });
   }, [allSpecialists, matchedSpecialists, navigation]);
 
   const applyFavoriteState = useCallback((specialistId: string, isFavorite: boolean) => {
@@ -384,7 +381,7 @@ const SpecialistsScreen: React.FC = () => {
 
   const handleSort = () => {
     const options: { text: string; onPress?: () => void; style?: 'cancel' }[] = [
-      { text: 'Afinidad', onPress: () => setSortOption('affinity') },
+      { text: 'Recomendaciones', onPress: () => setSortOption('recommended') },
       { text: 'Mejor valorados', onPress: () => setSortOption('rating') },
       { text: 'Precio más bajo', onPress: () => setSortOption('price_low') },
       { text: 'Precio más alto', onPress: () => setSortOption('price_high') },
@@ -471,8 +468,8 @@ const SpecialistsScreen: React.FC = () => {
       })
       .sort((a, b) => {
         switch (sortOption) {
-          case 'affinity':
-            return b.affinityPercentage - a.affinityPercentage || a.name.localeCompare(b.name);
+          case 'recommended':
+            return (a.matchOrder ?? Number.MAX_SAFE_INTEGER) - (b.matchOrder ?? Number.MAX_SAFE_INTEGER) || a.name.localeCompare(b.name);
           case 'rating':
             return b.rating - a.rating || b.reviewCount - a.reviewCount;
           case 'price_low':
@@ -763,7 +760,7 @@ const SpecialistsScreen: React.FC = () => {
     setLanguage(undefined);
     setReligion(undefined);
     setProximityEnabled(false);
-    if (sortOption === 'distance') setSortOption('affinity');
+    if (sortOption === 'distance') setSortOption('recommended');
   };
 
   const renderEmptyState = () => (
@@ -1026,8 +1023,8 @@ const SpecialistsScreen: React.FC = () => {
 
 function getSortLabel(sortOption: SortOption) {
   switch (sortOption) {
-    case 'affinity':
-      return 'Afinidad';
+    case 'recommended':
+      return 'Recomendaciones';
     case 'rating':
       return 'Valoración';
     case 'price_low':

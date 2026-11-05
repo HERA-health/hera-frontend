@@ -20,6 +20,20 @@ beforeEach(() => {
 const sharedSwitch = () => screen.getByLabelText('Misma duración y precio para todas las modalidades');
 const chooseAudience = (value = 'public') => fireEvent.press(screen.getByRole('radio', { name: value === 'public' ? 'Tarifa pública' : 'Tarifa privada' }));
 
+test('a freely named service saves without therapy or population classification', async () => {
+  const input = props(); jest.mocked(savePrivateService).mockResolvedValue(catalog);
+  render(<PrivateServiceEditor {...input} />);
+  expect(screen.queryByText('Clasificación para recomendaciones')).toBeNull();
+  expect(screen.queryByText('Poblaciones atendidas')).toBeNull();
+  fireEvent.changeText(screen.getByLabelText('Nombre del servicio'), 'Mi acompañamiento');
+  fireEvent.press(screen.getByText('Guardar servicio'));
+  await waitFor(() => expect(input.onSaved).toHaveBeenCalled());
+  const saved = jest.mocked(savePrivateService).mock.calls[0][1];
+  expect(saved.name).toBe('Mi acompañamiento');
+  expect(saved).not.toHaveProperty('therapyType');
+  expect(saved).not.toHaveProperty('populations');
+});
+
 test.each([true, false])('duration can be visibly cleared and replaced (shared: %s)', async shared => {
   const input = props(); jest.mocked(savePrivateService).mockResolvedValue(catalog);
   render(<PrivateServiceEditor {...input} service={{ ...service, options: [{ ...service.options[0], durationMinutes: 60 }] }} />);

@@ -21,7 +21,6 @@ const SOFT_HERO_COLORS = new Set(['#97B2A6', '#BDD7FF', '#DFD8CD']);
 
 export const CompactHero: React.FC<CompactHeroProps> = ({
   specialist,
-  affinity,
   onRatingPress,
   gradientColors,
 }) => {
@@ -66,19 +65,7 @@ export const CompactHero: React.FC<CompactHeroProps> = ({
         <View style={[styles.toneOverlay, softHero ? styles.softOverlay : null]} />
 
         <View style={styles.content}>
-          {affinity != null && affinity > 0 ? (
-            <View
-              style={[
-                styles.affinityBadge,
-                { backgroundColor: heroPillBg, borderColor: heroPillBorder },
-              ]}
-            >
-              <Ionicons name="heart" size={12} color={heroTextColor} />
-              <Text style={[styles.affinityText, { color: heroTextColor }]}>
-                {Math.round(affinity * 100)}% compatible
-              </Text>
-            </View>
-          ) : null}
+
 
           {specialist.verificationStatus === 'VERIFIED' ? (
             <View
@@ -175,23 +162,6 @@ const styles = StyleSheet.create({
     padding: spacing.xl,
     zIndex: 1,
     justifyContent: 'center',
-  },
-  affinityBadge: {
-    position: 'absolute',
-    top: spacing.sm,
-    right: spacing.sm,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
-    borderRadius: 20,
-    borderWidth: 1,
-    gap: 4,
-    zIndex: 2,
-  },
-  affinityText: {
-    fontSize: 11,
-    fontWeight: '600',
   },
   verifiedPill: {
     borderWidth: 1,

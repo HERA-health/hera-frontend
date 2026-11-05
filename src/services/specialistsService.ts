@@ -22,6 +22,10 @@ interface CacheEntry<T> {
 }
 
 export interface SpecialistData {
+  matchedOptionId?: string | null;
+  matchingReasons?: Array<{ kind: 'direct' | 'related' | 'approach'; answer: string; evidence: string; label: string }>;
+  partialMatch?: boolean;
+  availabilityStatus?: 'AVAILABLE' | 'NONE' | 'UNKNOWN';
   publicOptions?: PublicPriceOption[]; offersPhone?: boolean;
   id: string;
   publicSlug?: string | null;
@@ -39,8 +43,6 @@ export interface SpecialistData {
     name: string;
     avatar?: string | null;
   };
-  affinity?: number;
-  matchedAttributes?: string[];
   officeAddress?: string | null;
   officeCity?: string | null;
   officePostalCode?: string | null;
@@ -495,7 +497,7 @@ export const openPublicCertificateDocument = async (
 };
 
 /**
- * Gets matched specialists for the current client with affinity scores
+ * Gets matched specialists for the current client with evidence-based match explanations
  * based on their questionnaire answers
  */
 export const getMatchedSpecialists = async (): Promise<MatchedSpecialistsResponse> => {
@@ -512,7 +514,7 @@ export const getMatchedSpecialists = async (): Promise<MatchedSpecialistsRespons
   }
 
   const request = api
-    .get<{ success: boolean; data: MatchedSpecialistsResponse }>('/specialists/matched/for-me')
+    .get<{ success: boolean; data: MatchedSpecialistsResponse }>('/specialists/matched/for-me', { timeout: 15000 })
     .then((response) => revision === getSpecialistDiscoveryRevision()
       ? setCache(matchedSpecialistsCache, cacheKey, response.data.data) : response.data.data)
     .catch((error: unknown) => {

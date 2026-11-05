@@ -1,3 +1,4 @@
+import { SearchableProfileSelect } from '../common/SearchableProfileSelect';
 import {choiceKeyboardProps} from '../../utils/choiceKeyboard';
 import {useDiscoveryRevalidation} from '../../hooks/useDiscoveryRevalidation';
 import React, {useState, useEffect, useCallback} from 'react';
@@ -13,6 +14,8 @@ import {optionLabel} from '../../utils/profileOptions';
 import {renderLanguageIcon} from '../common/LanguageIcon';
 
 interface Props {
+  declaredGender?: 'woman' | 'man' | 'nonbinary' | null; practiceContexts?: string[];
+  onGenderChange?: (value: 'woman' | 'man' | 'nonbinary' | null) => void; onContextsChange?: (values: string[]) => void;
   name: string; title: string; avatar: string | null;
   specialties: string[]; approaches: string[]; customSpecialties: string[]; customApproaches: string[];
   languages: string[]; profileVisible: boolean; matchingNeedsReview: boolean; busy?: boolean;
@@ -90,6 +93,15 @@ export function ProfessionalMatchingEditor(props: Props) {
       <View style={{height: 1, backgroundColor: theme.borderLight}} />
       <ChoiceGroup title="Enfoques terapéuticos" description="Selecciona los enfoques con los que trabajas." options={PROFESSIONAL_THERAPEUTIC_APPROACH_OPTIONS} selected={props.approaches} custom={props.customApproaches} onCustomChange={props.onCustomApproachesChange} max={30} busy={props.busy} onToggle={value => props.onToggle('therapeuticApproaches', value)} />
       <View style={{height: 1, backgroundColor: theme.borderLight}} />
+      {props.onGenderChange && props.onContextsChange ? <View style={{gap: 12}}>
+        <Text style={{fontFamily: theme.fontSans, color: theme.textSecondary}}>Datos voluntarios para orientar las recomendaciones. Declara solo experiencia de tu práctica; compartir una identidad no acredita experiencia clínica. Puedes retirar estas declaraciones al guardar el perfil.</Text>
+        <SearchableProfileSelect label="Género declarado · opcional" values={props.declaredGender ? [props.declaredGender] : []} options={[
+          {value:'woman',label:'Mujer',aliases:[]}, {value:'man',label:'Hombre',aliases:[]}, {value:'nonbinary',label:'No binario',aliases:[]},
+        ]} onChange={values => { const value = values[0]; props.onGenderChange?.(value === 'woman' || value === 'man' || value === 'nonbinary' ? value : null); }} disabled={props.busy} />
+        <SearchableProfileSelect label="Experiencia en contextos personales · opcional" multiple max={5} values={props.practiceContexts ?? []} options={[
+          {value:'culture',label:'Identidad cultural y procedencia',aliases:[]}, {value:'lgbtq',label:'Diversidad sexual y de género',aliases:[]}, {value:'relationships',label:'Relaciones no convencionales',aliases:[]}, {value:'migration',label:'Experiencias migratorias e interculturales',aliases:[]}, {value:'discrimination',label:'Discriminación',aliases:[]},
+        ]} onChange={props.onContextsChange} disabled={props.busy} />
+      </View> : null}
       <ProfileDiscoveryEditor languages={props.languages} onLanguagesChange={props.onLanguagesChange} perspective={props.perspective} onPerspectiveChange={props.onPerspectiveChange} options={options} error={error} retry={retry} busy={props.busy} />
     </View>
     <View testID="professional-practice-preview" style={{width: wide ? 300 : '100%', minWidth: 0, borderRadius: 20, borderWidth: 1, borderColor: theme.borderLight, backgroundColor: theme.bgCard, overflow: 'hidden'}}>

@@ -41,6 +41,8 @@ interface Prediction {
 }
 
 interface AddressAutocompleteProps {
+  localityOnly?: boolean;
+  onTextChange?: (text: string) => void;
   value: string;
   onAddressSelect: (details: AddressDetails) => void;
   placeholder?: string;
@@ -116,6 +118,8 @@ const DropdownPortal: React.FC<{
 export const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
   value,
   onAddressSelect,
+  localityOnly = false,
+  onTextChange,
   placeholder = 'Buscar dirección...',
   label,
   error,
@@ -225,6 +229,7 @@ export const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
         const { suggestions } =
           await placesLibrary.AutocompleteSuggestion.fetchAutocompleteSuggestions({
             input,
+            ...(localityOnly ? { includedPrimaryTypes: ['(cities)'] } : {}),
             includedRegionCodes: ['es'],
             language: 'es',
             region: 'es',
@@ -256,12 +261,13 @@ export const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
         setIsLoading(false);
       }
     },
-    [isReady, updateDropdownPosition],
+    [isReady, localityOnly, updateDropdownPosition],
   );
 
   const handleInputChange = useCallback(
     (text: string) => {
       setQuery(text);
+      onTextChange?.(text);
 
       if (!text.trim()) {
         setPredictions([]);
@@ -277,7 +283,7 @@ export const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
         void fetchPredictions(text);
       }, 300);
     },
-    [fetchPredictions, resetSessionToken],
+    [fetchPredictions, onTextChange, resetSessionToken],
   );
 
   const handleSelectPrediction = useCallback(
@@ -335,10 +341,11 @@ export const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
 
   const handleClear = useCallback(() => {
     setQuery('');
+    onTextChange?.('');
     setPredictions([]);
     setShowDropdown(false);
     resetSessionToken();
-  }, [resetSessionToken]);
+  }, [onTextChange, resetSessionToken]);
 
   const handleFocus = useCallback(() => {
     setIsFocused(true);
@@ -368,6 +375,9 @@ export const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
       {predictions.map((item, index) => (
         <div
           key={item.placeId}
+          role="button"
+          tabIndex={0}
+          onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); handleSelectPrediction(item); } }}
           onClick={() => handleSelectPrediction(item)}
           onMouseEnter={() => setHoveredIndex(index)}
           onMouseLeave={() => setHoveredIndex(null)}
@@ -470,7 +480,8 @@ export const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
             <TextInput
               style={[styles.input, { color: theme.textPrimary }]}
               value={query}
-              onChangeText={setQuery}
+              accessibilityLabel={label ?? placeholder}
+              onChangeText={text => { setQuery(text); onTextChange?.(text); }}
               placeholder={placeholder}
               placeholderTextColor={theme.textMuted}
             />
@@ -478,7 +489,7 @@ export const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
         </View>
         {error ? <Text style={[styles.errorText, { color: theme.error }]}>{error}</Text> : null}
         <Text style={[styles.warningText, { color: theme.textMuted }]}>
-          Introduce la dirección manualmente en dispositivos móviles.
+          {localityOnly ? 'Escribe el municipio completo para buscar atención presencial.' : 'Introduce la dirección manualmente en dispositivos móviles.'}
         </Text>
       </View>
     );
@@ -502,6 +513,7 @@ export const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
           <TextInput
             style={[styles.input, { color: theme.textPrimary }]}
             value={query}
+            accessibilityLabel={label ?? placeholder}
             onChangeText={handleInputChange}
             placeholder={placeholder}
             placeholderTextColor={theme.textMuted}
@@ -530,7 +542,7 @@ export const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
 
       {!hasGoogleMapsApiKey ? (
         <Text style={[styles.warningText, { color: theme.textMuted }]}>
-          Autocompletado no disponible. Configura EXPO_PUBLIC_GOOGLE_MAPS_API_KEY.
+          {localityOnly ? 'Puedes escribir el nombre completo del municipio.' : 'Autocompletado no disponible. Configura EXPO_PUBLIC_GOOGLE_MAPS_API_KEY.'}
         </Text>
       ) : null}
 

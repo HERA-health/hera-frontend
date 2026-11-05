@@ -22,7 +22,9 @@ export interface Specialist {
   rating: number;
   reviewCount: number;
   description: string;
-  affinityPercentage: number;
+  matchOrder?: number;
+  matchedOptionId?: string | null;
+  publicOptions?: import('../services/specialistsService').PublicPriceOption[];
   tags: string[];
   pricePerSession: number;
   firstVisitFree?: boolean;
@@ -157,7 +159,7 @@ export type RootStackParamList = {
   OnDutyPsychologist: undefined;
   Profile: undefined;
   ProfileCompletion: undefined;
-  SpecialistDetail: { specialistId: string; affinity?: number; intentToken?: string; optionId?: string };
+  SpecialistDetail: { adviceId?: string; specialistId: string; intentToken?: string; optionId?: string };
   Booking: {
     patientPackageId?: string;
     optionId?: string;
@@ -168,7 +170,9 @@ export type RootStackParamList = {
     initialSlotEndTime?: string;
   };
   Questionnaire: undefined;
-  QuestionnaireResults: { results: any[] };
+  QuestionnaireResults: { adviceId?: string } | undefined;
+  MatchingAdvice: { id?: string; specialistId?: string } | undefined;
+  AdminMatchingAdvice: { id?: string } | undefined;
   ProfessionalHome: undefined;
   ProfessionalHelp: {
     section?: 'help' | 'feedback';
@@ -279,7 +283,7 @@ export interface SpecialistFilters {
  * Sort options for specialists
  */
 export type SortOption =
-  | 'affinity'
+  | 'recommended'
   | 'rating'
   | 'price_low'
   | 'price_high'

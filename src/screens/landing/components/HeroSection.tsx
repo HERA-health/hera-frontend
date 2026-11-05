@@ -10,6 +10,7 @@ import { LANDING_SCROLL_CONTENT_TOP_PADDING } from '../types';
 
 interface HeroSectionProps {
   onFindSpecialist: () => void;
+  onQuestionnaire?: () => void;
   onExploreProfessionals: () => void;
   onProfessionalAction: () => void;
   professionalActionLabel: string;
@@ -24,7 +25,7 @@ const PROOFS = [
 ] as const;
 
 export function HeroSection({
-  onFindSpecialist, onExploreProfessionals, onProfessionalAction,
+  onFindSpecialist, onQuestionnaire, onExploreProfessionals, onProfessionalAction,
   professionalActionLabel, showScrollIndicator = true, onScrollIndicatorPress,
 }: HeroSectionProps) {
   const { width, height } = useWindowDimensions();
@@ -41,7 +42,7 @@ export function HeroSection({
       description: 'Encuentra un profesional para ti y elige cómo empezar.',
       benefits: ['Perfiles verificados', 'Sesiones online y presenciales', 'Modalidades y tarifas visibles'],
       compactBenefits: 'Perfiles verificados · Online y presencial',
-      label: 'Explorar profesionales', onPress: onFindSpecialist,
+      label: onQuestionnaire ? 'Hacer el cuestionario' : 'Explorar profesionales', onPress: onQuestionnaire ?? onFindSpecialist,
       background: theme.secondaryMuted, accent: theme.actionPrimary,
     },
     {
@@ -112,7 +113,7 @@ export function HeroSection({
                   <Text accessibilityRole="header" aria-level={2} style={[styles.doorTitle, shortDesktop && styles.doorTitleShort, { color: theme.textPrimary, fontFamily: theme.fontDisplay }]}>{door.title}</Text>
                 </View>
                 <Text style={[styles.doorDescription, shortDesktop && styles.doorDescriptionShort, isDesktop && width < 1200 && styles.doorDescriptionNarrow, { color: theme.textPrimary, fontFamily: theme.fontSans }]}>{door.description}</Text>
-                <AnimatedPressable onPress={door.onPress} href={Platform.OS === 'web' && index === 0 ? '/especialistas' : undefined} accessibilityRole={index === 0 ? 'link' : 'button'} accessibilityLabel={door.label} hoverLift={false} pressScale={1} style={[styles.action, compactDesktop && styles.actionCompactDesktop, shortDesktop && styles.actionShort, { backgroundColor: door.accent }]}>
+                <AnimatedPressable onPress={door.onPress} href={Platform.OS === 'web' && index === 0 ? onQuestionnaire ? '/cuestionario' : '/especialistas' : undefined} accessibilityRole={index === 0 ? 'link' : 'button'} accessibilityLabel={door.label} hoverLift={false} pressScale={1} style={[styles.action, compactDesktop && styles.actionCompactDesktop, shortDesktop && styles.actionShort, { backgroundColor: door.accent }]}>
                   <Text style={[styles.actionText, shortDesktop && styles.actionTextShort, { color: theme.actionPrimaryText, fontFamily: theme.fontSansBold }]}>{door.label}</Text>
                   <Ionicons name="arrow-forward" size={18} color={theme.actionPrimaryText} />
                 </AnimatedPressable>

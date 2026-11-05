@@ -26,10 +26,10 @@ import { StickyBookingBarEditorial } from './components/StickyBookingBarEditoria
 import { VideoSection } from './components/VideoSection';
 
 interface SpecialistProfileLayoutProps {
+  assistedStart?: boolean;
   packageSection?: React.ReactNode;
   specialist: Specialist;
   reviews: Review[];
-  affinity?: number;
   reviewsVisible?: boolean;
   canBook: boolean;
   isAuthenticated: boolean;
@@ -53,10 +53,10 @@ interface SlotSelectionState {
 
 export const SpecialistProfileLayout: React.FC<SpecialistProfileLayoutProps> = ({
   packageSection,
+  assistedStart = false,
   specialist: sourceSpecialist,
   initialOptionId,
   reviews,
-  affinity,
   reviewsVisible = true,
   canBook,
   isAuthenticated,
@@ -115,6 +115,7 @@ export const SpecialistProfileLayout: React.FC<SpecialistProfileLayoutProps> = (
 
   const booking = (
     <BookingSidebarEditorial
+      assistedStart={assistedStart}
       optionId={option?.optionId}
       onOptionChange={id => { setOptionId(id); handleSlotChange(null); }}
       specialist={specialist}
@@ -148,12 +149,7 @@ export const SpecialistProfileLayout: React.FC<SpecialistProfileLayoutProps> = (
             <Ionicons name="arrow-back" size={17} color={theme.primary} />
             <Text style={styles.browseText}>Todos los especialistas</Text>
           </AnimatedPressable>
-          {affinity != null && affinity > 0 ? (
-            <View style={styles.affinityBadge}>
-              <Ionicons name="sparkles-outline" size={14} color={theme.secondaryDark} />
-              <Text style={styles.affinityText}>{affinity}% de afinidad</Text>
-            </View>
-          ) : null}
+
         </View>
 
         <View style={[styles.columns, !wide && styles.columnsStacked]}>
@@ -163,7 +159,7 @@ export const SpecialistProfileLayout: React.FC<SpecialistProfileLayoutProps> = (
           >
             <ProfileHeroEditorial
               specialist={specialist}
-              affinity={affinity}
+
               onBookPress={() => onBookSession(selectedSlot ?? undefined, option?.optionId)}
               onRatingPress={handleScrollToReviews}
               gradientColors={gradientColors}
@@ -257,6 +253,7 @@ export const SpecialistProfileLayout: React.FC<SpecialistProfileLayoutProps> = (
 
       {mobile ? (
         <StickyBookingBarEditorial
+          assistedStart={assistedStart}
           specialistName={specialist.name}
           pricePerSession={specialist.pricePerSession}
           firstVisitFree={specialist.firstVisitFree}
@@ -293,16 +290,6 @@ const createStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
   navigationMobile: { alignItems: 'flex-start' },
   browseLink: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 7 },
   browseText: { fontSize: 13, fontFamily: theme.fontSansSemiBold, color: theme.primary },
-  affinityBadge: {
-    minHeight: 34,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: spacing.sm,
-    borderRadius: 999,
-    backgroundColor: theme.secondaryAlpha12,
-  },
-  affinityText: { fontSize: 11, fontFamily: theme.fontSansSemiBold, color: theme.secondaryDark },
   columns: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.xl },
   columnsStacked: { flexDirection: 'column', alignItems: 'center' },
   mainColumn: { flex: 1, minWidth: 0 },

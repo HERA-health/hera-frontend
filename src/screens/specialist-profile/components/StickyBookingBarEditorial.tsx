@@ -13,13 +13,14 @@ export const StickyBookingBarEditorial: React.FC<StickyBookingBarProps> = ({
   firstVisitFree = false,
   selectedSlot,
   onBookPress,
+  assistedStart = false,
   visible,
   canBook = true,
 }) => {
   const { theme, isDark } = useTheme();
   const styles = useMemo(() => createStyles(theme, isDark), [theme, isDark]);
   const translateY = useRef(new Animated.Value(120)).current;
-  const ctaLabel = selectedSlot
+  const ctaLabel = assistedStart ? 'Pedir ayuda para la primera cita' : selectedSlot
     ? `Continuar · ${formatProfileSlotLabel(selectedSlot.date, selectedSlot.slot.startTime)}`
     : 'Reservar sesión';
 

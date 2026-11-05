@@ -22,7 +22,7 @@ import type {
 } from '../specialist-profile/types';
 
 interface SpecialistDetailScreenProps {
-  route: { params?: { specialistId?: string; affinity?: number; intentToken?: string; optionId?: string } };
+  route: { params?: { adviceId?: string; specialistId?: string; intentToken?: string; optionId?: string } };
   navigation: {
     navigate: (screen: string, params?: Record<string, unknown>) => void;
     goBack: () => void;
@@ -37,7 +37,7 @@ export const SpecialistDetailScreen: React.FC<SpecialistDetailScreenProps> = ({
   const { isAuthenticated, user } = useAuth();
   const { theme } = useTheme();
   const { width } = useWindowDimensions();
-  const { specialistId, affinity } = route.params ?? {};
+  const { specialistId } = route.params ?? {};
   const styles = createStyles(theme);
   const [specialist, setSpecialist] = useState<Specialist | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
@@ -91,6 +91,7 @@ export const SpecialistDetailScreen: React.FC<SpecialistDetailScreenProps> = ({
       return;
     }
 
+    if (route.params?.adviceId) { navigation.navigate('MatchingAdvice', { id: route.params.adviceId, specialistId: specialist.id }); return; }
     analyticsService.track('booking_initiated');
     navigation.navigate('Booking', {
       specialistId: specialist.id,
@@ -102,7 +103,7 @@ export const SpecialistDetailScreen: React.FC<SpecialistDetailScreenProps> = ({
         initialSlotEndTime: selectedSlot.slot.endTime,
       } : {}),
     });
-  }, [appAlert, canBook, navigation, specialist, route.params?.intentToken]);
+  }, [appAlert, canBook, navigation, specialist, route.params?.intentToken, route.params?.adviceId]);
 
   const handleOpenCertificate = useCallback(async (certificate: CertificateItem) => {
     if (!specialist) return;
@@ -139,11 +140,12 @@ export const SpecialistDetailScreen: React.FC<SpecialistDetailScreenProps> = ({
 
   return (
     <SpecialistProfileLayout
-      packageSection={<ProfilePackages specialistId={specialist.id} intentToken={route.params?.intentToken} />}
+      assistedStart={!!route.params?.adviceId}
+      packageSection={route.params?.adviceId ? undefined : <ProfilePackages specialistId={specialist.id} intentToken={route.params?.intentToken} />}
         initialOptionId={route.params?.optionId}
       specialist={specialist}
       reviews={reviews}
-      affinity={affinity}
+
       canBook={canBook}
       isAuthenticated={isAuthenticated}
       isClient={user?.type === 'client'}

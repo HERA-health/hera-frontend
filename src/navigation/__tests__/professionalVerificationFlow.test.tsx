@@ -7,6 +7,12 @@ import { initializeAuth } from '../../services/api';
 import { RootNavigator } from '../RootNavigator';
 import type { RootStackParamList } from '../../constants/types';
 
+// This suite starts without a pending public questionnaire.
+jest.mock('../../contexts/QuestionnaireDraftContext', () => ({
+  useQuestionnaireDraft: () => ({ ready: false, clear: jest.fn() }),
+  takeQuestionnaireDestination: jest.fn().mockResolvedValue(null),
+  QuestionnaireSaveGate: () => null,
+}));
 jest.mock('../../services/api', () => ({
   initializeAuth: jest.fn(),
   registerSessionExpiredHandler: jest.fn(),

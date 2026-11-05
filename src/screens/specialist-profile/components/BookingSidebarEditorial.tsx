@@ -42,6 +42,7 @@ export const BookingSidebarEditorial: React.FC<BookingSidebarProps> = ({
   optionId,
   onOptionChange,
   onBookPress,
+  assistedStart = false,
   selectedSlot,
   onSlotChange,
   canBook = true,
@@ -72,7 +73,7 @@ export const BookingSidebarEditorial: React.FC<BookingSidebarProps> = ({
           day: 'numeric',
           month: 'short',
         })}`;
-  const ctaLabel = selectedSlot
+  const ctaLabel = assistedStart ? 'Pedir ayuda para la primera cita' : selectedSlot
     ? `Continuar · ${formatProfileSlotLabel(selectedSlot.date, selectedSlot.slot.startTime)}`
     : 'Reservar sesión';
 
@@ -161,7 +162,7 @@ export const BookingSidebarEditorial: React.FC<BookingSidebarProps> = ({
         </View>
       </View>
 
-      {canBook ? (
+      {canBook && !assistedStart ? (
         <View style={styles.availabilitySection}>
           <SelectableAvailabilityPreview
             key={optionId}

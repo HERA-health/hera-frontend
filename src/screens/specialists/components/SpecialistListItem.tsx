@@ -73,9 +73,9 @@ export const SpecialistListItem: React.FC<SpecialistListItemProps> = ({
               <Text style={styles.specialization} numberOfLines={1}>{professionalTypeLabel}</Text>
             </View>
 
-            {specialist.affinityPercentage > 0 ? (
-              <View style={styles.affinityPill}>
-                <Text style={styles.affinityText}>{specialist.affinityPercentage}% compatible</Text>
+            {specialist.tags.length > 0 ? (
+              <View style={styles.reasonPill}>
+                <Text style={styles.reasonText}>{specialist.tags[0]}</Text>
               </View>
             ) : null}
           </View>
@@ -267,7 +267,7 @@ function createStyles(theme: Theme, isDark: boolean) {
       fontFamily: theme.fontSansSemiBold,
       color: theme.textSecondary,
     },
-    affinityPill: {
+    reasonPill: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 6,
@@ -279,7 +279,7 @@ function createStyles(theme: Theme, isDark: boolean) {
       borderWidth: 1,
       borderColor: theme.borderLight,
     },
-    affinityText: {
+    reasonText: {
       fontSize: 12,
       fontFamily: theme.fontSansSemiBold,
       color: theme.textSecondary,

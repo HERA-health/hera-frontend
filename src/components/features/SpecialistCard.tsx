@@ -40,7 +40,7 @@ export function SpecialistCard({ specialist, onPress, onToggleFavorite, style, p
     : width >= 768
       ? TABLET_CARD_HEIGHT
       : MOBILE_CARD_HEIGHT;
-  const affinityPct = specialist.affinityPercentage ?? 0;
+
   const professionalTypeLabel = getProfessionalTypeLabel(
     specialist.professionalType,
     specialist.professionalTypeLabel,
@@ -163,9 +163,9 @@ export function SpecialistCard({ specialist, onPress, onToggleFavorite, style, p
               <Text style={[styles.reviewCount, { color: theme.textMuted, fontFamily: theme.fontSans }]}>
                 {`(${specialist.reviewCount} rese\u00f1as)`}
               </Text>
-              {affinityPct > 0 ? (
+              {specialist.tags.length > 0 ? (
                 <Text style={[styles.matchText, { color: theme.textMuted, fontFamily: theme.fontSans }]}>
-                  {`${affinityPct}% compatible`}
+                  {specialist.tags[0]}
                 </Text>
               ) : null}
             </View>

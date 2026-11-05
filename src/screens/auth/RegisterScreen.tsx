@@ -64,6 +64,7 @@ export function RegisterScreen() {
   const isWide = width >= 1024;
   const [clinicCommercialName, setClinicCommercialName] = useState('');
   const [name, setName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [phone, setPhone] = useState('');
   const [phoneError, setPhoneError] = useState('');
   const phoneInputRef = useRef<TextInput>(null);
@@ -199,7 +200,7 @@ export function RegisterScreen() {
     setLocalError('');
     clearError();
 
-    if (!name.trim()) {
+    if (!name.trim() || userType === 'client' && !lastName.trim()) {
       setLocalError(isClinic ? 'Introduce el nombre de la persona responsable.' : 'Introduce tu nombre completo.');
       return;
     }
@@ -236,7 +237,7 @@ export function RegisterScreen() {
     }
 
     try {
-      const registrationPhone = userType === 'professional' ? normalizeRegistrationPhone(phone) : undefined;
+      const registrationPhone = userType === 'professional' || userType === 'client' && phone.trim() ? normalizeRegistrationPhone(phone) : undefined;
       setPhoneError('');
       analyticsService.track('register_submitted', {
         userType: mapFrontendUserTypeToBackend(userType),
@@ -248,7 +249,7 @@ export function RegisterScreen() {
       await register(
         email,
         password,
-        name,
+        userType === 'client' ? `${name.trim()} ${lastName.trim()}` : name,
         userType,
         acceptedLegalDocumentKeys,
         isClinic ? clinicCommercialName : undefined,
@@ -454,8 +455,8 @@ export function RegisterScreen() {
               <View style={pairedFields ? styles.fieldRow : undefined}>
                 <Input
                   containerStyle={pairedFields ? styles.fieldCell : undefined}
-                  label={isClinic ? 'Persona responsable' : 'Nombre completo'}
-                  placeholder={isClinic ? 'Nombre y apellidos' : 'Tu nombre y apellidos'}
+                  label={isClinic ? 'Persona responsable' : userType === 'client' ? 'Nombre' : 'Nombre completo'}
+                  placeholder={isClinic ? 'Nombre y apellidos' : userType === 'client' ? 'Tu nombre' : 'Tu nombre y apellidos'}
                   value={name}
                   onChangeText={setName}
                   autoCapitalize="words"
@@ -463,7 +464,8 @@ export function RegisterScreen() {
                   leftIcon={<Ionicons name="person-outline" size={18} color={theme.textMuted} />}
                 />
 
-                {userType === 'professional' ? (
+                {userType === 'client' ? <Input accessibilityLabel="Apellidos" placeholder="Tus apellidos" label="Apellidos" value={lastName} onChangeText={setLastName} autoCapitalize="words" autoComplete="family-name" containerStyle={pairedFields ? styles.fieldCell : undefined} /> : null}
+                {userType === 'professional' || userType === 'client' ? (
                   <View
                     ref={phoneFieldRef}
                     collapsable={false}
@@ -471,8 +473,8 @@ export function RegisterScreen() {
                   >
                     <Input
                       inputRef={phoneInputRef}
-                      label="Teléfono de contacto (obligatorio)"
-                      accessibilityLabel="Teléfono de contacto (obligatorio)"
+                      label={userType === 'client' ? 'Teléfono de contacto (opcional)' : 'Teléfono de contacto (obligatorio)'}
+                      accessibilityLabel={userType === 'client' ? 'Teléfono de contacto (opcional)' : 'Teléfono de contacto (obligatorio)'}
                       placeholder="600 123 456"
                       value={phone}
                       onChangeText={(value) => { setPhone(value); setPhoneError(''); }}

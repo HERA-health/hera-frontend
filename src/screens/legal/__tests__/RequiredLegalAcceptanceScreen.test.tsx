@@ -5,11 +5,16 @@ import { withdrawReligion } from '../../../services/profileDiscoveryService';
 import { acceptLegalDocuments, type LegalAcceptanceStatus } from '../../../services/legalService';
 import { disconnectGoogleCalendar } from '../../../services/googleCalendarService';
 import { PrivacyControlsVisibleContext } from '../../../components/common/PrivacyPreferences';
+import { withdrawAllQuestionnaireConsents } from '../../../services/questionnaireService';
 
 const mockNavigate = jest.fn();
 let mockFocused = true;
+let mockUserType = 'professional';
+const mockClearDraft = jest.fn();
 
-jest.mock('../../../contexts/AuthContext', () => ({ useAuth: () => ({ logout: jest.fn(), user: { type: 'professional' } }) }));
+jest.mock('../../../contexts/AuthContext', () => ({ useAuth: () => ({ logout: jest.fn(), user: { type: mockUserType } }) }));
+jest.mock('../../../contexts/QuestionnaireDraftContext', () => ({ useQuestionnaireDraft: () => ({clear: mockClearDraft}) }));
+jest.mock('../../../services/questionnaireService', () => ({ withdrawAllQuestionnaireConsents: jest.fn() }));
 jest.mock('../../../contexts/ThemeContext', () => ({ useTheme: () => ({ theme: require('../../../constants/theme').lightTheme }) }));
 jest.mock('@react-navigation/native', () => ({ useNavigation: () => ({ navigate: mockNavigate }), useIsFocused: () => mockFocused }));
 jest.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }) }));
@@ -18,7 +23,21 @@ jest.mock('../../../services/googleCalendarService', () => ({ disconnectGoogleCa
 jest.mock('../../../services/profileDiscoveryService', () => ({ withdrawReligion: jest.fn() }));
 jest.mock('../../../services/legalService', () => ({ acceptLegalDocuments: jest.fn() }));
 
-beforeEach(() => { jest.clearAllMocks(); mockFocused = true; });
+beforeEach(() => { jest.clearAllMocks(); mockFocused = true; mockUserType = 'professional'; });
+
+test('patients can withdraw all matching consents without accepting new terms or resubmitting a prepared draft', async () => {
+  mockUserType = 'client';
+  jest.mocked(withdrawAllQuestionnaireConsents).mockResolvedValue();
+  const onAccepted = jest.fn();
+  render(<RequiredLegalAcceptanceScreen requiredDocumentKeys={['PRIVACY_POLICY']} onAccepted={onAccepted} />);
+  fireEvent.press(screen.getByText('Opciones de privacidad'));
+  fireEvent.press(screen.getByText('Retirar consentimiento de mis cuestionarios'));
+  await screen.findByText('Se ha retirado el consentimiento para las recomendaciones de tus cuestionarios.');
+  expect(withdrawAllQuestionnaireConsents).toHaveBeenCalledTimes(1);
+  expect(mockClearDraft).toHaveBeenCalledTimes(1);
+  expect(acceptLegalDocuments).not.toHaveBeenCalled();
+  expect(onAccepted).not.toHaveBeenCalled();
+});
 
 test('withdraws without accepting new documents and preserves the legal gate', async () => {
   jest.mocked(withdrawReligion).mockResolvedValue({ religionCode: null, hasPublication: false, hasDeclaration: false });

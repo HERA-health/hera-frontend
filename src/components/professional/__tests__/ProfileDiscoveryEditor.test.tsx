@@ -37,7 +37,7 @@ test('language search ignores accents and legacy values remain removable', () =>
   render(<SearchableProfileSelect label="Idiomas" options={[{value:'arabic',label:'Árabe',aliases:[]}]} values={['Idioma antiguo']} onChange={change} multiple />);
   fireEvent.press(screen.getByLabelText('Quitar Idioma antiguo'));
   expect(change).toHaveBeenCalledWith([]);
-  fireEvent.press(screen.getByText('Seleccionar ▾'));
+  fireEvent.press(screen.getByRole('button', {name: 'Idiomas: Idioma antiguo'}));
   fireEvent.changeText(screen.getByLabelText('Buscar idiomas'),'arabe');
   fireEvent.press(screen.getByText('Árabe'));
   expect(change).toHaveBeenCalledWith(['Idioma antiguo','arabic']);

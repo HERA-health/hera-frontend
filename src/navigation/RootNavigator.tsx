@@ -1,3 +1,4 @@
+import { useQuestionnaireDraft, QuestionnaireSaveGate, takeQuestionnaireDestination } from '../contexts/QuestionnaireDraftContext';
 import { SESSION_PAYMENTS_VISIBLE } from '../config/sessionPayments';
 import { subscribeLegalUpdate } from '../services/legalEvents';
 import { hasPendingClinicalPinReset, subscribeClinicalPinReset } from '../services/clinicalPinResetIntent';
@@ -271,10 +272,12 @@ const PublicBookingRoute = createDeferredRoute<'Booking'>(
   () => Platform.OS === 'web' ? import('../screens/booking/BookingScreen') : require('../screens/booking/BookingScreen'),
   { displayName: 'PublicBookingRoute', exportName: 'BookingScreen' }
 );
-const QuestionnaireRoute = createDeferredLayoutRoute<'Questionnaire'>(
+const QuestionnaireRoute = createDeferredRoute<'Questionnaire'>(
   () => Platform.OS === 'web' ? import('../screens/questionnaire/QuestionnaireScreen') : require('../screens/questionnaire/QuestionnaireScreen'),
   { displayName: 'QuestionnaireRoute', exportName: 'QuestionnaireScreen' }
 );
+const MatchingAdviceRoute = createDeferredLayoutRoute<'MatchingAdvice'>(() => import('../screens/questionnaire/MatchingAdviceScreen'), { displayName: 'MatchingAdviceRoute', exportName: 'MatchingAdviceScreen' });
+const AdminMatchingAdviceRoute = createDeferredLayoutRoute<'AdminMatchingAdvice'>(() => import('../screens/questionnaire/MatchingAdviceScreen'), { displayName: 'AdminMatchingAdviceRoute', exportName: 'MatchingAdviceScreen' });
 const QuestionnaireResultsRoute = createDeferredLayoutRoute<'QuestionnaireResults'>(
   () => Platform.OS === 'web' ? import('../screens/questionnaire/QuestionnaireResultsScreen') : require('../screens/questionnaire/QuestionnaireResultsScreen'),
   {
@@ -409,6 +412,7 @@ const PublicReviewRoute = createDeferredRoute<'PublicReview'>(
 );
 
 const ClientHomeRoute: React.FC<StackRouteProps<'Home'>> = (props) => {
+  const { user } = useAuth();
   const consumedIntentRef = useRef(false);
 
   useEffect(() => {
@@ -420,6 +424,9 @@ const ClientHomeRoute: React.FC<StackRouteProps<'Home'>> = (props) => {
     let active = true;
 
     const consumeIntent = async () => {
+      const questionnaire = user ? await takeQuestionnaireDestination(user.id) : null;
+      if (!active) return;
+      if (questionnaire) { props.navigation.navigate('QuestionnaireResults', questionnaire); return; }
       const referralId = await getPendingReferralIntent();
       if (!active) return;
       if (referralId) { props.navigation.navigate('Referrals', { id: referralId }); return; }
@@ -552,6 +559,7 @@ const fetchLegalStatusWithRetry = async (): Promise<LegalAcceptanceStatus> => {
 };
 
 export function RootNavigator() {
+  const questionnaireDraft = useQuestionnaireDraft();
   const calendarIntent = getCalendarIntent();
   const [professionalRoute, setProfessionalRoute] = useState<string>('ProfessionalHome');
   const pendingPinReset = useSyncExternalStore(subscribeClinicalPinReset, hasPendingClinicalPinReset, () => false);
@@ -652,6 +660,7 @@ export function RootNavigator() {
         <Stack.Group navigationKey="guest">
           {pendingPinReset ? <Stack.Screen name="ClinicalPinReset" component={ClinicalPinResetRoute} /> : null}
           <Stack.Screen name="Landing" component={LandingPage} />
+          <Stack.Screen name="Questionnaire" component={QuestionnaireRoute} />
           {SESSION_PAYMENTS_VISIBLE && <><Stack.Screen name="SessionPayment" component={SessionPaymentRoute} /><Stack.Screen name="PackagePayment" component={PackagePaymentRoute} /></>}
           <Stack.Screen name="GoogleCalendarIntegration" component={GoogleCalendarIntegrationRoute} />
           <Stack.Screen name="GoogleCalendarSession" component={GoogleCalendarSessionRoute} />
@@ -865,6 +874,8 @@ export function RootNavigator() {
       </Stack.Navigator>
     );
   }
+
+  if (user?.type === 'client' && questionnaireDraft.ready) return <QuestionnaireSaveGate />;
 
   const isProfessional = user?.type === 'professional';
 
@@ -1091,6 +1102,7 @@ export function RootNavigator() {
             component={ClinicInvoiceCreateRoute}
             options={{ headerTitle: 'Nueva factura de clínica' }}
           />
+          <Stack.Screen name="AdminMatchingAdvice" component={AdminMatchingAdviceRoute} />
           <Stack.Screen
             name="AdminPanel"
             component={AdminPanelRoute}
@@ -1230,6 +1242,8 @@ export function RootNavigator() {
           component={QuestionnaireResultsRoute}
           options={{ headerTitle: 'Tus Resultados' }}
         />
+        <Stack.Screen name="MatchingAdvice" component={MatchingAdviceRoute} />
+        <Stack.Screen name="AdminMatchingAdvice" component={AdminMatchingAdviceRoute} />
         <Stack.Screen
           name="AdminPanel"
           component={AdminPanelRoute}

@@ -39,6 +39,16 @@ jest.mock('../../contexts/AuthContext', () => ({
   useAuth: () => mockAuthState,
 }));
 
+let mockQuestionnaireReady = false;
+jest.mock('../../contexts/QuestionnaireDraftContext', () => ({
+  useQuestionnaireDraft: () => ({ ready: mockQuestionnaireReady, clear: jest.fn() }),
+  takeQuestionnaireDestination: jest.fn().mockResolvedValue(null),
+  QuestionnaireSaveGate: () => require('react').createElement(require('react-native').Text, null, 'Guardando cuestionario pendiente'),
+}));
+jest.mock('../../services/questionnaireService', () => ({
+  withdrawAllQuestionnaireConsents: jest.fn(),
+}));
+
 // This suite exercises navigation; workspace data loading has its own tests.
 jest.mock('../../contexts/ProfessionalWorkspaceContext', () => ({
   ProfessionalWorkspaceProvider: ({ children }: { children: React.ReactNode }) => children,
@@ -138,6 +148,7 @@ jest.mock('../../components/navigation/MainLayout', () => {
 describe('post-login routing', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockQuestionnaireReady = false;
     mockAuthState = {
       isAuthenticated: false,
       isInitialized: true,
@@ -145,6 +156,18 @@ describe('post-login routing', () => {
       user: null,
       verificationSubmitted: null,
     };
+  });
+
+  it('saves a pending questionnaire before requiring email verification', async () => {
+    mockQuestionnaireReady = true;
+    mockAuthState = {
+      isAuthenticated: true, isInitialized: true, verificationSubmitted: null,
+      user: { id: 'questionnaire-client', email: 'qa@example.invalid', emailVerified: false, type: 'client' },
+      legalStatusSnapshot: { documents: [], requiredDocumentKeys: [], missingDocumentKeys: [], acceptedDocuments: [], requiresAcceptance: false },
+    };
+    render(<NavigationContainer><RootNavigator /></NavigationContainer>);
+    await screen.findByText('Guardando cuestionario pendiente');
+    expect(screen.queryByText('Inicio de paciente')).toBeNull();
   });
 
   it.each([
