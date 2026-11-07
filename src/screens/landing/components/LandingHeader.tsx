@@ -24,7 +24,7 @@ import { ThemeToggleButton } from '../../../components/common/ThemeToggleButton'
 import { useTheme } from '../../../contexts/ThemeContext';
 import type { LandingSectionAnchor } from '../types';
 
-export type LandingHeaderContext = 'landing' | 'directory' | 'access' | 'pricing';
+export type LandingHeaderContext = 'landing' | 'directory' | 'access' | 'pricing' | 'questionnaire';
 
 interface LandingHeaderProps {
   onLayout?: (event: LayoutChangeEvent) => void;
@@ -66,7 +66,7 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
   // The extra catalogue link needs the same room as the landing's full navigation.
   const isWide = width >= (context === 'landing' || onViewPlans ? BRAND_DESCRIPTOR_BREAKPOINT : WIDE_HEADER_BREAKPOINT);
   const showBrandDescriptor = width >= BRAND_DESCRIPTOR_BREAKPOINT && (!onViewPlans || width >= 1600);
-  const isDirectory = context === 'directory';
+  const isDirectory = context === 'directory' || context === 'questionnaire';
   const isAccess = context === 'access' || context === 'pricing';
   const scrollProgress = useSharedValue(0);
 
@@ -107,7 +107,7 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
       : undefined;
 
   const logo = <StyledLogo variant={onViewPlans && width < WORDMARK_BREAKPOINT ? 'mark' : 'wordmark'} size={context === 'landing' && !isMobile ? 52 : isScrolled ? 42 : 46} />;
-  const plansLink = onViewPlans ? (
+  const plansLink = onViewPlans && !(context === 'questionnaire' && isMobile) ? (
     <AnimatedPressable
       onPress={onViewPlans}
       href="/planes"
@@ -119,7 +119,7 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
       ariaCurrent={context === 'pricing' ? 'page' : undefined}
       style={[styles.navLink, { minHeight: 44, justifyContent: 'center', borderBottomWidth: context === 'pricing' ? 2 : 0, borderBottomColor: theme.primary }]}
     >
-      <Text style={[styles.navLinkText, { color: theme.primary, fontFamily: theme.fontSansSemiBold }]}>{isMobile ? 'Planes' : 'Planes y precios'}</Text>
+      <Text style={[styles.navLinkText, { color: context === 'questionnaire' ? theme.textSecondary : theme.primary, fontFamily: context === 'questionnaire' ? theme.fontSans : theme.fontSansSemiBold }]}>{isMobile ? 'Planes' : 'Planes y precios'}</Text>
     </AnimatedPressable>
   ) : null;
 

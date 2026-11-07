@@ -6,6 +6,8 @@ import { LEGAL_DOCUMENTS } from '../../../constants/legal';
 import { RegistrationPhoneError } from '../../../utils/registrationPhone';
 
 let mockParams: { userType?: string } | undefined;
+let mockQuestionnaireReady = false;
+jest.mock('../../../contexts/QuestionnaireDraftContext', () => ({ useQuestionnaireDraft: () => ({ ready: mockQuestionnaireReady }) }));
 const mockRegister = jest.fn();
 const mockGoogle = jest.fn();
 const mockLegalCatalog = jest.fn().mockResolvedValue([]);
@@ -34,10 +36,19 @@ jest.mock('../../../components/auth', () => {
 
 beforeEach(() => {
   mockParams = undefined;
+  mockQuestionnaireReady = false;
   jest.clearAllMocks();
   mockRegister.mockReset();
   mockGoogle.mockReset();
   mockLegalCatalog.mockResolvedValue(Object.values(LEGAL_DOCUMENTS));
+});
+
+it('only shows the pending questionnaire notice for patient registration', async () => {
+  mockQuestionnaireReady = true;
+  render(<RegisterScreen />);
+  await screen.findByText('Tu cuestionario está listo para guardar');
+  await act(async () => { fireEvent.press(screen.getByText('Especialista')); });
+  expect(screen.queryByText('Tu cuestionario está listo para guardar')).toBeNull();
 });
 
 it.each([

@@ -6,7 +6,8 @@ import React, {
   useEffect,
   useCallback,
 } from 'react';
-import { Platform, Text, View } from 'react-native';
+import { ActivityIndicator, Platform, Text, View } from 'react-native';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from './AuthContext';
 import { useTheme } from './ThemeContext';
@@ -192,18 +193,22 @@ export function QuestionnaireSaveGate() {
         padding: 32,
         alignItems: 'center',
         justifyContent: 'center',
-        gap: 24,
+        gap: 16,
       }}
     >
+      <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: theme.bgMuted, alignItems: 'center', justifyContent: 'center' }}>
+        {busy ? <ActivityIndicator color={theme.primary} accessibilityLabel="Guardando respuestas" /> : <Ionicons name={error ? 'cloud-offline-outline' : 'checkmark-outline'} size={26} color={theme.primary} />}
+      </View>
       <Text
         accessibilityRole="header"
         style={{
           fontFamily: theme.fontHeading,
           fontSize: 28,
           color: theme.textPrimary,
+          textAlign: 'center',
         }}
       >
-        Guardamos tus respuestas
+        {error ? 'No hemos podido guardar tus respuestas' : 'Guardamos tus respuestas'}
       </Text>
       <Text
         accessibilityLiveRegion="polite"
@@ -211,12 +216,15 @@ export function QuestionnaireSaveGate() {
           fontFamily: theme.fontSans,
           color: theme.textSecondary,
           maxWidth: 520,
+          fontSize: 16,
+          lineHeight: 24,
+          textAlign: 'center',
         }}
       >
         {error || 'Un momento. Después podrás continuar a tus resultados.'}
       </Text>
       {error ? (
-        <Button loading={busy} onPress={run}>
+        <Button size="small" style={{ minHeight: 44 }} loading={busy} onPress={run}>
           Reintentar guardado
         </Button>
       ) : null}
