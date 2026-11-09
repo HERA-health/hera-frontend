@@ -2,6 +2,7 @@ import { PUBLIC_HEADER_LINKS } from '../../../constants/publicHeaderLinks';
 import React, { useEffect } from 'react';
 import {
   Platform,
+  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -34,6 +35,7 @@ interface LandingHeaderProps {
   accessIconName?: React.ComponentProps<typeof Ionicons>['name'];
   onLogoPress?: () => void;
   onFindSpecialist?: () => void;
+  onQuestionnaire?: () => void;
   onExploreProfessionals?: () => void;
   onAccess: () => void;
   onViewPlans?: () => void;
@@ -55,6 +57,7 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
   accessIconName = 'arrow-forward',
   onLogoPress,
   onFindSpecialist,
+  onQuestionnaire,
   onExploreProfessionals,
   onAccess,
   onViewPlans,
@@ -63,9 +66,11 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
   const { width } = useWindowDimensions();
   const { theme, isDark } = useTheme();
   const isMobile = width < MOBILE_BREAKPOINT;
-  // The extra catalogue link needs the same room as the landing's full navigation.
-  const isWide = width >= (context === 'landing' || onViewPlans ? BRAND_DESCRIPTOR_BREAKPOINT : WIDE_HEADER_BREAKPOINT);
-  const showBrandDescriptor = width >= BRAND_DESCRIPTOR_BREAKPOINT && (!onViewPlans || width >= 1600);
+  const landing = context === 'landing';
+  const isWide = width >= (onViewPlans ? BRAND_DESCRIPTOR_BREAKPOINT : WIDE_HEADER_BREAKPOINT);
+  const compactLanding = landing && width < 1600;
+  const scrollLanding = landing && width < 1280;
+  const showBrandDescriptor = !landing && width >= BRAND_DESCRIPTOR_BREAKPOINT && (!onViewPlans || width >= 1600);
   const isDirectory = context === 'directory' || context === 'questionnaire';
   const isAccess = context === 'access' || context === 'pricing';
   const scrollProgress = useSharedValue(0);
@@ -78,6 +83,10 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
   }, [isScrolled, scrollProgress]);
 
   const containerAnimStyle = useAnimatedStyle(() => {
+    // The questionnaire already paints a continuous background behind the header.
+    if (context === 'questionnaire') {
+      return { backgroundColor: 'transparent', borderBottomWidth: 0, borderBottomColor: 'transparent' };
+    }
     if (context === 'pricing') {
       return {
         backgroundColor: theme.landingCanvas,
@@ -106,7 +115,7 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
         } as unknown as ViewStyle)
       : undefined;
 
-  const logo = <StyledLogo variant={onViewPlans && width < WORDMARK_BREAKPOINT ? 'mark' : 'wordmark'} size={context === 'landing' && !isMobile ? 52 : isScrolled ? 42 : 46} />;
+  const logo = <StyledLogo variant={(landing && isMobile) || (onViewPlans && width < WORDMARK_BREAKPOINT) ? 'mark' : 'wordmark'} size={landing ? (isMobile ? 34 : 52) : isScrolled ? 42 : 46} />;
   const plansLink = onViewPlans && !(context === 'questionnaire' && isMobile) ? (
     <AnimatedPressable
       onPress={onViewPlans}
@@ -119,12 +128,12 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
       ariaCurrent={context === 'pricing' ? 'page' : undefined}
       style={[styles.navLink, { minHeight: 44, justifyContent: 'center', borderBottomWidth: context === 'pricing' ? 2 : 0, borderBottomColor: theme.primary }]}
     >
-      <Text style={[styles.navLinkText, { color: context === 'questionnaire' ? theme.textSecondary : theme.primary, fontFamily: context === 'questionnaire' ? theme.fontSans : theme.fontSansSemiBold }]}>{isMobile ? 'Planes' : 'Planes y precios'}</Text>
+      <Text style={[styles.navLinkText, { color: context === 'questionnaire' ? theme.textSecondary : theme.primary, fontFamily: context === 'questionnaire' ? theme.fontSans : theme.fontSansSemiBold }]}>{isMobile && !landing ? 'Planes' : 'Planes y precios'}</Text>
     </AnimatedPressable>
   ) : null;
 
   const navigationLinks = (
-    <View style={styles.navLinks}>
+    <View style={[styles.navLinks, landing && { flexGrow: scrollLanding ? 0 : 1, flexShrink: 0, flexBasis: scrollLanding ? 'auto' : 0 }]}>
       {(onScrollToSection ? PUBLIC_HEADER_LINKS : []).map((item) => (
         <React.Fragment key={item.id}>
           <AnimatedPressable
@@ -134,7 +143,7 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
             pressScale={0.96}
             accessibilityRole="link"
             accessibilityLabel={`Ir a ${item.label}`}
-            style={styles.navLink}
+            style={[styles.navLink, landing && { minHeight: 44, justifyContent: 'center' }]}
           >
             <Text style={[styles.navLinkText, { color: theme.textSecondary, fontFamily: theme.fontSansMedium }]}>
               {item.label}
@@ -147,25 +156,8 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
     </View>
   );
 
-  return (
-    <Animated.View
-      onLayout={onLayout}
-      style={[
-        styles.container,
-        Platform.OS === 'web' && !isMobile && styles.containerWeb,
-        containerAnimStyle,
-        context !== 'landing' && context !== 'pricing' && webGlassStyle,
-      ]}
-    >
-      {context !== 'landing' && context !== 'pricing' && Platform.OS !== 'web' && isScrolled ? (
-        <BlurView
-          intensity={55}
-          tint={isDark ? 'dark' : 'light'}
-          style={StyleSheet.absoluteFill}
-        />
-      ) : null}
-
-      <View style={[styles.content, isWide && styles.contentWide, context === 'landing' && !isMobile && styles.landingContent, isMobile && styles.contentMobile]}>
+  const headerContent = (
+      <View style={[styles.content, isWide && styles.contentWide, isMobile && styles.contentMobile, landing && styles.landingContent, landing && width < 1400 && { gap: isMobile ? 6 : 12, paddingHorizontal: isMobile ? 8 : 16 }, scrollLanding && { width: 'auto', minWidth: '100%', justifyContent: 'flex-start' }]}>
         <View style={styles.brandCluster}>
           {onLogoPress ? (
             <AnimatedPressable
@@ -205,13 +197,16 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
           ) : null}
         </View>
 
-        {isWide ? navigationLinks : null}
+        {!scrollLanding && (landing || isWide) ? navigationLinks : null}
 
-        <View style={styles.actions}>
-          {!isWide ? plansLink : null}
-          <ThemeToggleButton size="sm" />
+        <View style={[styles.actions, landing && isMobile && { gap: 6 }]}>
+          {!isWide && !landing ? plansLink : null}
+          {!landing || !isMobile ? <ThemeToggleButton size="sm" /> : null}
+          {landing && onQuestionnaire ? <AnimatedPressable onPress={onQuestionnaire} href="/cuestionario" accessibilityRole="link" accessibilityLabel="Hacer cuestionario" hoverLift={false} pressScale={1} style={[styles.secondaryAction, styles.landingAction, { paddingHorizontal: compactLanding ? 10 : 12, backgroundColor: theme.secondaryMuted, borderColor: theme.border }]}>
+            <Text style={{ fontFamily: theme.fontSansSemiBold, fontSize: 14, color: theme.textPrimary }}>{compactLanding ? 'Cuestionario' : 'Hacer cuestionario'}</Text>
+          </AnimatedPressable> : null}
 
-          {!isMobile && !isDirectory && onFindSpecialist ? (
+          {(landing || !isMobile) && !isDirectory && onFindSpecialist ? (
             <AnimatedPressable
               onPress={onFindSpecialist}
               hoverLift={false}
@@ -221,10 +216,11 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
               style={[
                 styles.secondaryAction,
                 context === 'landing' && styles.landingAction,
+                compactLanding && { paddingHorizontal: 10, gap: 4, minWidth: 44 },
                 { backgroundColor: theme.secondaryAlpha12, borderColor: theme.border },
               ]}
             >
-              <Text
+              {!(landing && isMobile) ? <Text
                 style={[
                 styles.secondaryActionText,
                   {
@@ -233,8 +229,8 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
                   },
                 ]}
               >
-                Explorar profesionales
-              </Text>
+                {compactLanding ? 'Explorar' : 'Explorar profesionales'}
+              </Text> : null}
               <Ionicons
                 name="search-outline"
                 size={16}
@@ -243,7 +239,7 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
             </AnimatedPressable>
           ) : null}
 
-          {!isMobile && !isWide && !isAccess && onExploreProfessionals && (context !== 'landing' || width >= COMPACT_PROFESSIONAL_LINK_BREAKPOINT) ? (
+          {!isMobile && !isWide && !isAccess && onExploreProfessionals && !landing && width >= COMPACT_PROFESSIONAL_LINK_BREAKPOINT ? (
             <AnimatedPressable
               onPress={onExploreProfessionals}
               href="/?section=forSpecialists"
@@ -253,7 +249,6 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
               accessibilityLabel="Ir a HERA para profesionales"
               style={[
                 styles.secondaryAction,
-                context === 'landing' && styles.landingAction,
                 { backgroundColor: theme.primaryAlpha12, borderColor: theme.border },
               ]}
             >
@@ -275,7 +270,7 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
               hoverLift={context !== 'landing' && !isMobile}
               accessibilityRole="button"
               accessibilityLabel={accessLabel}
-              style={[styles.primaryAction, context === 'landing' && styles.landingAction, { backgroundColor: theme.actionPrimary }]}
+              style={[styles.primaryAction, compactLanding && { paddingHorizontal: 10 }, context === 'landing' && styles.landingAction, { backgroundColor: theme.actionPrimary }]}
             >
               <Text
                 style={[
@@ -291,7 +286,34 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
             </AnimatedPressable>
           ) : null}
         </View>
+        {scrollLanding ? navigationLinks : null}
+        {landing && isMobile ? <ThemeToggleButton size="sm" /> : null}
       </View>
+  );
+
+  return (
+    <Animated.View
+      onLayout={onLayout}
+      style={[
+        styles.container,
+        Platform.OS === 'web' && !isMobile && styles.containerWeb,
+        containerAnimStyle,
+        context !== 'landing' && context !== 'pricing' && context !== 'questionnaire' && webGlassStyle,
+      ]}
+    >
+      {context !== 'landing' && context !== 'pricing' && context !== 'questionnaire' && Platform.OS !== 'web' && isScrolled ? (
+        <BlurView
+          intensity={55}
+          tint={isDark ? 'dark' : 'light'}
+          style={StyleSheet.absoluteFill}
+        />
+      ) : null}
+
+      {landing ? (
+        <ScrollView horizontal scrollEnabled={scrollLanding} showsHorizontalScrollIndicator={scrollLanding} style={{ flexGrow: 0 }} contentContainerStyle={{ flexGrow: 1, justifyContent: scrollLanding ? 'flex-start' : 'center' }}>
+          {headerContent}
+        </ScrollView>
+      ) : headerContent}
     </Animated.View>
   );
 };

@@ -1,7 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -41,6 +40,8 @@ import { LandingHeader } from '../landing/components/LandingHeader';
 import { buildQuestionnaireReviewItems } from '../../utils/questionnaireReview';
 import { AnimatedPressable } from '../../components/common/AnimatedPressable';
 import { QuestionnaireLayout } from './components/QuestionnaireLayout';
+import { QuestionnaireBackdrop } from './components/QuestionnaireArtwork';
+import { questionnairePictogram } from './components/QuestionnairePictogram';
 import { QuestionnaireOption } from './components/QuestionnaireOption';
 
 type ChoiceIcon = React.ComponentProps<typeof Ionicons>['name'];
@@ -136,7 +137,7 @@ export function QuestionnaireScreen() {
   const heading = useRef<Text>(null);
   const loaded = useRef(false);
   const [formWidth, setFormWidth] = useState(0);
-  const twoColumns = formWidth >= 420;
+  const pairedPreferences = formWidth >= 960;
   const groupColumns = formWidth >= 720;
   usePreventRemove(step > 0 && !draft.ready, ({ data }) =>
     showAppAlert(
@@ -199,7 +200,7 @@ export function QuestionnaireScreen() {
       {label}
     </Text>
   );
-  const choices = (field: string, multiple = false, group?: string) => {
+  const choices = (field: string, multiple = false, group?: string, availableWidth = formWidth) => {
     const list =
       definition?.choices[field]?.filter(
         (option) => !group || option.group === group,
@@ -246,43 +247,26 @@ export function QuestionnaireScreen() {
             set(field, next);
           };
           const compact = field === 'concerns';
-          const tile = [
-            'budget',
-            'workingStyles',
-            'goals',
-            'contexts',
-          ].includes(field);
-          const columns =
-            compact || field === 'therapyType'
-              ? 1
-              : ['budget', 'gender'].includes(field) && formWidth >= 720
-                ? 4
-                : ['workingStyles', 'goals', 'contexts', 'start'].includes(
-                      field,
-                    ) && formWidth >= 720
-                  ? 3
-                  : twoColumns
-                    ? 2
-                    : 1;
+          const illustration = questionnairePictogram(field, option.value);
+          const brief = ['therapyType', 'modalities', 'budget', 'gender'].includes(field);
+          const columns = compact ? 1
+            : brief ? field !== 'modalities' && availableWidth >= 600 ? 4 : availableWidth >= 296 ? 2 : 1
+              : ['workingStyles', 'goals', 'contexts', 'start'].includes(field)
+                ? Math.min(3, Math.max(1, Math.floor((availableWidth + 8) / 208)))
+                : availableWidth >= 520 ? 2 : 1;
+          const tile = !!illustration && columns > 1;
           return (
             <QuestionnaireOption
               key={option.value}
               label={option.label}
               icon={choiceIcons[field]?.[option.value]}
+              illustration={illustration}
               multiple={multiple}
               selected={selected}
-              variant={
-                compact
-                  ? 'list'
-                  : tile && twoColumns
-                    ? 'tile'
-                    : field === 'gender'
-                      ? 'compact'
-                      : 'row'
-              }
+              variant={compact ? 'list' : tile ? 'tile' : 'row'}
               width={
                 columns > 1
-                  ? (formWidth - 8 * (columns - 1)) / columns
+                  ? Math.floor((availableWidth - 8 * (columns - 1)) / columns)
                   : '100%'
               }
               onPress={toggle}
@@ -295,10 +279,10 @@ export function QuestionnaireScreen() {
       </View>
     );
   };
-  const field = (key: string, multiple = false) => (
+  const field = (key: string, multiple = false, availableWidth = formWidth) => (
     <View style={{ marginBottom: 6 }}>
       {title(definition?.labels[key] ?? key)}
-      {choices(key, multiple)}
+      {choices(key, multiple, undefined, availableWidth)}
     </View>
   );
   const openText = (key: string) => (
@@ -325,7 +309,7 @@ export function QuestionnaireScreen() {
           ...text,
           ...focusStyle,
           textAlignVertical: 'top',
-          minHeight: 80,
+          minHeight: 64,
           padding: 12,
           borderWidth: 1,
           borderColor: theme.border,
@@ -439,6 +423,7 @@ export function QuestionnaireScreen() {
         backgroundColor: theme.bg,
       }}
     >
+      <QuestionnaireBackdrop />
       <LandingHeader
         context="questionnaire"
         isScrolled
@@ -651,19 +636,6 @@ export function QuestionnaireScreen() {
           <>
             {step === 0 ? (
               <>
-                {width < 900 ? (
-                  <Image
-                    source={require('../../../assets/questionnaire/still-life-mobile.webp')}
-                    accessibilityElementsHidden
-                    importantForAccessibility="no-hide-descendants"
-                    style={{
-                      width: '100%',
-                      height: 110,
-                      borderRadius: 16,
-                    }}
-                    resizeMode="cover"
-                  />
-                ) : null}
                 <Text style={text}>
                   Cuéntanos qué necesitas. Te mostraremos profesionales
                   compatibles y los motivos del encaje, para que puedas elegir
@@ -876,10 +848,11 @@ export function QuestionnaireScreen() {
               </>
             ) : null}
             {step === 5 ? (
-              <>
-                {field('workingStyles', true)}
-                {field('goals', true)}
-              </>
+              <View style={{ flexDirection: pairedPreferences ? 'row' : 'column', gap: 16, alignItems: 'flex-start' }}>
+                {['workingStyles', 'goals'].map(key => <View key={key} style={{ width: pairedPreferences ? (formWidth - 16) / 2 : '100%' }}>
+                  {field(key, true, pairedPreferences ? (formWidth - 16) / 2 : formWidth)}
+                </View>)}
+              </View>
             ) : null}
             {step === 6 ? (
               <>
@@ -934,6 +907,9 @@ export function QuestionnaireScreen() {
                 </Text>
                 <View
                   style={{
+                    flexDirection: pairedPreferences ? 'row' : 'column',
+                    flexWrap: 'wrap',
+                    columnGap: 16,
                     borderTopWidth: 1,
                     borderTopColor: theme.borderLight,
                   }}
@@ -947,6 +923,7 @@ export function QuestionnaireScreen() {
                       <View
                         key={item.shortTitle}
                         style={{
+                          width: pairedPreferences ? Math.floor((formWidth - 16) / 2) : '100%',
                           paddingVertical: 8,
                           borderBottomWidth: 1,
                           borderBottomColor: theme.borderLight,
@@ -1007,7 +984,7 @@ export function QuestionnaireScreen() {
                               <Text
                                 style={{
                                   ...text,
-                                  fontSize: 14,
+                                  fontSize: 15,
                                   lineHeight: 21,
                                 }}
                               >

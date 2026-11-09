@@ -43,10 +43,14 @@ beforeEach(() => {
   mockLegalCatalog.mockResolvedValue(Object.values(LEGAL_DOCUMENTS));
 });
 
-it('only shows the pending questionnaire notice for patient registration', async () => {
+it('preserves standard registration when a questionnaire is pending', async () => {
   mockQuestionnaireReady = true;
   render(<RegisterScreen />);
-  await screen.findByText('Tu cuestionario está listo para guardar');
+  await waitFor(() => expect(mockLegalCatalog).toHaveBeenCalledTimes(1));
+  expect(screen.getAllByText('Crear cuenta').length).toBeGreaterThan(0);
+  expect(screen.getByText('Matching inteligente con especialistas')).toBeTruthy();
+  expect(screen.queryByText('Un paso más para ver tus resultados')).toBeNull();
+  expect(screen.queryByText('Tu cuestionario está listo para guardar')).toBeNull();
   await act(async () => { fireEvent.press(screen.getByText('Especialista')); });
   expect(screen.queryByText('Tu cuestionario está listo para guardar')).toBeNull();
 });

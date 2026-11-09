@@ -12,7 +12,7 @@ let mockWindowDimensions = {
   fontScale: 1,
   height: 900,
   scale: 1,
-  width: 1440,
+  width: 1720,
 };
 const mockUseWindowDimensions = jest.fn(() => mockWindowDimensions);
 const mockScrollTo = jest.fn();
@@ -182,7 +182,7 @@ describe('LandingPage', () => {
       fontScale: 1,
       height: 900,
       scale: 1,
-      width: 1440,
+      width: 1720,
     };
     getState.mockReturnValue({
       routeNames: [
@@ -267,6 +267,29 @@ describe('LandingPage', () => {
     expect(analyticsService.track).toHaveBeenCalledWith('landing_patient_cta_clicked', { placement: 'hero', audience: 'patient' });
   });
 
+  it('keeps the questionnaire and directory as distinct patient actions', () => {
+    render(<LandingPage />);
+    fireEvent.press(screen.getByRole('link', { name: 'Hacer cuestionario' }));
+    expect(navigate).toHaveBeenLastCalledWith('Questionnaire');
+    fireEvent.press(screen.getByRole('link', { name: 'Hacer el cuestionario' }));
+    expect(navigate).toHaveBeenLastCalledWith('Questionnaire');
+    fireEvent.press(screen.getByRole('link', { name: 'Ver especialistas' }));
+    expect(navigate).toHaveBeenLastCalledWith('PublicSpecialists');
+    expect(analyticsService.track).toHaveBeenCalledWith('landing_patient_cta_clicked', { placement: 'hero', audience: 'patient' });
+  });
+
+  it('keeps mobile section navigation and plans directly reachable in the bar', () => {
+    mockWindowDimensions = { ...mockWindowDimensions, width: 320 };
+    const onSection = jest.fn();
+    const onPlans = jest.fn();
+    render(<LandingHeader context="landing" isScrolled={false} onAccess={jest.fn()} onQuestionnaire={jest.fn()} onScrollToSection={onSection} onViewPlans={onPlans} />);
+    expect(screen.getByRole('link', { name: 'Hacer cuestionario' })).toBeTruthy();
+    fireEvent.press(screen.getByText('Cómo funciona'));
+    expect(onSection).toHaveBeenCalledWith('howItWorks');
+    fireEvent.press(screen.getByText('Planes y precios'));
+    expect(onPlans).toHaveBeenCalledTimes(1);
+  });
+
   it('maps every wide header label to its stable anchor', () => {
     const onScrollToSection = jest.fn();
     mockWindowDimensions = { fontScale: 1, height: 900, scale: 1, width: 1720 };
@@ -321,7 +344,7 @@ describe('LandingPage', () => {
     expect(screen.queryByText('Para profesionales')).toBeNull();
   });
 
-  it('uses the compact header without saturating it with anchors or clinics', () => {
+  it('keeps every section link in the compact header', () => {
     mockWindowDimensions = { fontScale: 1, height: 768, scale: 1, width: 1024 };
 
     render(
@@ -335,8 +358,8 @@ describe('LandingPage', () => {
       />
     );
 
-    expect(screen.queryByText('Cómo funciona')).toBeNull();
-    expect(screen.getByText('Explorar profesionales')).toBeTruthy();
+    expect(screen.getByText('Cómo funciona')).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Explorar profesionales' })).toBeTruthy();
     expect(screen.getByText('Para profesionales')).toBeTruthy();
     expect(screen.getByText('Acceder')).toBeTruthy();
     expect(screen.queryByText('Salud mental')).toBeNull();
@@ -347,9 +370,12 @@ describe('LandingPage', () => {
     mockWindowDimensions = { fontScale: 1, height: 844, scale: 1, width: 390 };
     render(<LandingPage />);
 
-    expect(screen.getByText('Planes')).toBeTruthy();
+    expect(screen.getByText('Cuestionario')).toBeTruthy();
+    expect(screen.queryByText('Planes')).toBeNull();
     expect(screen.getByText('Acceder')).toBeTruthy();
     expect(screen.getByText('toggle-theme')).toBeTruthy();
+    expect(screen.queryByLabelText('Abrir menú de navegación')).toBeNull();
+    expect(screen.getByRole('link', { name: 'Ir a Cómo funciona' })).toBeTruthy();
     expect(screen.getAllByText('Explorar profesionales').length).toBeGreaterThan(0);
     expect(screen.getByText('Conocer las herramientas')).toBeTruthy();
     expect(screen.getByText('Soy paciente')).toBeTruthy();

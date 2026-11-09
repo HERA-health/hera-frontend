@@ -1,7 +1,6 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Pressable,
   ScrollView,
   Text,
   TextInput,
@@ -22,7 +21,6 @@ import { Button } from '../../components/common/Button';
 import {
   listAdvice,
   readAdvice,
-  sendAdvice,
   respondAdvice,
   deleteAdviceDraft,
   getQuestionnaireDefinition,
@@ -30,10 +28,10 @@ import {
   type QuestionnaireDefinition,
 } from '../../services/questionnaireService';
 import { buildQuestionnaireReviewItems } from '../../utils/questionnaireReview';
-import { createSecureRandomUuid } from '../../utils/secureRandom';
 import { getErrorMessage } from '../../constants/errors';
-import { choiceKeyboardProps } from '../../utils/choiceKeyboard';
 import { AnimatedPressable } from '../../components/common/AnimatedPressable';
+import { AdviceRequestForm } from './components/AdviceRequestForm';
+import { useAdviceRequest } from './components/useAdviceRequest';
 
 export function MatchingAdviceScreen() {
   const { theme } = useTheme();
@@ -51,15 +49,18 @@ export function MatchingAdviceScreen() {
     null,
   );
   const [error, setError] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [reason, setReason] = useState('choose');
-  const [message, setMessage] = useState('');
-  const [share, setShare] = useState(false);
+  const [loading, setBusy] = useState(false);
   const [selected, setSelected] = useState(route.params?.id);
   const [showAnswers, setShowAnswers] = useState(false);
   const [response, setResponse] = useState('');
-  const command = useRef(createSecureRandomUuid());
   const [sent, setSent] = useState(false);
+  const current = items.find((item) => item.id === selected);
+  const composer = useAdviceRequest({
+    draftId: current?.status === 'DRAFT' ? current.id : undefined,
+    specialistId: route.params && 'specialistId' in route.params ? route.params.specialistId : undefined,
+    onSent: async (result) => { setSelected(result.id); setSent(true); await load(); },
+  });
+  const busy = loading || composer.busy;
   const text = {
     fontFamily: theme.fontSans,
     fontSize: 16,
@@ -94,47 +95,13 @@ export function MatchingAdviceScreen() {
     }
   };
   useEffect(() => {
+    composer.reset();
     setSelected(route.params?.id);
     void load();
   }, [admin, route.params?.id]);
-  const current = items.find((item) => item.id === selected);
   useEffect(() => { setShowAnswers(false); }, [selected]);
   if (admin && !user?.isAdmin)
     return <Text style={text}>No tienes acceso a esta bandeja.</Text>;
-  const send = async () => {
-    if (busy || !message.trim()) return;
-    setBusy(true);
-    setError('');
-    try {
-      const specialistId =
-        route.params && 'specialistId' in route.params
-          ? route.params.specialistId
-          : undefined;
-      const result = await sendAdvice(
-        {
-          submissionId: command.current,
-          reason,
-          message,
-          shareQuestionnaire: share,
-          specialistId,
-        },
-        current?.status === 'DRAFT' ? current.id : undefined,
-      );
-      setSelected(result.id);
-      setSent(true);
-      setMessage('');
-      await load();
-    } catch (e) {
-      setError(
-        getErrorMessage(
-          e,
-          'No se pudo enviar. Puedes reintentar sin duplicar la solicitud.',
-        ),
-      );
-    } finally {
-      setBusy(false);
-    }
-  };
   return (
     <ScrollView
       style={{ flex: 1, backgroundColor: theme.bg }}
@@ -188,7 +155,7 @@ export function MatchingAdviceScreen() {
                 accessibilityRole="button"
                 accessibilityLabel={`Solicitud del ${new Date(item.createdAt).toLocaleDateString('es-ES')}: ${item.status === 'DRAFT' ? 'Borrador privado' : item.status === 'SUBMITTED' ? 'Enviada' : 'Respondida'}`}
                 accessibilityState={{ selected: selected === item.id, disabled: busy }}
-                onPress={() => { setSelected(item.id); setResponse(''); }}
+                onPress={() => { if (selected !== item.id) composer.reset(); setSelected(item.id); setResponse(''); setSent(false); }}
                 style={{ minHeight: 56, padding: 14, borderRadius: 12, borderWidth: 1, borderColor: selected === item.id ? theme.primary : theme.borderLight, backgroundColor: selected === item.id ? theme.bgMuted : theme.bgCard, flexDirection: 'row', alignItems: 'center', gap: 12 }}
               >
                 <Ionicons name={item.status === 'DRAFT' ? 'document-text-outline' : 'chatbubble-ellipses-outline'} size={20} color={theme.primary} />
@@ -399,80 +366,8 @@ export function MatchingAdviceScreen() {
           </>
         ) : null}
         {!admin && (!selected || current?.status === 'DRAFT') ? (
-          <View style={{ gap: 14, padding: width < 600 ? 16 : 22, borderRadius: 16, backgroundColor: theme.bgCard, borderWidth: 1, borderColor: theme.borderLight }}>
-            <Text style={{ ...text, fontFamily: theme.fontSansSemiBold }}>
-              ¿En qué podemos ayudarte?
-            </Text>
-            <View style={{ gap: 6 }}>
-            {(
-              [
-                ['choose', 'Necesito ayuda para elegir'],
-                ['no-match', 'No encuentro un profesional compatible'],
-                ['booking', 'Necesito ayuda con la primera cita'],
-                ['other', 'Otro motivo'],
-              ] as const
-            ).map(([value, label]) => (
-              <AnimatedPressable
-                key={value}
-                {...choiceKeyboardProps(() => setReason(value), busy)}
-                disabled={busy}
-                accessibilityRole="radio"
-                accessibilityLabel={label}
-                accessibilityState={{ checked: reason === value, disabled: busy }}
-                aria-checked={reason === value}
-                onPress={() => setReason(value)}
-                style={{ minHeight: 48, padding: 12, flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: 10, backgroundColor: reason === value ? theme.bgMuted : theme.bgCard, borderWidth: 1, borderColor: reason === value ? theme.borderStrong : theme.borderLight }}
-              >
-                <Ionicons name={reason === value ? 'radio-button-on' : 'radio-button-off'} size={19} color={reason === value ? theme.primary : theme.textSecondary} />
-                <Text style={{ ...text, fontSize: 14, lineHeight: 20, flex: 1 }}>{label}</Text>
-              </AnimatedPressable>
-            ))}
-            </View>
-            <TextInput
-              accessibilityLabel="Cuéntanos qué necesitas"
-              editable={!busy}
-              multiline
-              maxLength={500}
-              value={message}
-              onChangeText={setMessage}
-              placeholder="Cuéntanos qué necesitas, sin nombres ni datos de otras personas"
-              placeholderTextColor={theme.textMuted}
-              style={inputStyle}
-            />
-            <Text style={{ ...text, fontSize: 12, textAlign: 'right', color: theme.textSecondary }}>{message.length}/500</Text>
-            <Text style={text}>
-              Compartiremos con el equipo tu contacto, el tipo de atención y
-              quién responde, este mensaje y el profesional de interés, si has
-              elegido uno.
-            </Text>
-            <Pressable
-              {...choiceKeyboardProps(() => setShare(!share), busy)}
-              accessibilityRole="checkbox"
-              accessibilityState={{ checked: share, disabled: busy }}
-              aria-checked={share}
-              disabled={busy}
-              onPress={() => setShare(!share)}
-              style={{
-                padding: 14,
-                borderWidth: 1,
-                borderColor: theme.border,
-                borderRadius: 12,
-              }}
-            >
-              <Text style={text}>
-                {share ? '✓' : '○'} También quiero compartir las respuestas de
-                este cuestionario con el equipo.
-              </Text>
-            </Pressable>
-            <Button
-              size="small"
-              style={{ minHeight: 44, alignSelf: 'flex-start' }}
-              loading={busy}
-              disabled={!message.trim()}
-              onPress={() => void send()}
-            >
-              Enviar solicitud al equipo
-            </Button>
+          <View style={{ padding: width < 600 ? 16 : 22, borderRadius: 16, backgroundColor: theme.bgCard, borderWidth: 1, borderColor: theme.borderLight }}>
+            <AdviceRequestForm controller={composer} disabled={busy} />
           </View>
         ) : !admin ? (
           <Button
@@ -481,10 +376,7 @@ export function MatchingAdviceScreen() {
               setSelected(undefined);
               navigation.setParams({ id: undefined, specialistId: undefined });
               setSent(false);
-              setShare(false);
-              setMessage('');
-              setReason('choose');
-              command.current = createSecureRandomUuid();
+              composer.reset();
             }}
           >
             Nueva solicitud

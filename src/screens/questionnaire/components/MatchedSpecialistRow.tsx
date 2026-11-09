@@ -3,7 +3,7 @@ import { ActivityIndicator, Image, StyleSheet, Text, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useFocusEffect } from '@react-navigation/native';
 import { useTheme } from '../../../contexts/ThemeContext';
-import { AnimatedPressable } from '../../../components/common/AnimatedPressable';
+import { AnimatedPressable, type AnimatedPressableHandle } from '../../../components/common/AnimatedPressable';
 import { Button } from '../../../components/common/Button';
 import {
   addFavoriteSpecialist,
@@ -16,15 +16,16 @@ import { getErrorMessage } from '../../../constants/errors';
 interface Props {
   specialist: SpecialistData;
   languages: string[];
-  horizontal: boolean;
+
   assisted: boolean;
-  onChoose: () => void;
+  onChoose: (trigger: AnimatedPressableHandle | null) => void;
   onProfile: () => void;
   onRetryAvailability: () => void;
 }
 
-export function MatchedSpecialistRow({ specialist, languages, horizontal, assisted, onChoose, onProfile, onRetryAvailability }: Props) {
+export function MatchedSpecialistRow({ specialist, languages, assisted, onChoose, onProfile, onRetryAvailability }: Props) {
   const { theme } = useTheme();
+  const chooseButton = useRef<AnimatedPressableHandle>(null);
   const [expanded, setExpanded] = useState(false);
   const [photoFailed, setPhotoFailed] = useState(false);
   const [favorite, setFavorite] = useState<boolean | null>(null);
@@ -87,10 +88,10 @@ export function MatchedSpecialistRow({ specialist, languages, horizontal, assist
       : option?.modality === 'PHONE_CALL' ? 'Teléfono' : null;
 
   return (
-    <View style={[styles.row, { backgroundColor: theme.bgCard, borderColor: theme.borderLight }, horizontal ? styles.horizontal : styles.compact]}>
+    <View style={[styles.row, { backgroundColor: theme.bgCard, borderColor: theme.borderLight }]}>
       <View style={styles.profile}>
-        <View style={styles.identity}>
-          <View style={[styles.portrait, !horizontal && styles.compactPortrait, { backgroundColor: theme.bgMuted }]}>
+        <View style={[styles.identity, { backgroundColor: theme.secondaryMuted }]}>
+          <View style={[styles.portrait, { backgroundColor: theme.bgMuted }]}>
             {specialist.avatar && !photoFailed ? (
               <Image source={{ uri: specialist.avatar }} style={styles.photo} onError={() => setPhotoFailed(true)} accessibilityLabel={`Fotografía de ${specialist.user.name}`} />
             ) : (
@@ -98,7 +99,7 @@ export function MatchedSpecialistRow({ specialist, languages, horizontal, assist
             )}
           </View>
           <View style={styles.identityCopy}>
-            <Text accessibilityRole="header" style={[styles.name, !horizontal && styles.compactName, strong]}>{specialist.user.name}</Text>
+            <Text accessibilityRole="header" style={[styles.name, strong]}>{specialist.user.name}</Text>
             <Text style={[styles.detail, muted]}>{specialist.professionalTitle || specialist.professionalTypeLabel}</Text>
             {languages.length ? <Text style={[styles.languages, muted]}>{languages.join(' · ')}</Text> : null}
           </View>
@@ -115,11 +116,11 @@ export function MatchedSpecialistRow({ specialist, languages, horizontal, assist
         </View>
         {favoriteError ? <Text accessibilityRole="alert" style={[styles.detail, { color: theme.error, fontFamily: theme.fontSans }]}>{favoriteError}{favorite === null ? ' Pulsa el icono para reintentar.' : ''}</Text> : null}
         <View style={styles.reasons}>
-          <Text style={[styles.reasonHeading, strong]}>Por qué aparece en tus resultados</Text>
+          <Text style={[styles.reasonHeading, strong]}>Afinidad contigo</Text>
           {specialist.partialMatch ? <Text style={[styles.detail, { ...strong, color: theme.warning }]}>Coincidencia parcial con tus áreas</Text> : null}
           {(expanded ? reasons : reasons.slice(0, 3)).map(reason => (
             <View key={reason} style={styles.reason}>
-              <Ionicons aria-hidden name="checkmark" size={17} color={theme.primary} />
+              <View style={[styles.reasonIcon, { backgroundColor: theme.secondaryMuted }]}><Ionicons aria-hidden name="checkmark" size={14} color={theme.textPrimary} /></View>
               <Text style={[styles.detail, body, styles.reasonText]}>{reason}</Text>
             </View>
           ))}
@@ -127,7 +128,7 @@ export function MatchedSpecialistRow({ specialist, languages, horizontal, assist
           {reasons.length > 3 ? <Button size="small" variant="ghost" style={styles.moreReasons} accessibilityState={{ expanded }} onPress={() => setExpanded(!expanded)}>{expanded ? 'Ver menos motivos' : `Ver todos los motivos (${reasons.length})`}</Button> : null}
         </View>
       </View>
-      <View style={[styles.booking, horizontal ? styles.bookingSide : styles.bookingBelow, { borderColor: theme.borderLight }]}>
+      <View style={[styles.booking, styles.bookingBelow, { borderColor: theme.borderLight }]}>
         <View style={styles.priceRow}>
           <Text style={[styles.price, strong]}>{new Intl.NumberFormat('es-ES', { maximumFractionDigits: 2 }).format(specialist.pricePerSession)} €<Text style={[styles.detail, muted]}> / sesión</Text></Text>
           {option?.durationMinutes ? <Text style={[styles.detail, muted]}>{option.durationMinutes} min</Text> : null}
@@ -143,7 +144,7 @@ export function MatchedSpecialistRow({ specialist, languages, horizontal, assist
         </View>
         {specialist.availabilityStatus === 'UNKNOWN' ? <Button size="small" variant="ghost" onPress={onRetryAvailability}>Reintentar agenda</Button> : null}
         <View style={styles.actions}>
-          <Button size="small" style={styles.action} onPress={onChoose}>{assisted ? 'Me interesa este profesional' : 'Elegir cita'}</Button>
+          <Button size="small" focusRef={chooseButton} style={styles.action} onPress={() => onChoose(chooseButton.current)}>{assisted ? 'Me interesa este profesional' : 'Elegir cita'}</Button>
           <Button size="small" variant="ghost" style={styles.action} onPress={onProfile}>Ver perfil</Button>
         </View>
       </View>
@@ -152,32 +153,28 @@ export function MatchedSpecialistRow({ specialist, languages, horizontal, assist
 }
 
 const styles = StyleSheet.create({
-  row: { borderWidth: 1, borderRadius: 18, padding: 20, gap: 20 },
-  horizontal: { flexDirection: 'row', alignItems: 'stretch' },
-  compact: { padding: 16, gap: 14 },
+  row: { borderWidth: 1, borderRadius: 20, padding: 18, gap: 16, height: '100%' },
   profile: { flex: 1, minWidth: 0, gap: 10 },
-  identity: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
-  portrait: { width: 64, height: 72, borderRadius: 12, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
-  compactPortrait: { width: 56, height: 64 },
+  identity: { flexDirection: 'row', alignItems: 'center', gap: 14, margin: -18, marginBottom: 6, padding: 18, paddingTop: 22, paddingRight: 48, borderTopLeftRadius: 19, borderTopRightRadius: 19 },
+  portrait: { width: 84, height: 104, borderRadius: 14, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
   photo: { width: '100%', height: '100%' },
-  initials: { fontSize: 22 },
+  initials: { fontSize: 28 },
   identityCopy: { flex: 1, minWidth: 0, gap: 3 },
   name: { fontSize: 20, lineHeight: 25 },
-  compactName: { fontSize: 18, lineHeight: 23 },
-  detail: { fontSize: 14, lineHeight: 20 },
+  detail: { fontSize: 15, lineHeight: 21 },
   languages: { fontSize: 12, lineHeight: 18, marginTop: 2 },
-  heart: { width: 44, height: 44, borderWidth: 1, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
-  reasons: { gap: 5 },
-  reasonHeading: { fontSize: 12, lineHeight: 18, marginBottom: 2 },
+  heart: { position: 'absolute', top: 8, right: 6, width: 44, height: 44, borderWidth: 1, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+  reasons: { gap: 8 },
+  reasonHeading: { fontSize: 13, lineHeight: 19, marginBottom: 3 },
   reason: { flexDirection: 'row', alignItems: 'flex-start', gap: 7 },
+  reasonIcon: { width: 22, height: 22, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
   reasonText: { flex: 1 },
   moreReasons: { alignSelf: 'flex-start', minHeight: 44, paddingHorizontal: 0 },
   booking: { gap: 8, justifyContent: 'center' },
-  bookingSide: { width: 270, borderLeftWidth: 1, paddingLeft: 20 },
   bookingBelow: { borderTopWidth: 1, paddingTop: 16 },
   priceRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', flexWrap: 'wrap', gap: 6 },
   price: { fontSize: 24, lineHeight: 30 },
   availability: { flexDirection: 'row', alignItems: 'flex-start', gap: 7 },
-  actions: { marginTop: 4, flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  actions: { marginTop: 4, gap: 6 },
   action: { minHeight: 44, paddingHorizontal: 12, borderRadius: 10, shadowOpacity: 0, elevation: 0 },
 });

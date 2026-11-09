@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Platform, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useAuth } from '../../contexts/AuthContext';
@@ -11,9 +11,6 @@ import type { AppNavigationProp, AppRouteProp } from '../../constants/types';
 import { spacing } from '../../constants/colors';
 import { AuthSplitLayout, GoogleAuthButton } from '../../components/auth';
 import * as analyticsService from '../../services/analyticsService';
-import { useQuestionnaireDraft } from '../../contexts/QuestionnaireDraftContext';
-import { QuestionnaireAccessLayout } from '../questionnaire/components/QuestionnaireAccessNotice';
-import { LandingHeader } from '../landing/components/LandingHeader';
 
 type LoginRouteParams = AppRouteProp<'Login'>;
 type LoginUserType = 'CLIENT' | 'PROFESSIONAL' | 'CLINIC';
@@ -32,8 +29,6 @@ export function LoginScreen() {
   const { login, authenticateWithGoogle, logout, loading: authLoading, error: authError, clearError } = useAuth();
 
   const expectedUserType = route.params?.userType;
-  const { ready: questionnaireReady } = useQuestionnaireDraft();
-  const questionnaireAccess = questionnaireReady && (!expectedUserType || expectedUserType === 'CLIENT');
   const isMobile = width < 768;
   const isCompactMobile = width < 420;
 
@@ -167,16 +162,13 @@ export function LoginScreen() {
 
   return (
     <AuthSplitLayout
-      variant={questionnaireAccess ? 'form' : 'split'}
-      formHeader={questionnaireAccess ? <View style={{ height: 80 }}><LandingHeader context="access" isScrolled={false} onLogoPress={() => navigation.navigate('Landing')} onAccess={() => navigation.navigate('Register', { userType: 'CLIENT' })} accessLabel="Crear cuenta" /></View> : undefined}
       eyebrow={introCopy.eyebrow}
       title={introCopy.title}
       subtitle={introCopy.subtitle}
       accent={expectedUserType === 'PROFESSIONAL' ? 'secondary' : 'primary'}
       features={introCopy.features}
       form={
-        <QuestionnaireAccessLayout active={questionnaireAccess}>
-        <View style={questionnaireAccess ? { width: '100%' } : undefined}>
+        <View>
           <View style={[styles.header, isMobile ? styles.headerMobile : null]}>
             <AnimatedPressable
               accessibilityLabel="Volver"
@@ -185,7 +177,6 @@ export function LoginScreen() {
               pressScale={0.94}
               style={[
                 styles.backButton,
-                questionnaireAccess && { minWidth: 44, minHeight: 44, ...(Platform.OS === 'web' ? { outlineColor: theme.focus } : {}) },
                 {
                   backgroundColor: theme.bgMuted,
                   borderColor: theme.border,
@@ -213,7 +204,7 @@ export function LoginScreen() {
               <Text
                 style={[styles.subtitle, { color: theme.textSecondary, fontFamily: theme.fontSans }]}
               >
-                {questionnaireAccess ? 'Accede para guardar y consultar tus resultados.' : 'Accede con tu cuenta para continuar.'}
+                Accede con tu cuenta para continuar.
               </Text>
             </View>
           </View>
@@ -273,7 +264,7 @@ export function LoginScreen() {
                 onPress={() => setShowPassword((value) => !value)}
                 hoverLift={false}
                 pressScale={0.94}
-                style={[styles.iconButton, questionnaireAccess && { width: 44, height: 44, ...(Platform.OS === 'web' ? { outlineColor: theme.focus } : {}) }]}
+                style={styles.iconButton}
               >
                 <Ionicons
                   name={showPassword ? 'eye-off-outline' : 'eye-outline'}
@@ -289,7 +280,6 @@ export function LoginScreen() {
               onPress={() => navigation.navigate('ForgotPassword')}
               hoverLift={false}
               pressScale={0.98}
-              style={questionnaireAccess ? { minHeight: 44, justifyContent: 'center', ...(Platform.OS === 'web' ? { outlineColor: theme.focus } : {}) } : undefined}
             >
               <Text style={[styles.linkText, { color: theme.primary, fontFamily: theme.fontSansSemiBold }]}>
                 ¿Olvidaste tu contraseña?
@@ -300,8 +290,7 @@ export function LoginScreen() {
           <Button
             onPress={handleLogin}
             variant="primary"
-            size={questionnaireAccess ? 'small' : 'large'}
-            style={questionnaireAccess ? { ...(Platform.OS === 'web' ? { outlineColor: theme.focus } : {}), minHeight: 48, shadowOpacity: 0, elevation: 0, borderRadius: 12 } : undefined}
+            size="large"
             fullWidth
             loading={authLoading}
             icon={<Ionicons name="arrow-forward" size={18} color="#FFFFFF" />}
@@ -321,7 +310,6 @@ export function LoginScreen() {
               onPress={() => navigation.navigate('Register', { userType: expectedUserType ?? 'CLIENT' })}
               hoverLift={false}
               pressScale={0.98}
-              style={questionnaireAccess ? { minHeight: 44, justifyContent: 'center', ...(Platform.OS === 'web' ? { outlineColor: theme.focus } : {}) } : undefined}
             >
               <Text style={[styles.linkText, { color: theme.primary, fontFamily: theme.fontSansBold }]}>
                 Crear cuenta
@@ -329,7 +317,6 @@ export function LoginScreen() {
             </AnimatedPressable>
           </View>
         </View>
-        </QuestionnaireAccessLayout>
       }
     />
   );

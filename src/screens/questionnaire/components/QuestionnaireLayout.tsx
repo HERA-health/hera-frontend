@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import {
-  Image,
   Platform,
   ScrollView,
   Text,
@@ -18,8 +17,7 @@ export function QuestionnaireIntroduction({
 }: {
   compact?: boolean;
 }) {
-  const { theme, isDark } = useTheme();
-  const { height } = useWindowDimensions();
+  const { theme } = useTheme();
   return (
     <View style={{ gap: compact ? 10 : 14 }}>
       <Text
@@ -85,20 +83,6 @@ export function QuestionnaireIntroduction({
               </View>
             ))}
           </View>
-          <Image
-            source={require('../../../../assets/questionnaire/still-life-desktop.webp')}
-            accessible={false}
-            accessibilityElementsHidden
-            importantForAccessibility="no-hide-descendants"
-            resizeMode="cover"
-            style={{
-              width: '100%',
-              height: height < 800 ? 140 : 190,
-              borderRadius: 20,
-              marginTop: 4,
-              opacity: isDark ? 0.78 : 1,
-            }}
-          />
         </>
       ) : null}
     </View>
@@ -128,7 +112,9 @@ export function QuestionnaireLayout({
 }: Props) {
   const { theme } = useTheme();
   const { width } = useWindowDimensions();
-  const wide = width >= 1280;
+  // Reserve 960px for answers before adding the decorative introduction.
+  const [availableWidth, setAvailableWidth] = useState(0);
+  const wide = availableWidth - (240 + 20 + 40 + 168 + 20 + 2) >= 960;
   const desktop = width >= 900;
   const [stepsOpen, setStepsOpen] = useState(false);
   const steps = (
@@ -230,12 +216,13 @@ export function QuestionnaireLayout({
       contentContainerStyle={{
         flexGrow: 1,
         paddingHorizontal: width < 600 ? 16 : 32,
-        paddingTop: desktop ? 18 : 16,
+        paddingTop: desktop ? 14 : 12,
         paddingBottom: 18,
         alignItems: 'center',
       }}
     >
       <View
+        onLayout={(event) => setAvailableWidth(event.nativeEvent.layout.width)}
         style={{
           width: '100%',
           maxWidth: 1600,
@@ -245,7 +232,7 @@ export function QuestionnaireLayout({
         }}
       >
         {wide ? (
-          <View style={{ width: width >= 1600 ? 280 : 240, paddingTop: 12 }}>
+          <View style={{ width: 240, paddingTop: 12 }}>
             <QuestionnaireIntroduction />
           </View>
         ) : step === 0 && desktop ? (
@@ -266,13 +253,13 @@ export function QuestionnaireLayout({
             shadowColor: theme.shadowCard,
             shadowOffset: { width: 0, height: 8 },
             shadowRadius: 24,
-            shadowOpacity: 0.45,
+            shadowOpacity: 0.18,
           }}
         >
           {desktop ? (
             <View
               style={{
-                width: 180,
+                width: 168,
                 borderRightWidth: 1,
                 borderRightColor: theme.borderLight,
                 paddingRight: 16,

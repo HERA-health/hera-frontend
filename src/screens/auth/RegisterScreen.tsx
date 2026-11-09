@@ -20,8 +20,6 @@ import { AuthSplitLayout, GoogleAuthButton, PasswordRequirementsChecklist } from
 import { getPasswordError, validatePassword } from '../../utils/validation';
 import { normalizeRegistrationPhone, RegistrationPhoneError } from '../../utils/registrationPhone';
 import { LandingHeader } from '../landing/components/LandingHeader';
-import { useQuestionnaireDraft } from '../../contexts/QuestionnaireDraftContext';
-import { QuestionnaireAccessLayout } from '../questionnaire/components/QuestionnaireAccessNotice';
 
 type RegisterRouteParams = AppRouteProp<'Register'>;
 
@@ -63,8 +61,6 @@ export function RegisterScreen() {
   const initialUserType: PublicUserType = mapRouteUserType(route.params?.userType);
 
   const [userType, setUserType] = useState<PublicUserType>(initialUserType);
-  const { ready: questionnaireReady } = useQuestionnaireDraft();
-  const questionnaireAccess = questionnaireReady && userType === 'client';
   const isWide = width >= 1024;
   const [clinicCommercialName, setClinicCommercialName] = useState('');
   const [name, setName] = useState('');
@@ -331,7 +327,7 @@ export function RegisterScreen() {
       formHeader={
         <View style={styles.publicHeader}>
           <LandingHeader
-            context={questionnaireAccess ? 'questionnaire' : 'access'}
+            context="access"
             isScrolled={false}
             onLogoPress={() => navigation.navigate('Landing')}
             onAccess={() => navigation.navigate('Login', { userType: mapFrontendUserTypeToBackend(userType) })}
@@ -347,8 +343,7 @@ export function RegisterScreen() {
       features={introCopy.features}
       formScrollRef={formScrollRef}
       form={
-        <QuestionnaireAccessLayout active={questionnaireAccess}>
-        <View ref={formContentRef} collapsable={false} style={[styles.formCard, { backgroundColor: theme.bgCard, borderColor: theme.border, padding: pairedFields ? spacing.xl : spacing.md }, questionnaireAccess && { width: '100%', borderWidth: 0, padding: 0 }]}>
+        <View ref={formContentRef} collapsable={false} style={[styles.formCard, { backgroundColor: theme.bgCard, borderColor: theme.border, padding: pairedFields ? spacing.xl : spacing.md }]}>
           {legalDocuments.length === 0 ? <Button variant="ghost" onPress={() => setLegalRevision(v => v + 1)}>Reintentar carga de condiciones</Button> : null}
           <View style={styles.header}>
             <AnimatedPressable
@@ -358,7 +353,6 @@ export function RegisterScreen() {
               pressScale={0.94}
               style={[
                 styles.backButton,
-                questionnaireAccess && { minWidth: 44, minHeight: 44, ...(Platform.OS === 'web' ? { outlineColor: theme.focus } : {}) },
                 {
                   backgroundColor: theme.bgMuted,
                   borderColor: theme.border,
@@ -370,10 +364,10 @@ export function RegisterScreen() {
 
             <View style={styles.headerCopy}>
               <Text style={[styles.title, { color: theme.textPrimary, fontFamily: theme.fontDisplay }]}>
-                {questionnaireAccess ? 'Un paso más para ver tus resultados' : 'Crear cuenta'}
+                Crear cuenta
               </Text>
               <Text style={[styles.subtitle, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>
-                {questionnaireAccess ? 'Crea tu cuenta de paciente con Google o email.' : Platform.OS === 'web'
+                {Platform.OS === 'web'
                   ? 'Elige tu tipo de cuenta y regístrate con Google o email.'
                   : 'Elige tu tipo de cuenta y completa tus datos.'}
               </Text>
@@ -428,7 +422,7 @@ export function RegisterScreen() {
           </View>
 
           <View style={[styles.registrationBody, isWide && styles.registrationBodyWide]}>
-            {!questionnaireAccess ? <View style={[styles.featurePanel, isWide ? styles.featureColumn : styles.featurePanelCompact, { backgroundColor: theme.bgMuted }]}>
+            <View style={[styles.featurePanel, isWide ? styles.featureColumn : styles.featurePanelCompact, { backgroundColor: theme.bgMuted }]}>
               {introCopy.features.map(feature => (
                 <View key={feature.title} style={styles.featureRow}>
                   <View style={[styles.featureIcon, !isWide && styles.featureIconCompact, { backgroundColor: theme.bgCard, borderColor: theme.border }]}>
@@ -439,8 +433,8 @@ export function RegisterScreen() {
                   </Text>
                 </View>
               ))}
-            </View> : null}
-            <View style={questionnaireAccess ? { flex: 1, minWidth: 0 } : isWide ? [styles.emailColumn, { borderLeftColor: theme.border }] : undefined}>
+            </View>
+            <View style={isWide ? [styles.emailColumn, { borderLeftColor: theme.border }] : undefined}>
               <GoogleAuthButton
                 onCredential={handleGoogleCredential}
                 disabled={authLoading}
@@ -533,7 +527,7 @@ export function RegisterScreen() {
                       onPress={() => setShowPassword((value) => !value)}
                       hoverLift={false}
                       pressScale={0.94}
-                      style={[styles.iconButton, questionnaireAccess && { width: 44, height: 44, ...(Platform.OS === 'web' ? { outlineColor: theme.focus } : {}) }]}
+                      style={styles.iconButton}
                     >
                       <Ionicons
                         name={showPassword ? 'eye-off-outline' : 'eye-outline'}
@@ -567,7 +561,7 @@ export function RegisterScreen() {
                       onPress={() => setShowConfirmPassword((value) => !value)}
                       hoverLift={false}
                       pressScale={0.94}
-                      style={[styles.iconButton, questionnaireAccess && { width: 44, height: 44, ...(Platform.OS === 'web' ? { outlineColor: theme.focus } : {}) }]}
+                      style={styles.iconButton}
                     >
                       <Ionicons
                         name={showConfirmPassword ? 'eye-off-outline' : 'eye-outline'}
@@ -590,7 +584,6 @@ export function RegisterScreen() {
                   hoverLift={false}
                   pressScale={0.99}
                   hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
-                  style={questionnaireAccess ? { ...(Platform.OS === 'web' ? { outlineColor: theme.focus } : {}), minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' } : undefined}
                 >
                   <View
                     style={[
@@ -622,8 +615,7 @@ export function RegisterScreen() {
               <Button
                 onPress={handleRegister}
                 variant="primary"
-                size={questionnaireAccess ? 'small' : 'large'}
-                style={questionnaireAccess ? { ...(Platform.OS === 'web' ? { outlineColor: theme.focus } : {}), minHeight: 48, shadowOpacity: 0, elevation: 0, borderRadius: 12 } : undefined}
+                size="large"
                 fullWidth
                 loading={authLoading}
                 disabled={!canSubmit}
@@ -647,7 +639,6 @@ export function RegisterScreen() {
               onPress={() => navigation.navigate('Login', { userType: mapFrontendUserTypeToBackend(userType) })}
               hoverLift={false}
               pressScale={0.98}
-              style={questionnaireAccess ? { minHeight: 44, justifyContent: 'center', ...(Platform.OS === 'web' ? { outlineColor: theme.focus } : {}) } : undefined}
             >
               <Text style={[styles.inlineLink, { color: theme.primary, fontFamily: theme.fontSansBold }]}>
                 Iniciar sesión
@@ -655,7 +646,6 @@ export function RegisterScreen() {
             </AnimatedPressable>
           </View>
         </View>
-        </QuestionnaireAccessLayout>
       }
     />
   );

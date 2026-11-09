@@ -117,6 +117,12 @@ export function HeroSection({
                   <Text style={[styles.actionText, shortDesktop && styles.actionTextShort, { color: theme.actionPrimaryText, fontFamily: theme.fontSansBold }]}>{door.label}</Text>
                   <Ionicons name="arrow-forward" size={18} color={theme.actionPrimaryText} />
                 </AnimatedPressable>
+                {index === 0 && onQuestionnaire ? (
+                  <AnimatedPressable onPress={onFindSpecialist} href="/especialistas" accessibilityRole="link" accessibilityLabel="Ver especialistas" hoverLift={false} pressScale={1} style={[styles.action, { minHeight: 44, marginTop: 6, paddingVertical: 8, borderWidth: 1, borderColor: theme.borderStrong }]}>
+                    <Text style={[styles.actionText, { color: theme.textPrimary, fontFamily: theme.fontSansSemiBold }]}>Ver especialistas</Text>
+                    <Ionicons name="search-outline" size={17} color={theme.textPrimary} />
+                  </AnimatedPressable>
+                ) : null}
                 {isMobile ? (
                   <Text style={[styles.compactBenefits, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>{door.compactBenefits}</Text>
                 ) : (

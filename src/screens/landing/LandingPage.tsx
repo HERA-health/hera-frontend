@@ -431,6 +431,7 @@ export const LandingPage: React.FC = () => {
       <LandingHeader
         onViewPlans={() => navigation.navigate('Pricing')}
         context="landing"
+        onQuestionnaire={() => navigation.navigate('Questionnaire')}
         isScrolled={headerScrolled}
         accessLabel={isAuthenticated ? 'Mi espacio' : 'Acceder'}
         onFindSpecialist={() => handlePatientCTA('header')}

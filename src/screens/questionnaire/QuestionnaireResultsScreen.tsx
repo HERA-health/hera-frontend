@@ -25,6 +25,8 @@ import {
   withdrawQuestionnaireConsent,
 } from '../../services/questionnaireService';
 import { getErrorMessage } from '../../constants/errors';
+import { AdviceRequestModal } from './components/AdviceRequestModal';
+import type { AnimatedPressableHandle } from '../../components/common/AnimatedPressable';
 import { MatchedSpecialistRow } from './components/MatchedSpecialistRow';
 import { useProfileOptions } from '../../hooks/useProfileOptions';
 import { optionLabel } from '../../utils/profileOptions';
@@ -46,6 +48,19 @@ export function QuestionnaireResultsScreen() {
   const requestVersion = useRef(0);
   const [withdrawing, setWithdrawing] = useState(false);
   const [privateDraft, setPrivateDraft] = useState(false);
+  const [advice, setAdvice] = useState<{ key: string; specialistId?: string; draftId?: string; visible: boolean } | null>(null);
+  const orientationButton = useRef<AnimatedPressableHandle>(null);
+  const returnFocus = useRef<AnimatedPressableHandle | null>(null);
+  const openAdvice = (specialistId?: string, trigger = orientationButton.current) => {
+    if (adviceId && !privateDraft) { navigation.navigate('MatchingAdvice', { id: adviceId, specialistId }); return; }
+    returnFocus.current = trigger;
+    setAdvice({ key: (adviceId ?? 'new') + ':' + (specialistId ?? 'none'), draftId: adviceId, specialistId, visible: true });
+  };
+  const closeAdvice = () => {
+    setAdvice(current => current ? { ...current, visible: false } : null);
+  };
+  const columns = Math.min(3, Math.max(1, Math.floor((contentWidth + 16) / 336)));
+  const cardWidth = contentWidth ? Math.floor((contentWidth - (columns - 1) * 16) / columns) : undefined;
   const { options } = useProfileOptions();
   const load = async () => {
     const version = ++requestVersion.current;
@@ -81,6 +96,7 @@ export function QuestionnaireResultsScreen() {
   };
   useEffect(() => {
     void load();
+    setAdvice(null);
     return () => { requestVersion.current++; };
   }, [adviceId]);
   const text = {
@@ -90,6 +106,7 @@ export function QuestionnaireResultsScreen() {
     color: theme.textPrimary,
   };
   return (
+    <>
     <ScrollView
       style={{ flex: 1, backgroundColor: theme.bg }}
       contentContainerStyle={{
@@ -149,11 +166,11 @@ export function QuestionnaireResultsScreen() {
             size="small"
             style={{ minHeight: 44 }}
             variant={adviceId || (!loading && !specialists.length) ? 'primary' : 'outline'}
-            onPress={() =>
-              navigation.navigate('MatchingAdvice', { id: adviceId })
-            }
+            focusRef={orientationButton}
+            disabled={!!adviceId && loading}
+            onPress={() => openAdvice()}
           >
-            {adviceId ? 'Solicitar ayuda para empezar' : 'Pedir orientación'}
+            {adviceId ? privateDraft ? 'Solicitar ayuda para empezar' : 'Ver solicitud' : 'Pedir orientación'}
           </Button>
           {width >= 600 ? <Button
             size="small"
@@ -213,20 +230,23 @@ export function QuestionnaireResultsScreen() {
             </Button>
           </View>
         ) : null}
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 16, alignItems: 'stretch' }}>
         {!loading ? specialists.slice(0, count).map((specialist) => (
+          <View key={specialist.id} style={{ width: cardWidth ?? '100%' }}>
           <MatchedSpecialistRow
             key={specialist.id}
             specialist={specialist}
-            horizontal={contentWidth >= 820}
             assisted={!!adviceId}
             languages={specialist.languagesSpoken?.map(language => optionLabel(options?.languages ?? [], language)) ?? []}
             onRetryAvailability={() => void load()}
-            onChoose={() => adviceId
-              ? navigation.navigate('MatchingAdvice', { id: adviceId, specialistId: specialist.id })
+            onChoose={(trigger) => adviceId
+              ? openAdvice(specialist.id, trigger)
               : navigation.navigate('Booking', { specialistId: specialist.id, optionId: specialist.matchedOptionId ?? undefined })}
             onProfile={() => navigation.navigate('SpecialistDetail', { adviceId, specialistId: specialist.id, optionId: specialist.matchedOptionId ?? undefined })}
           />
+          </View>
         )) : null}
+        </View>
         {count < specialists.length ? (
           <Button size="small" style={{ minHeight: 44, alignSelf: 'center' }} variant="outline" onPress={() => setCount(count + 3)}>
             Ver más profesionales
@@ -266,5 +286,7 @@ export function QuestionnaireResultsScreen() {
         ) : null}
       </View>
     </ScrollView>
+    {advice ? <AdviceRequestModal key={advice.key} visible={advice.visible} draftId={advice.draftId} specialistId={advice.specialistId} onClose={closeAdvice} onDismiss={() => requestAnimationFrame(() => returnFocus.current?.focus?.())} onSent={() => { if (adviceId) setPrivateDraft(false); }} onViewRequest={(id) => { closeAdvice(); navigation.navigate('MatchingAdvice', { id }); }} /> : null}
+    </>
   );
 }

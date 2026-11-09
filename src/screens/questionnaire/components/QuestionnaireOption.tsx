@@ -5,7 +5,10 @@ import { useTheme } from '../../../contexts/ThemeContext';
 import { AnimatedPressable } from '../../../components/common/AnimatedPressable';
 import { choiceKeyboardProps } from '../../../utils/choiceKeyboard';
 
+import { QuestionnairePictogram, type QuestionnairePictogramName } from './QuestionnairePictogram';
+
 interface Props {
+  illustration?: QuestionnairePictogramName;
   label: string;
   icon?: React.ComponentProps<typeof Ionicons>['name'];
   selected: boolean;
@@ -18,6 +21,7 @@ interface Props {
 
 export function QuestionnaireOption({
   label,
+  illustration,
   icon,
   selected,
   multiple,
@@ -58,7 +62,7 @@ export function QuestionnaireOption({
       style={{
         ...(Platform.OS === 'web' ? { outlineColor: theme.focus } : {}),
         width,
-        minHeight: list ? 44 : tile ? 96 : variant === 'row' ? 56 : 48,
+        minHeight: list ? 44 : illustration ? 114 : tile ? 82 : variant === 'row' ? 56 : 48,
         padding: list ? 6 : 10,
         borderWidth: 1,
         borderRadius: list ? 8 : 16,
@@ -73,13 +77,13 @@ export function QuestionnaireOption({
             ? 'transparent'
             : theme.bgCard,
         flexDirection: tile ? 'column' : 'row',
-        alignItems: tile ? 'flex-start' : 'center',
+        alignItems: tile && !illustration ? 'flex-start' : 'center',
         justifyContent: 'center',
         gap: 8,
       }}
     >
       {list ? indicator : null}
-      {icon ? (
+      {illustration ? <QuestionnairePictogram name={illustration} size={54} /> : icon ? (
         <View
           aria-hidden
           accessibilityElementsHidden
@@ -103,15 +107,16 @@ export function QuestionnaireOption({
       <View
         style={{
           flex: tile ? undefined : 1,
-          paddingRight: tile ? 8 : 0,
+          paddingRight: tile && !illustration ? 8 : 0,
           gap: 6,
         }}
       >
         <Text
           style={{
-            fontFamily: list ? theme.fontSans : theme.fontSansSemiBold,
+            fontFamily: selected ? theme.fontSansSemiBold : theme.fontSans,
             fontSize: 15,
             lineHeight: 20,
+            textAlign: illustration && tile ? 'center' : 'left',
             color: theme.textPrimary,
           }}
         >
