@@ -32,6 +32,14 @@ export const CLIENT_SECTIONS: NavigationSection[] = [
         roles: ['CLIENT'],
       },
       {
+        id: 'recommendations',
+        label: 'Mis recomendaciones',
+        icon: 'sparkles-outline',
+        iconActive: 'sparkles',
+        route: 'QuestionnaireResults',
+        roles: ['CLIENT'],
+      },
+      {
         id: 'sessions',
         label: 'Mis sesiones',
         icon: 'calendar-outline',

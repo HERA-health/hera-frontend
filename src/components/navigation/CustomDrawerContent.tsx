@@ -129,6 +129,8 @@ export function CustomDrawerContent({
     (route: string) => {
       if (isProfessionalSection(route)) {
         navigateProfessionalSection(navigation, route);
+      } else if (route === 'QuestionnaireResults') {
+        navigation.navigate(route, { adviceId: undefined });
       } else {
         navigation.navigate(route);
       }

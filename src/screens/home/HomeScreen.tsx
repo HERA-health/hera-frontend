@@ -74,7 +74,7 @@ const getCountdown = (dateStr: string): { label: string; isUrgent: boolean } => 
   return { label: days === 1 ? 'Mañana' : `En ${days} días`, isUrgent: false };
 };
 
-type QuickActionScreen = 'MatchingAdvice' | 'Sessions' | 'Specialists' | 'Questionnaire' | 'Profile';
+type QuickActionScreen = 'MatchingAdvice' | 'Sessions' | 'Specialists' | 'Questionnaire' | 'QuestionnaireResults' | 'Profile';
 type HomeNavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -309,9 +309,9 @@ export default function HomeScreen() {
           { icon: 'calendar-outline', label: 'Sesiones', screen: 'Sessions', color: theme.secondary, bg: theme.secondary + '18' },
           { icon: 'search', label: 'Buscar', screen: hasCompletedQuestionnaire ? 'Specialists' : 'Questionnaire', color: theme.primary, bg: theme.primaryAlpha12 },
           {
-            icon: hasCompletedQuestionnaire ? 'refresh' : 'clipboard-outline',
-            label: hasCompletedQuestionnaire ? 'Cuestionario' : 'Cuestionario',
-            screen: 'Questionnaire',
+            icon: hasCompletedQuestionnaire ? 'sparkles-outline' : 'clipboard-outline',
+            label: hasCompletedQuestionnaire ? 'Mis recomendaciones' : 'Cuestionario',
+            screen: hasCompletedQuestionnaire ? 'QuestionnaireResults' : 'Questionnaire',
             color: theme.textSecondary,
             bg: theme.bgAlt,
           },
@@ -321,7 +321,9 @@ export default function HomeScreen() {
           <AnimatedPressable
             key={label}
             style={[styles.heroQuickPill, { backgroundColor: bg }]}
-            onPress={() => navigation.navigate(screen)}
+            onPress={() => screen === 'QuestionnaireResults'
+              ? navigation.navigate(screen, { adviceId: undefined })
+              : navigation.navigate(screen)}
             hoverTranslateY={-2}
             pressScale={0.98}
           >
@@ -634,7 +636,7 @@ export default function HomeScreen() {
       <Animated.View style={[styles.section, animStyle(4)]}>
         <View style={styles.sectionHeader}>
           <Text style={[styles.sectionTitle, { color: theme.textPrimary, fontFamily: theme.fontSansBold }]}>Especialistas recomendados</Text>
-          <AnimatedPressable onPress={() => navigation.navigate('Specialists')} hoverLift={false} pressScale={0.98}>
+          <AnimatedPressable onPress={() => navigation.navigate('QuestionnaireResults', { adviceId: undefined })} hoverLift={false} pressScale={0.98}>
             <Text style={[styles.sectionLink, { color: theme.primary, fontFamily: theme.fontSansSemiBold }]}>Ver todos</Text>
           </AnimatedPressable>
         </View>

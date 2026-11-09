@@ -2,6 +2,7 @@ import React from 'react';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import SpecialistsScreen from '../SpecialistsScreen';
 import { directoryIntent } from '../../../services/heraCommissionService';
+import { getMatchedSpecialists } from '../../../services/specialistsService';
 
 const mockNavigate = jest.fn();
 jest.mock('@react-navigation/native', () => ({ useNavigation: () => ({ navigate: mockNavigate }) }));
@@ -80,4 +81,16 @@ it('hides specialist controls on the publications tab and restores them on retur
   expect(screen.getByText('Publicaciones, pronto')).toBeTruthy();
   fireEvent.press(screen.getByRole('tab', { name: 'Especialistas' }));
   expect(screen.getByLabelText('Abrir filtros')).toBeTruthy();
+});
+
+it.each([false, true])('opens saved recommendations only after completing the questionnaire (%s)', async (completed) => {
+  jest.mocked(getMatchedSpecialists).mockResolvedValueOnce({ hasCompletedQuestionnaire: completed, specialists: [] });
+  render(<SpecialistsScreen />);
+  await screen.findByText('Perfil disponible');
+  fireEvent.press(screen.getByLabelText(completed ? 'Ver recomendaciones' : 'Hacer cuestionario'));
+  if (completed) {
+    expect(mockNavigate).toHaveBeenLastCalledWith('QuestionnaireResults', { adviceId: undefined });
+  } else {
+    expect(mockNavigate).toHaveBeenLastCalledWith('Questionnaire');
+  }
 });

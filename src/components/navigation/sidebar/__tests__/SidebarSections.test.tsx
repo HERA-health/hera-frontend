@@ -12,6 +12,20 @@ const section = PROFESSIONAL_SECTIONS.find((entry) => entry.id === 'management')
 const props = { section, currentRoute: 'ProfessionalHome', onNavigate: jest.fn(), showDivider: true, isCollapsed: false, notices: {} };
 
 describe('sidebar section disclosure', () => {
+  it.each([false, true])('lets a patient leave and return to recommendations (mobile: %s)', (isMobile) => {
+    const onNavigate = jest.fn();
+    const view = render(<Sidebar userRole="CLIENT" currentRoute="QuestionnaireResults"
+      onNavigate={onNavigate} user={{ name: 'Paciente', role: 'CLIENT' }}
+      onLogout={jest.fn()} isMobile={isMobile} />);
+    fireEvent.press(view.getByLabelText('Navegar a Inicio'));
+    expect(onNavigate).toHaveBeenLastCalledWith('Home');
+    view.rerender(<Sidebar userRole="CLIENT" currentRoute="Home"
+      onNavigate={onNavigate} user={{ name: 'Paciente', role: 'CLIENT' }}
+      onLogout={jest.fn()} isMobile={isMobile} />);
+    fireEvent.press(view.getByLabelText('Navegar a Mis recomendaciones'));
+    expect(onNavigate).toHaveBeenLastCalledWith('QuestionnaireResults');
+  });
+
   it.each([
     ['CLIENT', false],
     ['PROFESSIONAL', false],

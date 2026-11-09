@@ -570,17 +570,19 @@ const SpecialistsScreen: React.FC = () => {
 
   const renderQuestionnaireAction = (compact = false) => (
     <AnimatedPressable
-      onPress={() => navigation.navigate('Questionnaire')}
+      onPress={() => hasCompletedQuestionnaire
+        ? navigation.navigate('QuestionnaireResults', { adviceId: undefined })
+        : navigation.navigate('Questionnaire')}
       hoverLift={false}
       style={[
         styles.questionnaireAction,
         compact ? styles.questionnaireActionCompact : null,
         hasCompletedQuestionnaire ? styles.questionnaireActionActive : null,
       ]}
-      accessibilityLabel={hasCompletedQuestionnaire ? 'Repetir cuestionario' : 'Hacer cuestionario'}
+      accessibilityLabel={hasCompletedQuestionnaire ? 'Ver recomendaciones' : 'Hacer cuestionario'}
     >
       <Ionicons
-        name={hasCompletedQuestionnaire ? 'refresh' : 'clipboard-outline'}
+        name={hasCompletedQuestionnaire ? 'sparkles-outline' : 'clipboard-outline'}
         size={14}
         color={hasCompletedQuestionnaire ? theme.primary : theme.textSecondary}
       />
@@ -591,7 +593,7 @@ const SpecialistsScreen: React.FC = () => {
             hasCompletedQuestionnaire ? styles.questionnaireActionTextActive : null,
           ]}
         >
-          {hasCompletedQuestionnaire ? 'Repetir cuestionario' : 'Hacer cuestionario'}
+          {hasCompletedQuestionnaire ? 'Ver recomendaciones' : 'Hacer cuestionario'}
         </Text>
       ) : null}
     </AnimatedPressable>
