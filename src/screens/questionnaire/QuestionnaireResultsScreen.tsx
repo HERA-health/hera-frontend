@@ -45,6 +45,7 @@ export function QuestionnaireResultsScreen() {
   const [refresh, setRefresh] = useState(false);
   const [count, setCount] = useState(3);
   const [contentWidth, setContentWidth] = useState(0);
+  const [identityHeights, setIdentityHeights] = useState<Record<string, { width: number | undefined; height: number }>>({});
   const requestVersion = useRef(0);
   const [withdrawing, setWithdrawing] = useState(false);
   const [privateDraft, setPrivateDraft] = useState(false);
@@ -231,11 +232,19 @@ export function QuestionnaireResultsScreen() {
           </View>
         ) : null}
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 16, alignItems: 'stretch' }}>
-        {!loading ? specialists.slice(0, count).map((specialist) => (
+        {!loading ? specialists.slice(0, count).map((specialist, index) => (
           <View key={specialist.id} style={{ width: cardWidth ?? '100%' }}>
           <MatchedSpecialistRow
             key={specialist.id}
             specialist={specialist}
+            // Equalize only peers in this row, using unconstrained content measurements.
+            // Width-keyed measurements let headers shrink again after a resize.
+            identityContentHeight={columns > 1 ? Math.max(0, ...specialists
+              .slice(Math.floor(index / columns) * columns, Math.min(Math.floor(index / columns) * columns + columns, count))
+              .map(peer => identityHeights[peer.id]?.width === cardWidth ? identityHeights[peer.id]?.height ?? 0 : 0)) : undefined}
+            onIdentityContentLayout={height => setIdentityHeights(current =>
+              current[specialist.id]?.width === cardWidth && current[specialist.id]?.height === height
+                ? current : { ...current, [specialist.id]: { width: cardWidth, height } })}
             assisted={!!adviceId}
             languages={specialist.languagesSpoken?.map(language => optionLabel(options?.languages ?? [], language)) ?? []}
             onRetryAvailability={() => void load()}

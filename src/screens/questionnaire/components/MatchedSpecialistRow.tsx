@@ -16,6 +16,8 @@ import { getErrorMessage } from '../../../constants/errors';
 interface Props {
   specialist: SpecialistData;
   languages: string[];
+  identityContentHeight?: number;
+  onIdentityContentLayout?: (height: number) => void;
 
   assisted: boolean;
   onChoose: (trigger: AnimatedPressableHandle | null) => void;
@@ -23,7 +25,7 @@ interface Props {
   onRetryAvailability: () => void;
 }
 
-export function MatchedSpecialistRow({ specialist, languages, assisted, onChoose, onProfile, onRetryAvailability }: Props) {
+export function MatchedSpecialistRow({ specialist, languages, identityContentHeight, onIdentityContentLayout, assisted, onChoose, onProfile, onRetryAvailability }: Props) {
   const { theme } = useTheme();
   const chooseButton = useRef<AnimatedPressableHandle>(null);
   const [expanded, setExpanded] = useState(false);
@@ -91,17 +93,21 @@ export function MatchedSpecialistRow({ specialist, languages, assisted, onChoose
     <View style={[styles.row, { backgroundColor: theme.bgCard, borderColor: theme.borderLight }]}>
       <View style={styles.profile}>
         <View style={[styles.identity, { backgroundColor: theme.secondaryMuted }]}>
-          <View style={[styles.portrait, { backgroundColor: theme.bgMuted }]}>
-            {specialist.avatar && !photoFailed ? (
-              <Image source={{ uri: specialist.avatar }} style={styles.photo} onError={() => setPhotoFailed(true)} accessibilityLabel={`Fotografía de ${specialist.user.name}`} />
-            ) : (
-              <Text style={[styles.initials, strong]}>{specialist.user.name.trim().split(/\s+/).slice(0, 2).map(part => part[0]).join('')}</Text>
-            )}
-          </View>
-          <View style={styles.identityCopy}>
-            <Text accessibilityRole="header" style={[styles.name, strong]}>{specialist.user.name}</Text>
-            <Text style={[styles.detail, muted]}>{specialist.professionalTitle || specialist.professionalTypeLabel}</Text>
-            {languages.length ? <Text style={[styles.languages, muted]}>{languages.join(' · ')}</Text> : null}
+          <View style={{ minHeight: identityContentHeight }}>
+            <View style={styles.identityContent} onLayout={event => onIdentityContentLayout?.(Math.ceil(event.nativeEvent.layout.height))}>
+              <View style={[styles.portrait, { backgroundColor: theme.bgMuted }]}>
+                {specialist.avatar && !photoFailed ? (
+                  <Image source={{ uri: specialist.avatar }} style={styles.photo} onError={() => setPhotoFailed(true)} accessibilityLabel={`Fotografía de ${specialist.user.name}`} />
+                ) : (
+                  <Text style={[styles.initials, strong]}>{specialist.user.name.trim().split(/\s+/).slice(0, 2).map(part => part[0]).join('')}</Text>
+                )}
+              </View>
+              <View style={styles.identityCopy}>
+                <Text accessibilityRole="header" style={[styles.name, strong]}>{specialist.user.name}</Text>
+                <Text style={[styles.detail, muted]}>{specialist.professionalTitle || specialist.professionalTypeLabel}</Text>
+                {languages.length ? <Text style={[styles.languages, muted]}>{languages.join(' · ')}</Text> : null}
+              </View>
+            </View>
           </View>
           <AnimatedPressable
             onPress={() => void (favorite === null ? loadFavorite() : toggleFavorite())}
@@ -155,7 +161,8 @@ export function MatchedSpecialistRow({ specialist, languages, assisted, onChoose
 const styles = StyleSheet.create({
   row: { borderWidth: 1, borderRadius: 20, padding: 18, gap: 16, height: '100%' },
   profile: { flex: 1, minWidth: 0, gap: 10 },
-  identity: { flexDirection: 'row', alignItems: 'center', gap: 14, margin: -18, marginBottom: 6, padding: 18, paddingTop: 22, paddingRight: 48, borderTopLeftRadius: 19, borderTopRightRadius: 19 },
+  identity: { margin: -18, marginBottom: 6, padding: 18, paddingTop: 22, paddingRight: 48, borderTopLeftRadius: 19, borderTopRightRadius: 19 },
+  identityContent: { flexDirection: 'row', alignItems: 'flex-start', gap: 14 },
   portrait: { width: 84, height: 104, borderRadius: 14, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
   photo: { width: '100%', height: '100%' },
   initials: { fontSize: 28 },
