@@ -130,6 +130,7 @@ export function QuestionnaireScreen() {
   const [error, setError] = useState('');
   const [errorChoice, setErrorChoice] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [introDetailsOpen, setIntroDetailsOpen] = useState(false);
   const [headerHeight, setHeaderHeight] = useState(80);
   const alert = useAppAlert();
   const { width, height } = useWindowDimensions();
@@ -622,7 +623,7 @@ export function QuestionnaireScreen() {
           }}
         >
           {step === 0
-            ? 'Encontrar ayuda empieza por escucharte.'
+            ? 'Encuentra un profesional para ti.'
             : definition?.steps[step - 1]?.title}
         </Text>
         {loading ? (
@@ -637,67 +638,39 @@ export function QuestionnaireScreen() {
             {step === 0 ? (
               <>
                 <Text style={text}>
-                  Cuéntanos qué necesitas. Te mostraremos profesionales
-                  compatibles y los motivos del encaje, para que puedas elegir
-                  con calma.
-                </Text>
-                <Text style={muted}>
-                  No es una evaluación clínica ni un diagnóstico. Los campos
-                  abiertos son opcionales.
+                  Cuéntanos qué necesitas y te mostraremos profesionales compatibles.
                 </Text>
                 {!user ? (
-                  <View
-                    style={{
-                      flexDirection: 'row',
-                      gap: 10,
-                      alignItems: 'flex-start',
-                    }}
-                  >
-                    <Ionicons
-                      aria-hidden
-                      name="person-circle-outline"
-                      size={22}
-                      color={theme.primary}
-                    />
-                    <Text style={{ ...muted, flex: 1 }}>
-                      Al terminar, necesitarás crear una cuenta gratuita o
-                      iniciar sesión para guardar tus respuestas y ver los
-                      profesionales recomendados.
-                    </Text>
-                  </View>
+                  <Text style={muted}>
+                    Al terminar, crea tu cuenta gratuita o inicia sesión para ver tus resultados.
+                  </Text>
                 ) : null}
-                <View
-                  style={{
-                    padding: 12,
-                    borderRadius: 16,
-                    backgroundColor: theme.bgMuted,
-                    marginVertical: 4,
-                  }}
-                >
-                  <View
-                    style={{
-                      flexDirection: 'row',
-                      gap: 10,
-                      alignItems: 'center',
-                      marginBottom: 6,
-                    }}
+                <View style={{ borderRadius: 16, backgroundColor: theme.bgMuted, marginVertical: 4 }}>
+                  <AnimatedPressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Sobre el cuestionario y tus datos"
+                    accessibilityState={{ expanded: introDetailsOpen }}
+                    onPress={() => setIntroDetailsOpen(open => !open)}
+                    hoverLift={false}
+                    style={{ minHeight: 48, padding: 12, flexDirection: 'row', alignItems: 'center', gap: 10 }}
                   >
-                    <Ionicons
-                      name="information-circle-outline"
-                      size={24}
-                      color={theme.textPrimary}
-                    />
-                    <Text
-                      style={{
-                        ...text,
-                        fontFamily: theme.fontSansSemiBold,
-                        fontSize: 16,
-                      }}
-                    >
-                      Antes de comenzar
+                    <Ionicons aria-hidden name="information-circle-outline" size={22} color={theme.textPrimary} />
+                    <Text style={{ ...text, flex: 1, fontFamily: theme.fontSansSemiBold }}>
+                      Sobre el cuestionario y tus datos
                     </Text>
-                  </View>
-                  <Text style={muted}>{definition.notice}</Text>
+                    <Ionicons aria-hidden name={introDetailsOpen ? 'chevron-up' : 'chevron-down'} size={20} color={theme.textPrimary} />
+                  </AnimatedPressable>
+                  {introDetailsOpen ? (
+                    <View style={{ paddingHorizontal: 12, paddingBottom: 12, gap: 10 }}>
+                      <Text style={muted}>
+                        No es una evaluación clínica ni un diagnóstico. Los campos abiertos son opcionales.
+                      </Text>
+                      <Text style={muted}>{definition.notice}</Text>
+                      <Text style={muted}>
+                        Hasta que lo guardes, el borrador solo está en esta pestaña. Si la cierras o recargas, se pierde.
+                      </Text>
+                    </View>
+                  ) : null}
                 </View>
                 {check(
                   'Soy mayor de 18 años y respondo como persona adulta.',
@@ -709,10 +682,6 @@ export function QuestionnaireScreen() {
                   draft.accepted,
                   () => draft.setAccepted(!draft.accepted),
                 )}
-                <Text style={muted}>
-                  Antes de guardar, el borrador solo permanece en esta pestaña.
-                  Si recargas o la cierras, se perderá.
-                </Text>
               </>
             ) : null}
             {step > 0 &&

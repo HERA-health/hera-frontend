@@ -66,6 +66,19 @@ const definition: QuestionnaireDefinition = {
 beforeEach(() => {
   jest.mocked(getQuestionnaireDefinition).mockResolvedValue(definition);
 });
+test('intro details expand without changing either consent checkbox', async () => {
+  render(<QuestionnaireDraftProvider><QuestionnaireScreen /></QuestionnaireDraftProvider>);
+  const disclosure = await screen.findByRole('button', { name: 'Sobre el cuestionario y tus datos' });
+  expect(disclosure.props.accessibilityState.expanded).toBe(false);
+  expect(screen.queryByText(definition.notice)).toBeNull();
+  expect(screen.getAllByRole('checkbox').map(item => item.props.accessibilityState.checked)).toEqual([false, false]);
+  fireEvent.press(disclosure);
+  expect(screen.getByText(definition.notice)).toBeTruthy();
+  expect(disclosure.props.accessibilityState.expanded).toBe(true);
+  fireEvent.press(disclosure);
+  expect(screen.queryByText(definition.notice)).toBeNull();
+  expect(screen.getAllByRole('checkbox').map(item => item.props.accessibilityState.checked)).toEqual([false, false]);
+});
 test('public questionnaire requires adult confirmation and matching consent; back preserves answers', async () => {
   render(
     <QuestionnaireDraftProvider>
