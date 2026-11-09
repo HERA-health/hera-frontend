@@ -4,6 +4,7 @@ import React from 'react';
 import { Platform } from 'react-native';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import { PublicSpecialistCard } from '../PublicSpecialistCard';
+import { DirectorySpecialistCard } from '../DirectorySpecialistCard';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { lightTheme } from '../../../constants/theme';
 import type { PublicSpecialistDirectoryCard } from '../../../services/specialistsService';
@@ -25,6 +26,24 @@ const directorySpecialist: PublicSpecialistDirectoryCard = {
 
 describe('PublicSpecialistCard', () => {
   const originalPlatform = Platform.OS;
+
+  it('adds a separate favorite control and labels a selected session without a misleading starting price', () => {
+    const onPress = jest.fn();
+    const onFavorite = jest.fn();
+    const specialist = { ...directorySpecialist, publicOptions: [
+      { specialistId: 'directory-specialist', optionId: 'selected', priceCents: 7000, modality: 'VIDEO_CALL', durationMinutes: 60 },
+      { specialistId: 'directory-specialist', optionId: 'higher', priceCents: 8000, modality: 'IN_PERSON', durationMinutes: 60 },
+    ], matchedOptionId: 'selected' };
+    const view = render(<DirectorySpecialistCard specialist={specialist} onPress={onPress} priceIsSelection
+      favorite={{ selected: false, busy: false, disabled: false, onPress: onFavorite }} />);
+    fireEvent.press(screen.getByLabelText('Guardar a Elena Martín en favoritos'));
+    expect(onFavorite).toHaveBeenCalledTimes(1);
+    expect(onPress).not.toHaveBeenCalled();
+    expect(screen.queryByText('Desde')).toBeNull();
+    view.rerender(<DirectorySpecialistCard specialist={specialist} onPress={onPress} />);
+    expect(screen.getByText('Desde')).toBeTruthy();
+    expect(screen.queryByLabelText(/favoritos/)).toBeNull();
+  });
 
   it('renders supplied directory labels without starting another options request', () => {
     jest.mocked(useProfileOptions).mockClear();

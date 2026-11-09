@@ -1,96 +1,129 @@
 import React from 'react';
-import { act, fireEvent, render, screen } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import SpecialistsScreen from '../SpecialistsScreen';
-import { directoryIntent } from '../../../services/heraCommissionService';
-import { getMatchedSpecialists } from '../../../services/specialistsService';
-
+import * as service from '../../../services/specialistsService';
 const mockNavigate = jest.fn();
-jest.mock('@react-navigation/native', () => ({ useNavigation: () => ({ navigate: mockNavigate }) }));
+// Supply layout measurements missing from the native test host; keep real controls.
+jest.mock('../../../components/common/AnimatedPressable', () => {
+  const ReactModule = jest.requireActual<typeof React>('react');
+  const actual = jest.requireActual<typeof import('../../../components/common/AnimatedPressable')>('../../../components/common/AnimatedPressable');
+  return { ...actual, AnimatedPressable: ({ focusRef, ...props }: Omit<React.ComponentProps<typeof actual.AnimatedPressable>, 'focusRef'> & { focusRef?: React.Ref<unknown> }) => {
+    ReactModule.useImperativeHandle(focusRef, () => ({
+      measureInWindow: (callback: (x: number, y: number, width: number, height: number) => void) => callback(32, 220, 224, 44), focus: jest.fn(),
+    }));
+    return <actual.AnimatedPressable {...props} />;
+  } };
+});
+let mockUser = { id: 'patient-one', type: 'client' };
+jest.mock('@react-navigation/native', () => ({ useNavigation: () => ({ navigate: mockNavigate }),
+  useFocusEffect: (effect: () => void | (() => void)) => { jest.requireActual<typeof React>('react').useEffect(effect, [effect]); } }));
 jest.mock('../../../hooks/useDiscoveryRevalidation', () => ({ useDiscoveryRevalidation: jest.fn() }));
-jest.mock('../../../contexts/AuthContext', () => ({ useAuth: () => ({ user: { type: 'client' } }) }));
+jest.mock('../../../contexts/AuthContext', () => ({ useAuth: () => ({ user: mockUser }) }));
 jest.mock('../../../contexts/ThemeContext', () => ({ useTheme: () => ({ theme: jest.requireActual('../../../constants/theme').lightTheme, isDark: false }) }));
-jest.mock('../../../components/common/alert', () => ({ showAppAlert: jest.fn(), useAppAlert: () => ({}) }));
 jest.mock('../../../services/analyticsService', () => ({ trackScreen: jest.fn() }));
-jest.mock('../../../services/clientService', () => ({ getMyClientProfile: jest.fn().mockResolvedValue({ homeLat: null, homeLng: null }) }));
-jest.mock('../../../services/heraCommissionService', () => ({ directoryIntent: jest.fn() }));
+jest.mock('../../../services/clientService', () => ({ getMyClientProfile: jest.fn().mockResolvedValue({ homeLat: 40, homeLng: -3 }) }));
+jest.mock('../../../hooks/useProfileOptions', () => ({ useProfileOptions: () => ({ options: { languages: [], religions: [], religionEnabled: false } }) }));
 jest.mock('../../../services/specialistsService', () => ({
-  resolveSpecialistAvatar: () => undefined,
-  normalizeSpecialistDescription: () => '',
-  getSpecialistPersonalization: jest.fn().mockResolvedValue({ favoriteSpecialistIds: [], favoriteSpecialists: [], primarySpecialist: null }),
-  getMatchedSpecialists: jest.fn().mockResolvedValue({ hasCompletedQuestionnaire: false, specialists: [] }),
-  getAllSpecialists: jest.fn().mockResolvedValue([{
-    id: 'specialist-one', user: { name: 'Perfil disponible' }, specialization: 'Psicología',
-    professionalType: 'PSYCHOLOGIST_HEALTH', pricePerSession: 60, rating: 0, reviewCount: 0,
-  }]),
+  resolveSpecialistAvatar: () => null, normalizeSpecialistDescription: (value: string) => value,
+  getSpecialistPersonalization: jest.fn(), getMatchedSpecialists: jest.fn(), getAllSpecialists: jest.fn(),
+  addFavoriteSpecialist: jest.fn(), removeFavoriteSpecialist: jest.fn(),
 }));
-jest.mock('../../../components/common/ProfileDiscoveryFilters', () => ({ ProfileDiscoveryFilters: () => null }));
-jest.mock('../../../components/common/SearchableProfileSelect', () => {
-  const { Pressable, Text } = jest.requireActual<typeof import('react-native')>('react-native');
-  return {
-    SearchableProfileSelect: ({ label, options, values, onChange }: {
-      label: string; options: { value: string }[]; values: string[]; onChange: (values: string[]) => void;
-    }) => <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={() => onChange([options[0].value])}>
-      <Text>{label}: {values.length}</Text>
-    </Pressable>,
-  };
+const person: service.SpecialistData = { id: 'one', userId: 'pro-one', user: { name: 'Elena Martín' }, avatar: null,
+  specialization: 'Psicología', professionalType: null, professionalTypeLabel: 'Especialista', description: 'Te acompaño.',
+  pricePerSession: 60, firstVisitFree: false, rating: 0, reviewCount: 0, offersOnline: true,
+  matchedOptionId: 'video', publicOptions: [{ specialistId: 'one', optionId: 'video', modality: 'VIDEO_CALL', priceCents: 6000, durationMinutes: 60 }] };
+const empty = { favoriteSpecialistIds: [], favoriteSpecialists: [], primarySpecialist: null };
+beforeEach(() => {
+  jest.clearAllMocks();
+  mockUser = { id: 'patient-one', type: 'client' };
+  jest.mocked(service.getSpecialistPersonalization).mockResolvedValue(empty);
+  jest.mocked(service.getMatchedSpecialists).mockResolvedValue({ specialists: [], hasCompletedQuestionnaire: true });
+  jest.mocked(service.getAllSpecialists).mockResolvedValue([person]);
+  jest.mocked(service.addFavoriteSpecialist).mockResolvedValue();
+  jest.mocked(service.removeFavoriteSpecialist).mockResolvedValue();
 });
-jest.mock('../components', () => {
-  const { Pressable, Text } = jest.requireActual<typeof import('react-native')>('react-native');
-  const Card = ({ specialist, onPress }: { specialist: { name: string }; onPress: () => void }) =>
-    <Pressable onPress={onPress}><Text>{specialist.name}</Text></Pressable>;
-  return {
-    SpecialistCardGrid: Card, SpecialistListItem: Card,
-    SearchBar: () => null, SpecialistsLoadingState: () => null,
-    LocationFilterDropdown: () => null, TopicFilterDropdown: () => null, ViewToggle: () => null,
-  };
-});
-
-it('opens a profile from the signed-in directory even when the old attribution service is unavailable', async () => {
-  jest.mocked(directoryIntent).mockImplementation(() => { throw new Error('Auxiliary service unavailable'); });
+test('opens the selected session and preserves recommendations without obsolete controls', async () => {
   render(<SpecialistsScreen />);
-  fireEvent.press(await screen.findByText('Perfil disponible'));
-  expect(mockNavigate).toHaveBeenCalledWith('SpecialistDetail', { specialistId: 'specialist-one', optionId: undefined });
-  expect(directoryIntent).not.toHaveBeenCalled();
+  fireEvent.press(await screen.findByLabelText('Abrir el perfil de Elena Martín'));
+  expect(mockNavigate).toHaveBeenCalledWith('SpecialistDetail', { specialistId: 'one', optionId: 'video' });
+  fireEvent.press(screen.getByText('Ver recomendaciones'));
+  expect(mockNavigate).toHaveBeenCalledWith('QuestionnaireResults', { adviceId: undefined });
+  expect(screen.queryByText('Publicaciones')).toBeNull();
+  expect(screen.queryByText('Top 1')).toBeNull();
 });
-
-it('keeps filters in the panel, counts selections and clears every selected group', async () => {
+test('favorite actions do not navigate, persist through tabs and show the last-removal empty state', async () => {
   render(<SpecialistsScreen />);
-  await screen.findByText('Perfil disponible');
-  expect(screen.queryByText('Especialidades: 0')).toBeNull();
-  fireEvent.press(screen.getByLabelText('Abrir filtros'));
-  await act(async () => {
-    for (const label of ['Especialidades', 'Enfoques terapéuticos', 'Tipo profesional', 'Motivo de consulta']) {
-      fireEvent.press(screen.getByLabelText(label));
-    }
-  });
-  fireEvent.press(screen.getByLabelText('Cerrar filtros'));
-  fireEvent.press(screen.getByLabelText('Filtros: 4 activos'));
-  await act(async () => { fireEvent.press(screen.getByLabelText('Limpiar filtros')); });
-  for (const label of ['Especialidades', 'Enfoques terapéuticos', 'Tipo profesional', 'Motivo de consulta']) {
-    expect(screen.getByText(`${label}: 0`)).toBeTruthy();
-  }
-  fireEvent.press(screen.getByLabelText('Cerrar filtros'));
-  expect(screen.getByLabelText('Abrir filtros')).toBeTruthy();
+  fireEvent.press(await screen.findByLabelText('Guardar a Elena Martín en favoritos'));
+  await waitFor(() => expect(screen.getByLabelText('Quitar a Elena Martín de favoritos')).toBeTruthy());
+  expect(mockNavigate).not.toHaveBeenCalled();
+  fireEvent.press(screen.getByRole('tab', { name: 'Favoritos' }));
+  expect(screen.getByText('Privado para ti')).toBeTruthy();
+  fireEvent.press(screen.getByLabelText('Quitar a Elena Martín de favoritos'));
+  expect(await screen.findByText('Todavía no tienes favoritos')).toBeTruthy();
+  expect(service.removeFavoriteSpecialist).toHaveBeenCalledWith('one');
 });
-
-it('hides specialist controls on the publications tab and restores them on return', async () => {
+test('search requires submission, handles accents and preserves criteria across tabs', async () => {
   render(<SpecialistsScreen />);
-  await screen.findByText('Perfil disponible');
-  fireEvent.press(screen.getByRole('tab', { name: 'Publicaciones' }));
+  await screen.findByText('Elena Martín');
+  fireEvent.changeText(screen.getByLabelText('Buscar especialistas'), 'a');
+  fireEvent.press(screen.getByText('Buscar'));
+  expect(screen.getByText('Escribe entre 2 y 80 caracteres para buscar.')).toBeTruthy();
+  fireEvent.changeText(screen.getByLabelText('Buscar especialistas'), 'MARTIN');
+  fireEvent(screen.getByLabelText('Buscar especialistas'), 'submitEditing');
+  expect(screen.getByText('Elena Martín')).toBeTruthy();
+  fireEvent.press(screen.getByRole('tab', { name: 'Favoritos' }));
+  expect(screen.getByLabelText('Buscar especialistas').props.value).toBe('MARTIN');
+  fireEvent.press(screen.getByRole('tab', { name: 'Todos' }));
+  expect(screen.getByText('Elena Martín')).toBeTruthy();
+});
+test('the content width controls sidebar visibility and proximity selects presencial', async () => {
+  render(<SpecialistsScreen />);
+  await screen.findByText('Elena Martín');
+  fireEvent(screen.getByTestId('patient-directory'), 'layout', { nativeEvent: { layout: { width: 1200 } } });
   expect(screen.queryByLabelText('Abrir filtros')).toBeNull();
-  expect(screen.getByText('Publicaciones, pronto')).toBeTruthy();
-  fireEvent.press(screen.getByRole('tab', { name: 'Especialistas' }));
-  expect(screen.getByLabelText('Abrir filtros')).toBeTruthy();
+  fireEvent.press(screen.getByLabelText('Distancia'));
+  fireEvent.press(screen.getByText('Hasta 10 km'));
+  await waitFor(() => expect(service.getAllSpecialists).toHaveBeenLastCalledWith(expect.objectContaining({ modality: 'IN_PERSON', near: true, maxDistance: 10 })));
+  fireEvent.press(screen.getByLabelText('Modalidad'));
+  fireEvent.press(screen.getByText('Terapia online'));
+  await waitFor(() => expect(service.getAllSpecialists).toHaveBeenLastCalledWith(expect.objectContaining({ modality: 'ONLINE', near: undefined })));
+  expect(service.getSpecialistPersonalization).toHaveBeenCalledTimes(1);
+  fireEvent(screen.getByTestId('patient-directory'), 'layout', { nativeEvent: { layout: { width: 700 } } });
+  expect(screen.getByLabelText('Filtros: 1 activos')).toBeTruthy();
+});
+test('changing accounts clears visible private state before the next response arrives', async () => {
+  jest.mocked(service.getSpecialistPersonalization).mockResolvedValueOnce({ ...empty, favoriteSpecialists: [person], favoriteSpecialistIds: ['one'] });
+  const view = render(<SpecialistsScreen />);
+  await screen.findByText('Favoritos · 1');
+  jest.mocked(service.getSpecialistPersonalization).mockReturnValueOnce(new Promise(() => undefined));
+  mockUser = { id: 'patient-two', type: 'client' };
+  await act(async () => view.rerender(<SpecialistsScreen />));
+  expect(screen.queryByText('Favoritos · 1')).toBeNull();
+});
+test('personalization failure is not presented as zero favorites and can recover', async () => {
+  jest.mocked(service.getSpecialistPersonalization).mockRejectedValueOnce(new Error('offline'));
+  render(<SpecialistsScreen />);
+  await screen.findByText('Elena Martín');
+  fireEvent.press(screen.getByRole('tab', { name: 'Favoritos' }));
+  expect(screen.getByText('No se pudieron cargar tus favoritos')).toBeTruthy();
+  expect(screen.queryByText('Todavía no tienes favoritos')).toBeNull();
+  fireEvent.press(screen.getByText('Reintentar'));
+  expect(await screen.findByText('Todavía no tienes favoritos')).toBeTruthy();
 });
 
-it.each([false, true])('opens saved recommendations only after completing the questionnaire (%s)', async (completed) => {
-  jest.mocked(getMatchedSpecialists).mockResolvedValueOnce({ hasCompletedQuestionnaire: completed, specialists: [] });
+test('favorites use current catalog prices and omit legacy amounts when offers are unavailable', async () => {
+  const legacy = { ...person, pricePerSession: 10, publicOptions: undefined, matchedOptionId: undefined };
+  jest.mocked(service.getSpecialistPersonalization).mockResolvedValue({ ...empty, favoriteSpecialists: [legacy], favoriteSpecialistIds: ['one'] });
+  const view = render(<SpecialistsScreen />);
+  await screen.findByText('Elena Martín');
+  fireEvent.press(screen.getByRole('tab', { name: 'Favoritos' }));
+  expect(screen.getByText('60\u00a0€')).toBeTruthy();
+  expect(screen.queryByText('10\u00a0€')).toBeNull();
+  view.unmount();
+  jest.mocked(service.getAllSpecialists).mockRejectedValueOnce(new Error('offline'));
   render(<SpecialistsScreen />);
-  await screen.findByText('Perfil disponible');
-  fireEvent.press(screen.getByLabelText(completed ? 'Ver recomendaciones' : 'Hacer cuestionario'));
-  if (completed) {
-    expect(mockNavigate).toHaveBeenLastCalledWith('QuestionnaireResults', { adviceId: undefined });
-  } else {
-    expect(mockNavigate).toHaveBeenLastCalledWith('Questionnaire');
-  }
+  await screen.findByText('No se pudo cargar el listado');
+  fireEvent.press(screen.getByRole('tab', { name: 'Favoritos' }));
+  expect(screen.getByText('Consulta las sesiones en el perfil')).toBeTruthy();
+  expect(screen.queryByText('10\u00a0€')).toBeNull();
 });

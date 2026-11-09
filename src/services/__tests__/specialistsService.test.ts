@@ -44,6 +44,13 @@ import {
 
 const mockedApi = api as jest.Mocked<typeof api>;
 
+test('modality uses the validated search endpoint with the other selected filters', async () => {
+  mockedApi.post.mockResolvedValueOnce({ data: { data: [] } });
+  const filters = { modality: 'PHONE_CALL' as const, maxPrice: 60, minRating: 4 };
+  await expect(getAllSpecialists(filters)).resolves.toEqual([]);
+  expect(mockedApi.post).toHaveBeenLastCalledWith('/specialists/search', filters);
+});
+
 test('refreshing recommendations does not invalidate other discovery reads or send client options to the server', async () => {
   invalidateSpecialistsCache();
   mockedApi.get.mockReset();

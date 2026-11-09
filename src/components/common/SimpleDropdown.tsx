@@ -45,6 +45,8 @@ export interface SimpleDropdownProps<T> {
   keyboardNavigation?: boolean;
   /** Nested dialogs can activate their focus/escape handling without waiting for a fade. */
   portalAnimation?: 'none' | 'fade';
+  /** Restore option focus after a containing sheet's modal focus trap settles. */
+  focusOptionOnShow?: boolean;
 }
 
 interface DropdownAnchor {
@@ -73,6 +75,7 @@ export function SimpleDropdown<T extends string | number>({
   triggerLabel,
   keyboardNavigation = false,
   portalAnimation = 'fade',
+  focusOptionOnShow = false,
 }: SimpleDropdownProps<T>) {
   const { theme } = useTheme();
   const { height: viewportHeight, width: viewportWidth } = useWindowDimensions();
@@ -324,6 +327,12 @@ export function SimpleDropdown<T extends string | number>({
           visible
           statusBarTranslucent
           onRequestClose={() => closeDropdown()}
+          onShow={() => {
+            if (focusOptionOnShow && keyboardNavigation && Platform.OS === 'web') {
+              const index = Math.max(0, options.findIndex(option => option.value === value));
+              optionRefs.current[index]?.focus();
+            }
+          }}
         >
           <View style={dropdownStyles.portalLayer} accessibilityViewIsModal>
             <Pressable

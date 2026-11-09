@@ -81,6 +81,7 @@ export interface SpecialistData {
 }
 
 export interface SpecialistFilters {
+  modality?: PublicSpecialistModality;
   specialties?: string[]; approaches?: string[];
   language?: string;
   religion?: string;
@@ -541,7 +542,7 @@ export const getMatchedSpecialists = async (options: MatchingResultsOptions & { 
  * Supports optional filters including proximity-based filtering
  */
 export const getAllSpecialists = async (filters?: SpecialistFilters): Promise<SpecialistData[]> => {
-  if (filters?.religion || filters?.specialties?.length || filters?.approaches?.length) {
+  if (filters?.modality || filters?.religion || filters?.specialties?.length || filters?.approaches?.length) {
     // Only share concurrent reads. Never retain sensitive search results.
     const key = `search:${JSON.stringify(filters)}`;
     const existing = publicSpecialistsRequests.get(key);

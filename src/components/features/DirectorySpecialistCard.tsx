@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Image, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
+import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useTheme } from '../../contexts/ThemeContext';
 import { optionLabel } from '../../utils/profileOptions';
@@ -21,11 +21,29 @@ interface Props {
   compactDirectory?: boolean;
   mobileDirectory?: boolean;
   profileOptions?: ProfileOptions | null;
+  favorite?: DirectoryFavoriteState;
+  priceIsSelection?: boolean;
+  priceUnavailable?: boolean;
+  distanceKm?: number;
+}
+
+export interface DirectoryFavoriteState { selected: boolean; busy: boolean; disabled: boolean; onPress: () => void }
+
+export function DirectoryFavoriteButton({ name, state, style }: { name: string; state: DirectoryFavoriteState; style?: StyleProp<ViewStyle> }) {
+  const { theme } = useTheme();
+  return <Pressable accessibilityRole="button"
+    accessibilityLabel={state.selected ? `Quitar a ${name} de favoritos` : `Guardar a ${name} en favoritos`}
+    accessibilityState={{ selected: state.selected, busy: state.busy, disabled: state.disabled || state.busy }}
+    disabled={state.disabled || state.busy} onPress={state.onPress}
+    style={[styles.favorite, { backgroundColor: theme.bgCard, opacity: state.disabled ? 0.5 : 1 }, style]}>
+    {state.busy ? <ActivityIndicator size="small" color={theme.primary} />
+      : <Ionicons name={state.selected ? 'heart' : 'heart-outline'} size={22} color={state.selected ? theme.primary : theme.textSecondary} />}
+  </Pressable>;
 }
 
 const priceFormat = new Intl.NumberFormat('es-ES', { maximumFractionDigits: 2 });
 
-export function DirectorySpecialistCard({ specialist, onPress, href, style, compactDirectory = false, mobileDirectory = false, profileOptions: options }: Props) {
+export function DirectorySpecialistCard({ specialist, onPress, href, style, compactDirectory = false, mobileDirectory = false, profileOptions: options, favorite, priceIsSelection = false, priceUnavailable = false, distanceKm }: Props) {
   const { theme } = useTheme();
   const [failedPhoto, setFailedPhoto] = useState<string | null>(null);
   const details = 'specialties' in specialist ? specialist : null;
@@ -74,7 +92,7 @@ export function DirectorySpecialistCard({ specialist, onPress, href, style, comp
     <View style={[styles.facts, compactDirectory && styles.compactFacts]}>
       {!!modalities && <View style={styles.fact}>
         <Ionicons name={specialist.offersInPerson ? 'location-outline' : specialist.offersOnline ? 'videocam-outline' : 'call-outline'} size={16} color={theme.primary} />
-        <Text style={[styles.factText, body]} numberOfLines={2}>{modalities}{specialist.offersInPerson && details?.officeCity ? ` · ${details.officeCity}` : ''}</Text>
+        <Text style={[styles.factText, body]} numberOfLines={2}>{modalities}{specialist.offersInPerson && details?.officeCity ? ` · ${details.officeCity}` : ''}{distanceKm !== undefined ? ` · ${priceFormat.format(distanceKm)} km` : ''}</Text>
       </View>}
       {languages.length > 0 ? <View style={styles.fact}>
         <Ionicons name="globe-outline" size={16} color={theme.primary} />
@@ -86,7 +104,7 @@ export function DirectorySpecialistCard({ specialist, onPress, href, style, comp
     </View>
   );
 
-  return (
+  const card = (
     <AnimatedPressable
       onPress={onPress}
       href={href}
@@ -94,7 +112,7 @@ export function DirectorySpecialistCard({ specialist, onPress, href, style, comp
       accessibilityLabel={`Abrir el perfil de ${specialist.name}`}
       hoverLift
       pressScale={0.99}
-      style={[styles.card, mobileDirectory && styles.mobileCard, { backgroundColor: theme.bgCard, borderColor: theme.borderLight }, style]}
+      style={[styles.card, mobileDirectory && styles.mobileCard, { backgroundColor: theme.bgCard, borderColor: theme.borderLight }, favorite ? { flex: 1 } : style]}
     >
       <View style={[styles.identityRow, compactDirectory && styles.compactIdentityRow, mobileDirectory && styles.mobileIdentityRow]}>
         <View style={[styles.portraitFrame, mobileDirectory && styles.mobilePortrait, { backgroundColor: theme.secondaryMuted }]}>
@@ -105,7 +123,7 @@ export function DirectorySpecialistCard({ specialist, onPress, href, style, comp
             <Text style={[styles.initials, { color: theme.textPrimary, fontFamily: theme.fontDisplay }]}>{initials}</Text>
           )}
         </View>
-        <View style={styles.identity}>
+        <View style={[styles.identity, favorite && { paddingRight: 38 }]}>
           <Text style={[styles.name, { color: theme.textPrimary, fontFamily: theme.fontSansBold }]} numberOfLines={2}>
             {specialist.name}
           </Text>
@@ -159,13 +177,13 @@ export function DirectorySpecialistCard({ specialist, onPress, href, style, comp
 
       <View style={styles.footerSpace} />
       <View style={[styles.footer, { borderTopColor: theme.borderLight }]}>
-        <View style={styles.priceGroup}>
-          {fromPrice && priceCents > 0 ? <Text style={[styles.smallText, body]}>Desde</Text> : null}
+        {priceUnavailable ? <Text style={[styles.smallText, body]}>Consulta las sesiones en el perfil</Text> : <View style={styles.priceGroup}>
+          {fromPrice && priceCents > 0 && !priceIsSelection ? <Text style={[styles.smallText, body]}>Desde</Text> : null}
           <Text style={[styles.price, { color: theme.textPrimary, fontFamily: theme.fontSansBold }]}>
             {priceCents === 0 ? 'Sin coste' : `${priceFormat.format(specialist.pricePerSession)}\u00a0€`}
           </Text>
           <Text style={[styles.smallText, body]}>por sesión{duration ? ` · ${duration} min` : ''}</Text>
-        </View>
+        </View>}
         <View style={[styles.action, !compactDirectory && styles.actionNarrow, { backgroundColor: theme.actionPrimary }]}>
           <Text style={[styles.actionText, { color: theme.actionPrimaryText, fontFamily: theme.fontSansSemiBold }]}>Ver perfil</Text>
           <Ionicons name="arrow-forward" size={17} color={theme.actionPrimaryText} />
@@ -173,9 +191,16 @@ export function DirectorySpecialistCard({ specialist, onPress, href, style, comp
       </View>
     </AnimatedPressable>
   );
+  if (!favorite) return card;
+  return <View style={style}>
+    {card}
+    <DirectoryFavoriteButton name={specialist.name} state={favorite} style={styles.favoriteCorner} />
+  </View>;
 }
 
 const styles = StyleSheet.create({
+  favorite: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+  favoriteCorner: { position: 'absolute', top: 10, right: 10 },
   card: { padding: 18, borderWidth: 1, borderRadius: 18, minWidth: 0 },
   mobileCard: { padding: 16 },
   mobileIdentityRow: { gap: 12, alignItems: 'flex-start' },

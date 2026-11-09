@@ -1,1641 +1,307 @@
-import {SearchableProfileSelect} from '../../components/common/SearchableProfileSelect';
-import {PROFESSIONAL_SPECIALTY_OPTIONS, PROFESSIONAL_THERAPEUTIC_APPROACH_OPTIONS} from '../../constants/professionalMatchingOptions';
-import { ProfileDiscoveryFilters } from '../../components/common/ProfileDiscoveryFilters';
-import { DirectoryFiltersSheet } from './components/DirectoryFiltersSheet';
-import { useDiscoveryRevalidation } from '../../hooks/useDiscoveryRevalidation';
-import { combineSpecialistResults } from './specialistDiscoveryResults';
-import React, { useCallback, useRef, useEffect, useMemo, useState } from 'react';
-import {
-  ScrollView,
-  Image,
-  StyleSheet,
-  Text,
-  View,
-  useWindowDimensions,
-} from 'react-native';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { showAppAlert, useAppAlert } from '../../components/common/alert';
-import { useNavigation } from '@react-navigation/native';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import {
-  SearchBar,
-  SpecialistCardGrid,
-  SpecialistListItem,
-  SpecialistsLoadingState,
-  LocationFilterDropdown,
-  ViewToggle,
-} from './components';
-import type { FilterOption, ViewMode } from './components';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
-import { AnimatedPressable } from '../../components/common/AnimatedPressable';
+import type { RootStackParamList } from '../../constants/types';
+import { PROFESSIONAL_TYPE_OPTIONS } from '../../constants/professionalTypes';
+import { PROFESSIONAL_SPECIALTY_OPTIONS, PROFESSIONAL_THERAPEUTIC_APPROACH_OPTIONS } from '../../constants/professionalMatchingOptions';
 import { Button } from '../../components/common/Button';
-import { RootStackParamList, SortOption, Specialist } from '../../constants/types';
-import { spacing } from '../../constants/colors';
-import type { Theme } from '../../constants/theme';
-import {
-  getProfessionalTypeLabel,
-  PROFESSIONAL_TYPE_OPTIONS,
-  type ProfessionalType,
-} from '../../constants/professionalTypes';
-import * as specialistsService from '../../services/specialistsService';
-import * as clientService from '../../services/clientService';
-import * as analyticsService from '../../services/analyticsService';
+import { Input } from '../../components/common/Input';
+import { SimpleDropdown } from '../../components/common/SimpleDropdown';
+import { SearchableProfileSelect } from '../../components/common/SearchableProfileSelect';
+import { renderLanguageIcon } from '../../components/common/LanguageIcon';
+import { DirectoryFavoriteButton, DirectorySpecialistCard, type DirectoryFavoriteState } from '../../components/features/DirectorySpecialistCard';
+import { DirectoryFiltersSheet } from './components/DirectoryFiltersSheet';
+import { useProfileOptions } from '../../hooks/useProfileOptions';
+import { optionLabel } from '../../utils/profileOptions';
+import { getMyClientProfile } from '../../services/clientService';
+import { trackScreen } from '../../services/analyticsService';
+import type { SpecialistData, SpecialistFilters, PublicSpecialistModality } from '../../services/specialistsService';
+import { patientDirectoryCards, searchAndSortPatientCards, toPatientDirectoryCard, type PatientDirectoryCard, type PatientDirectorySort } from './patientDirectoryModel';
+import { usePatientSpecialists } from './usePatientSpecialists';
 
-type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'Specialists'>;
-
-const FILTER_OPTIONS: FilterOption[] = [
-  { id: 'ansiedad', label: 'Ansiedad', icon: 'pulse-outline' },
-  { id: 'pareja', label: 'Pareja', icon: 'heart-outline' },
-  { id: 'depresion', label: 'Depresión', icon: 'sad-outline' },
-  { id: 'trauma', label: 'Trauma', icon: 'shield-outline' },
-  { id: 'estres', label: 'Estrés', icon: 'flash-outline' },
-  { id: 'autoestima', label: 'Autoestima', icon: 'star-outline' },
+const MODALITIES: { label: string; value: PublicSpecialistModality }[] = [
+  { label: 'Terapia online', value: 'ONLINE' }, { label: 'Llamada', value: 'PHONE_CALL' }, { label: 'Terapia presencial', value: 'IN_PERSON' },
 ];
+const PRICES = [50, 60, 80].map(value => ({ value, label: `Hasta ${value} €` }));
+const RATINGS = [{ value: 4.5, label: '4,5 o más' }, { value: 4, label: '4 o más' }];
+const DISTANCES = [5, 10, 15, 25, 50].map(value => ({ value, label: `Hasta ${value} km` }));
+const PROFESSIONS = PROFESSIONAL_TYPE_OPTIONS.map(option => ({ value: option.id, label: option.label }));
+const SPECIALTIES = PROFESSIONAL_SPECIALTY_OPTIONS.map(option => ({ ...option, aliases: [...option.aliases] }));
+const APPROACHES = PROFESSIONAL_THERAPEUTIC_APPROACH_OPTIONS.map(option => ({ ...option, aliases: [...option.aliases] }));
+const EMPTY_SPECIALISTS: SpecialistData[] = [];
+const EMPTY_IDS: string[] = [];
 
-const DISTANCE_OPTIONS = [
-  { value: 5, label: '5 km' },
-  { value: 10, label: '10 km' },
-  { value: 15, label: '15 km' },
-  { value: 25, label: '25 km' },
-  { value: 50, label: '50 km' },
-];
-
-const matchingStrings = (value: unknown): string[] => Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : [];
-const buildMatchingProfile = (matchingProfile?: Record<string, unknown>) => ({
-  customSpecialties: matchingStrings(matchingProfile?.customSpecialties),
-  customTherapeuticApproaches: matchingStrings(matchingProfile?.customTherapeuticApproaches),
-  therapeuticApproach: Array.isArray(matchingProfile?.therapeuticApproach)
-    ? (matchingProfile.therapeuticApproach as string[])
-    : [],
-  specialties: Array.isArray(matchingProfile?.specialties)
-    ? (matchingProfile.specialties as string[])
-    : [],
-  sessionStyle:
-    typeof matchingProfile?.sessionStyle === 'string' ? matchingProfile.sessionStyle : '',
-  personality: Array.isArray(matchingProfile?.personality)
-    ? (matchingProfile.personality as string[])
-    : [],
-  ageGroups: Array.isArray(matchingProfile?.ageGroups)
-    ? (matchingProfile.ageGroups as string[])
-    : [],
-  experienceYears:
-    typeof matchingProfile?.experienceYears === 'number'
-      ? matchingProfile.experienceYears
-      : 0,
-  language: Array.isArray(matchingProfile?.language)
-    ? (matchingProfile.language as string[])
-    : [],
-  availability:
-    typeof matchingProfile?.availability === 'string' ? matchingProfile.availability : '',
-  format: Array.isArray(matchingProfile?.format) ? (matchingProfile.format as string[]) : [],
-});
-
-const mapSpecialistDataToCard = (
-  specialist: specialistsService.SpecialistData,
-  favoriteIds: Set<string>,
-  matchOrder?: number
-): Specialist => {
-  const name = specialist.user.name;
-
-  return {
-    id: specialist.id,
-    name,
-    religionCode: specialist.religionCode, religionOtherText: specialist.religionOtherText,
-    avatar: specialistsService.resolveSpecialistAvatar(specialist) ?? undefined,
-    initial: name.charAt(0).toUpperCase(),
-    specialization: specialist.specialization,
-    professionalType: specialist.professionalType,
-    professionalTypeLabel: specialist.professionalTypeLabel,
-    rating: specialist.rating,
-    reviewCount: specialist.reviewCount,
-    description: specialistsService.normalizeSpecialistDescription(specialist.description),
-    matchOrder, matchedOptionId: specialist.matchedOptionId, publicOptions: specialist.publicOptions,
-    tags: specialist.matchingReasons?.map(reason => reason.label) ?? [],
-    pricePerSession: specialist.pricePerSession,
-    firstVisitFree: specialist.firstVisitFree,
-    verified: true,
-    matchingProfile: buildMatchingProfile(specialist.matchingProfile),
-    offersInPerson: specialist.offersInPerson,
-    offersOnline: specialist.offersOnline,
-    officeCity: specialist.officeCity,
-    distance: specialist.distance,
-    isFavorite: favoriteIds.has(specialist.id),
-  };
-};
-
-const attributeLabels: Record<string, string> = {
-  specialty: 'Especialidad coincidente',
-  approach: 'Enfoque terapéutico',
-  sessionStyle: 'Estilo de sesión',
-  personality: 'Personalidad compatible',
-  ageGroup: 'Experiencia con tu edad',
-  availability: 'Disponibilidad',
-  format: 'Modalidad compatible',
-  experience: 'Alta experiencia',
-};
-
-const SpecialistsScreen: React.FC = () => {
-  const navigation = useNavigation<NavigationProp>();
-  const { user } = useAuth();
-  const appAlert = useAppAlert();
-  const { theme, isDark } = useTheme();
-  const { width } = useWindowDimensions();
-
-  const isDesktop = width >= 1180;
-  const isTablet = width >= 768 && width < 1180;
-  const isMobile = width < 768;
-  const styles = useMemo(() => createStyles(theme, isDark, isMobile), [theme, isDark, isMobile]);
-  const gridColumns = isDesktop ? 3 : isTablet ? 2 : 1;
-  const gridItemWidth = isDesktop ? '31.8%' : isTablet ? '48.6%' : '100%';
-
-  const discoveryRequest = useRef(0);
-  const [language, setLanguage] = useState<string>();
+function PatientSpecialistsScreen({ isClient }: { isClient: boolean }) {
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList, 'Specialists'>>();
+  const { theme } = useTheme();
+  const { options, error: optionsError, retry: retryOptions } = useProfileOptions();
+  const [width, setWidth] = useState(0);
+  const [gridWidth, setGridWidth] = useState(0);
+  const desktop = width >= 1180;
+  const mobile = width < 720;
+  const columns = gridWidth >= 740 ? 2 : 1;
+  const cardWidth = (gridWidth - (columns - 1) * 20) / columns;
+  const [tab, setTab] = useState<'all' | 'favorites'>('all');
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [religion, setReligion] = useState<string>();
-  const [specialties, setSpecialties] = useState<string[]>([]);
-  const [approaches, setApproaches] = useState<string[]>([]);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [sortOption, setSortOption] = useState<SortOption>('recommended');
-  const [activeTab, setActiveTab] = useState<'specialists' | 'posts'>('specialists');
-  const [viewMode, setViewMode] = useState<ViewMode>('grid');
-  const [selectedFilters, setSelectedFilters] = useState<string[]>([]);
-  const [selectedProfessionalTypes, setSelectedProfessionalTypes] = useState<ProfessionalType[]>([]);
-  const [showAllSpecialists, setShowAllSpecialists] = useState(false);
-  const [matchedSpecialists, setMatchedSpecialists] = useState<Specialist[]>([]);
-  const [allSpecialists, setAllSpecialists] = useState<Specialist[]>([]);
-  const [primarySpecialist, setPrimarySpecialist] = useState<Specialist | null>(null);
-  const [primarySession, setPrimarySession] = useState<specialistsService.PrimarySpecialistSessionContext | null>(null);
-  const [favoriteSpecialists, setFavoriteSpecialists] = useState<Specialist[]>([]);
-  const [favoriteSpecialistIds, setFavoriteSpecialistIds] = useState<string[]>([]);
-  const [failedAvatarUris, setFailedAvatarUris] = useState<Set<string>>(() => new Set());
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [hasCompletedQuestionnaire, setHasCompletedQuestionnaire] = useState(false);
-  const [proximityEnabled, setProximityEnabled] = useState(false);
-  const [maxDistance, setMaxDistance] = useState(10);
-  const [clientLocation, setClientLocation] = useState<{
-    lat: number | null;
-    lng: number | null;
-    hasLocation: boolean;
-  }>({ lat: null, lng: null, hasLocation: false });
+  const [filters, setFilters] = useState<SpecialistFilters>({});
+  const [queryInput, setQueryInput] = useState('');
+  const [query, setQuery] = useState('');
+  const [searchError, setSearchError] = useState<string>();
+  const [sort, setSort] = useState<PatientDirectorySort>('recommended');
+  const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [locationState, setLocationState] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [locationAttempt, setLocationAttempt] = useState(0);
+  const [moreFiltersOpen, setMoreFiltersOpen] = useState(false);
+  const data = usePatientSpecialists(filters, isClient);
+  const text = { color: theme.textSecondary, fontFamily: theme.fontSans };
+  const label = { color: theme.textPrimary, fontFamily: theme.fontSansSemiBold };
+  const surface = { backgroundColor: theme.bgCard, borderColor: theme.borderLight };
 
-  const fetchSpecialists = useCallback(async (
-    forceProximity?: boolean,
-    forceMaxDistance?: number,
-  ) => {
-    const requestId = ++discoveryRequest.current;
-    const useProximity = forceProximity ?? proximityEnabled;
-    const useMaxDistance = forceMaxDistance ?? maxDistance;
-
-    try {
-      setLoading(true);
-      setError(null);
-      setAllSpecialists([]);
-
-      let matchedData: Specialist[] = [];
-      let hasQuestionnaire = false;
-      let favoriteIds = new Set<string>();
-      let personalization: specialistsService.SpecialistPersonalizationResponse | null = null;
-
-      if (user?.type === 'client') {
-        try {
-          personalization = await specialistsService.getSpecialistPersonalization();
-          favoriteIds = new Set(personalization.favoriteSpecialistIds);
-        } catch {
-          // Personalization is private enhancement. The marketplace should still render.
-        }
-      }
-
-      try {
-        const matchedResponse = await specialistsService.getMatchedSpecialists();
-        hasQuestionnaire = matchedResponse.hasCompletedQuestionnaire;
-
-        if (hasQuestionnaire && matchedResponse.specialists.length > 0) {
-          matchedData = matchedResponse.specialists.map((specialist, index) => {
-            const mapped = mapSpecialistDataToCard(specialist, favoriteIds, index);
-
-            return {
-              ...mapped,
-              tags: mapped.tags,
-            };
-          });
-        }
-      } catch {
-        // Best effort. The public list must still render.
-      }
-
-      const filters: specialistsService.SpecialistFilters = { language, religion, specialties, approaches };
-      if (selectedProfessionalTypes.length === 1) {
-        filters.professionalType = selectedProfessionalTypes[0];
-      }
-      if (
-        useProximity
-        && clientLocation.hasLocation
-        && clientLocation.lat !== null
-        && clientLocation.lng !== null
-      ) {
-        filters.near = true;
-        filters.lat = clientLocation.lat;
-        filters.lng = clientLocation.lng;
-        filters.maxDistance = useMaxDistance;
-      }
-
-      const allSpecialistsData = await specialistsService.getAllSpecialists(filters);
-      const mappedAllSpecialists = allSpecialistsData.map((specialist) =>
-        mapSpecialistDataToCard(specialist, favoriteIds)
-      );
-
-      if (requestId !== discoveryRequest.current) return;
-      setMatchedSpecialists(matchedData);
-      setAllSpecialists(mappedAllSpecialists);
-      setFavoriteSpecialistIds(Array.from(favoriteIds));
-      setFavoriteSpecialists(
-        personalization?.favoriteSpecialists.map((specialist) =>
-          mapSpecialistDataToCard(specialist, favoriteIds)
-        ) ?? []
-      );
-      setPrimarySpecialist(
-        personalization?.primarySpecialist
-          ? mapSpecialistDataToCard(personalization.primarySpecialist.specialist, favoriteIds)
-          : null
-      );
-      setPrimarySession(personalization?.primarySpecialist?.session ?? null);
-      setHasCompletedQuestionnaire(hasQuestionnaire);
-    } catch (fetchError: unknown) {
-      if (requestId !== discoveryRequest.current) return;
-      setError(fetchError instanceof Error ? fetchError.message : 'Error al cargar especialistas');
-    } finally {
-      if (requestId === discoveryRequest.current) setLoading(false);
-    }
-  }, [
-    attributeLabels,
-    clientLocation.hasLocation,
-    clientLocation.lat,
-    clientLocation.lng,
-    maxDistance,
-    proximityEnabled,
-    selectedProfessionalTypes,
-    language, religion, specialties, approaches,
-    user?.type,
-  ]);
-
-  useEffect(() => {
-    analyticsService.trackScreen('specialists_list');
-  }, []);
-
-  useEffect(() => {
-    const loadClientLocation = async () => {
-      if (user?.type !== 'client') return;
-
-      try {
-        const profile = await clientService.getMyClientProfile();
-        if (profile.homeLat !== null && profile.homeLng !== null) {
-          setClientLocation({
-            lat: profile.homeLat,
-            lng: profile.homeLng,
-            hasLocation: true,
-          });
-        }
-      } catch {
-        // Optional enhancement, do not block the screen.
-      }
-    };
-
-    loadClientLocation();
-  }, [user?.type]);
-
-  useDiscoveryRevalidation(fetchSpecialists);
-
-  useEffect(() => {
-    void fetchSpecialists();
-  }, [fetchSpecialists]);
-
-  useEffect(() => {
-    if (searchQuery || selectedFilters.length > 0 || selectedProfessionalTypes.length > 0 || proximityEnabled) {
-      setShowAllSpecialists(true);
-    }
-  }, [proximityEnabled, searchQuery, selectedFilters.length, selectedProfessionalTypes.length]);
-
-  const handleSpecialistPress = useCallback((specialistId: string) => {
-    const specialist = matchedSpecialists.find((item) => item.id === specialistId)
-      || allSpecialists.find((item) => item.id === specialistId);
-
-
-    navigation.navigate('SpecialistDetail', { specialistId, optionId: specialist?.matchedOptionId ?? undefined });
-  }, [allSpecialists, matchedSpecialists, navigation]);
-
-  const applyFavoriteState = useCallback((specialistId: string, isFavorite: boolean) => {
-    const update = (items: Specialist[]) =>
-      items.map((item) => (item.id === specialistId ? { ...item, isFavorite } : item));
-
-    setMatchedSpecialists(update);
-    setAllSpecialists(update);
-    setFavoriteSpecialists((items) => {
-      const updated = update(items);
-      if (!isFavorite) {
-        return updated.filter((item) => item.id !== specialistId);
-      }
-
-      if (updated.some((item) => item.id === specialistId)) {
-        return updated;
-      }
-
-      const source = allSpecialists.find((item) => item.id === specialistId)
-        || matchedSpecialists.find((item) => item.id === specialistId)
-        || primarySpecialist;
-
-      return source ? [{ ...source, isFavorite: true }, ...updated] : updated;
-    });
-    setPrimarySpecialist((current) =>
-      current?.id === specialistId ? { ...current, isFavorite } : current
-    );
-    setFavoriteSpecialistIds((ids) => (
-      isFavorite
-        ? Array.from(new Set([specialistId, ...ids]))
-        : ids.filter((id) => id !== specialistId)
-    ));
-  }, [allSpecialists, matchedSpecialists, primarySpecialist]);
-
-  const handleToggleFavorite = useCallback(async (specialistId: string) => {
-    if (user?.type !== 'client') return;
-
-    const isFavorite = favoriteSpecialistIds.includes(specialistId);
-    applyFavoriteState(specialistId, !isFavorite);
-
-    try {
-      if (isFavorite) {
-        await specialistsService.removeFavoriteSpecialist(specialistId);
-      } else {
-        await specialistsService.addFavoriteSpecialist(specialistId);
-      }
-    } catch (favoriteError: unknown) {
-      applyFavoriteState(specialistId, isFavorite);
-      showAppAlert(
-        appAlert,
-        'No se pudo actualizar',
-        favoriteError instanceof Error ? favoriteError.message : 'Inténtalo de nuevo en unos segundos.'
-      );
-    }
-  }, [appAlert, applyFavoriteState, favoriteSpecialistIds, user?.type]);
-
-  const handleSort = () => {
-    const options: { text: string; onPress?: () => void; style?: 'cancel' }[] = [
-      { text: 'Recomendaciones', onPress: () => setSortOption('recommended') },
-      { text: 'Mejor valorados', onPress: () => setSortOption('rating') },
-      { text: 'Precio más bajo', onPress: () => setSortOption('price_low') },
-      { text: 'Precio más alto', onPress: () => setSortOption('price_high') },
-    ];
-
-    if (proximityEnabled && clientLocation.hasLocation) {
-      options.splice(1, 0, { text: 'Más cercanos', onPress: () => setSortOption('distance') });
-    }
-
-    options.push({ text: 'Cancelar', style: 'cancel' });
-    showAppAlert(appAlert, 'Ordenar por', 'Selecciona un criterio de ordenación', options);
-  };
-
-  const toggleProximity = () => {
-    if (!clientLocation.hasLocation) {
-      showAppAlert(appAlert, 
-        'Ubicación no configurada',
-        'Añade tu ubicación en el perfil para usar este filtro.',
-        [
-          { text: 'Cancelar', style: 'cancel' },
-          { text: 'Ir a perfil', onPress: () => navigation.navigate('Profile' as never) },
-        ],
-      );
-      return;
-    }
-
-    const next = !proximityEnabled;
-    setProximityEnabled(next);
-    if (next) {
-      setSortOption('distance');
-    }
-    fetchSpecialists(next, maxDistance);
-  };
-
-  const combinedSpecialists = useMemo(() => {
-    return combineSpecialistResults(
-      allSpecialists,
-      matchedSpecialists,
-      Boolean(language || religion || specialties.length || approaches.length || (proximityEnabled && clientLocation.hasLocation)),
-    );
-  }, [allSpecialists, clientLocation.hasLocation, matchedSpecialists, proximityEnabled, language, religion, specialties, approaches]);
-
-  const filteredSpecialists = useMemo(() => {
-    return combinedSpecialists
-      .filter((specialist) => {
-        if (searchQuery) {
-          const query = searchQuery.toLowerCase();
-          const matchesSearch =
-            specialist.name.toLowerCase().includes(query)
-            || specialist.specialization.toLowerCase().includes(query)
-            || getProfessionalTypeLabel(
-              specialist.professionalType,
-              specialist.professionalTypeLabel,
-            ).toLowerCase().includes(query)
-            || specialist.matchingProfile.therapeuticApproach.some((approach) =>
-              approach.toLowerCase().includes(query)
-            )
-            || specialist.matchingProfile.specialties.some((specialty) =>
-              specialty.toLowerCase().includes(query)
-            )
-            || specialist.tags.some((tag) => tag.toLowerCase().includes(query));
-          if (!matchesSearch) return false;
-        }
-
-        if (selectedProfessionalTypes.length > 0) {
-          if (!specialist.professionalType) return false;
-          if (!selectedProfessionalTypes.includes(specialist.professionalType)) return false;
-        }
-
-        if (selectedFilters.length > 0) {
-          const matchesFilter = selectedFilters.some((filter) =>
-            specialist.specialization.toLowerCase().includes(filter.toLowerCase())
-            || specialist.matchingProfile.specialties.some((specialty) =>
-              specialty.toLowerCase().includes(filter.toLowerCase())
-            )
-            || specialist.matchingProfile.therapeuticApproach.some((approach) =>
-              approach.toLowerCase().includes(filter.toLowerCase())
-            )
-            || specialist.tags.some((tag) => tag.toLowerCase().includes(filter.toLowerCase())));
-          if (!matchesFilter) return false;
-        }
-
-        return true;
-      })
-      .sort((a, b) => {
-        switch (sortOption) {
-          case 'recommended':
-            return (a.matchOrder ?? Number.MAX_SAFE_INTEGER) - (b.matchOrder ?? Number.MAX_SAFE_INTEGER) || a.name.localeCompare(b.name);
-          case 'rating':
-            return b.rating - a.rating || b.reviewCount - a.reviewCount;
-          case 'price_low':
-            return a.pricePerSession - b.pricePerSession;
-          case 'price_high':
-            return b.pricePerSession - a.pricePerSession;
-          case 'distance':
-            if (a.distance === undefined && b.distance === undefined) return 0;
-            if (a.distance === undefined) return 1;
-            if (b.distance === undefined) return -1;
-            return a.distance - b.distance;
-          default:
-            return 0;
-        }
+  useEffect(() => { trackScreen('specialists_list'); }, []);
+  useFocusEffect(useCallback(() => {
+    if (!isClient) return;
+    let active = true;
+    setLocationState('loading');
+    getMyClientProfile().then(profile => {
+      if (!active) return;
+      const nextLocation = profile.homeLat != null && profile.homeLng != null ? { lat: profile.homeLat, lng: profile.homeLng } : null;
+      setLocation(nextLocation);
+      setFilters(current => {
+        if (!current.near || (nextLocation && current.lat === nextLocation.lat && current.lng === nextLocation.lng)) return current;
+        return nextLocation ? { ...current, ...nextLocation } : { ...current, near: undefined, lat: undefined, lng: undefined, maxDistance: undefined };
       });
-  }, [combinedSpecialists, searchQuery, selectedFilters, selectedProfessionalTypes, sortOption]);
+      if (!nextLocation) setSort(current => current === 'distance' ? 'recommended' : current);
+      setLocationState('ready');
+    }).catch(() => { if (active) setLocationState('error'); });
+    return () => { active = false; };
+  }, [isClient, locationAttempt]));
+  useEffect(() => { if (desktop) setFiltersOpen(false); }, [desktop]);
+  useEffect(() => {
+    if (options && !options.religionEnabled && filters.religion) setFilters(current => ({ ...current, religion: undefined }));
+  }, [options, filters.religion]);
 
-  const renderLegacyQuestionnaireBanner = () => (
-    <AnimatedPressable
-      onPress={() => navigation.navigate('Questionnaire')}
-      style={styles.heroBanner}
-    >
-      <View style={[styles.heroBannerSurface, { backgroundColor: theme.primary }]}>
-        <View style={styles.heroBadge}>
-          <Ionicons name="heart" size={22} color={theme.textOnPrimary} />
-        </View>
-        <View style={styles.heroCopy}>
-          <Text style={styles.heroTitle}>Descubre tus mejores matches</Text>
-          <Text style={styles.heroSubtitle}>
-            Completa el cuestionario para ver recomendaciones realmente personalizadas.
-          </Text>
-        </View>
-        <Ionicons name="arrow-forward" size={18} color={theme.textOnPrimary} />
-      </View>
-    </AnimatedPressable>
-  );
-
-  const renderLegacyRefineBanner = () => (
-    <AnimatedPressable
-      onPress={() => navigation.navigate('Questionnaire')}
-      style={styles.refineBanner}
-    >
-      <View style={styles.refineIcon}>
-        <Ionicons name="options-outline" size={20} color={theme.primary} />
-      </View>
-      <View style={styles.refineCopy}>
-        <Text style={styles.refineTitle}>¿Cambiaron tus necesidades?</Text>
-        <Text style={styles.refineSubtitle}>Actualiza tus preferencias para mejorar tus matches.</Text>
-      </View>
-      <View style={styles.refineAction}>
-        <Text style={styles.refineActionText}>Refinar</Text>
-        <Ionicons name="refresh" size={14} color={theme.primary} />
-      </View>
-    </AnimatedPressable>
-  );
-
-  const renderQuestionnaireBanner = () => {
-    const hasQuestionnaire = hasCompletedQuestionnaire;
-
-    return (
-      <View style={styles.heroBanner}>
-        <View style={[styles.heroBannerSurface, hasQuestionnaire ? styles.heroBannerSurfaceCompact : null, { backgroundColor: theme.primary }]}>
-          <View style={styles.heroBadge}>
-            <Ionicons
-              name={hasQuestionnaire ? 'refresh-circle-outline' : 'heart'}
-              size={22}
-              color={theme.textOnPrimary}
-            />
-          </View>
-          <View style={styles.heroCopy}>
-            <Text style={styles.heroTitle}>
-              {hasQuestionnaire ? 'Mantén tus matches al día' : 'Descubre tus mejores matches'}
-            </Text>
-            <Text style={styles.heroSubtitle}>
-              {hasQuestionnaire
-                ? 'Si han cambiado tus necesidades, repite el cuestionario para actualizar tus recomendaciones.'
-                : 'Completa el cuestionario para ver recomendaciones realmente personalizadas.'}
-            </Text>
-          </View>
-          <AnimatedPressable
-            onPress={() => navigation.navigate('Questionnaire')}
-            hoverLift={false}
-            style={[styles.heroAction, hasQuestionnaire ? styles.heroActionSecondary : null]}
-          >
-            <Text style={styles.heroActionText}>
-              {hasQuestionnaire ? 'Repetir cuestionario' : 'Empezar cuestionario'}
-            </Text>
-            <Ionicons
-              name={hasQuestionnaire ? 'refresh' : 'arrow-forward'}
-              size={15}
-              color={theme.textOnPrimary}
-            />
-          </AnimatedPressable>
-        </View>
-      </View>
-    );
+  const update = <K extends keyof SpecialistFilters>(key: K, value: SpecialistFilters[K]) =>
+    setFilters(current => ({ ...current, [key]: value }));
+  const clear = () => {
+    setFilters({}); setQuery(''); setQueryInput(''); setSearchError(undefined);
+    if (sort === 'distance') setSort('recommended');
   };
-
-  const renderQuestionnaireAction = (compact = false) => (
-    <AnimatedPressable
-      onPress={() => hasCompletedQuestionnaire
-        ? navigation.navigate('QuestionnaireResults', { adviceId: undefined })
-        : navigation.navigate('Questionnaire')}
-      hoverLift={false}
-      style={[
-        styles.questionnaireAction,
-        compact ? styles.questionnaireActionCompact : null,
-        hasCompletedQuestionnaire ? styles.questionnaireActionActive : null,
-      ]}
-      accessibilityLabel={hasCompletedQuestionnaire ? 'Ver recomendaciones' : 'Hacer cuestionario'}
-    >
-      <Ionicons
-        name={hasCompletedQuestionnaire ? 'sparkles-outline' : 'clipboard-outline'}
-        size={14}
-        color={hasCompletedQuestionnaire ? theme.primary : theme.textSecondary}
-      />
-      {!compact ? (
-        <Text
-          style={[
-            styles.questionnaireActionText,
-            hasCompletedQuestionnaire ? styles.questionnaireActionTextActive : null,
-          ]}
-        >
-          {hasCompletedQuestionnaire ? 'Ver recomendaciones' : 'Hacer cuestionario'}
-        </Text>
-      ) : null}
-    </AnimatedPressable>
-  );
-
-  const renderFavoriteButton = (specialist: Specialist, compact = false) => (
-    <AnimatedPressable
-      onPress={() => handleToggleFavorite(specialist.id)}
-      hoverLift={false}
-      pressScale={0.92}
-      style={[
-        compact ? styles.favoriteIconButtonCompact : styles.favoriteIconButton,
-        {
-          backgroundColor: specialist.isFavorite ? theme.secondaryAlpha12 : theme.bgAlt,
-          borderColor: specialist.isFavorite ? theme.secondary : theme.borderLight,
-        },
-      ]}
-      accessibilityLabel={specialist.isFavorite ? 'Quitar de favoritos' : 'Guardar como favorito'}
-    >
-      <Ionicons
-        name={specialist.isFavorite ? 'heart' : 'heart-outline'}
-        size={compact ? 17 : 19}
-        color={specialist.isFavorite ? theme.secondary : theme.textMuted}
-      />
-    </AnimatedPressable>
-  );
-
-  const renderPrimarySpecialist = () => {
-    if (!primarySpecialist) return null;
-    const isActiveSession = primarySession?.status === 'PENDING' || primarySession?.status === 'CONFIRMED';
-    const sessionLabel = isActiveSession ? 'Cita en curso' : 'Última sesión';
-    const avatarUri = primarySpecialist.avatar;
-    const showAvatarImage = Boolean(avatarUri && !failedAvatarUris.has(avatarUri));
-
-    return (
-      <View style={styles.primarySection}>
-        <View style={styles.primaryHeader}>
-          <View>
-            <Text style={styles.primaryEyebrow}>Tu especialista</Text>
-            <Text style={styles.primaryTitle}>Continúa con {primarySpecialist.name}</Text>
-          </View>
-          {user?.type === 'client' ? renderFavoriteButton(primarySpecialist) : null}
-        </View>
-        <AnimatedPressable
-          onPress={() => handleSpecialistPress(primarySpecialist.id)}
-          pressScale={0.985}
-          style={styles.primaryCard}
-        >
-          <View style={[styles.primaryCardInner, { backgroundColor: isDark ? theme.bgElevated : theme.bgCard }]}>
-            <View style={styles.primaryAvatar}>
-              {showAvatarImage ? (
-                <Image
-                  source={{ uri: avatarUri ?? undefined }}
-                  style={[styles.primaryAvatarImage, { backgroundColor: theme.bgCard }]}
-                  onError={() => {
-                    if (avatarUri) {
-                      setFailedAvatarUris(prev => new Set(prev).add(avatarUri));
-                    }
-                  }}
-                />
-              ) : (
-                <Text style={styles.primaryAvatarInitial}>{primarySpecialist.initial}</Text>
-              )}
-            </View>
-            <View style={styles.primaryCopy}>
-              <View style={styles.primaryPillsRow}>
-                <View style={styles.primaryPill}>
-                  <Ionicons name="calendar-outline" size={13} color={theme.primary} />
-                  <Text style={styles.primaryPillText}>{sessionLabel}</Text>
-                </View>
-                <View style={styles.primaryPill}>
-                  <Ionicons name="star" size={13} color={theme.starRating} />
-                  <Text style={styles.primaryPillText}>{primarySpecialist.rating.toFixed(1)}</Text>
-                </View>
-              </View>
-              <Text style={styles.primaryName}>{primarySpecialist.name}</Text>
-              <Text style={styles.primarySpecialization}>
-                {getProfessionalTypeLabel(
-                  primarySpecialist.professionalType,
-                  primarySpecialist.professionalTypeLabel,
-                )}
-              </Text>
-              <Text style={styles.primaryDescription} numberOfLines={2}>
-                {primarySpecialist.description}
-              </Text>
-            </View>
-            <View style={styles.primaryActions}>
-              <Button
-                variant="primary"
-                size="medium"
-                onPress={() => handleSpecialistPress(primarySpecialist.id)}
-                icon={<Ionicons name="arrow-forward" size={16} color={theme.textOnPrimary} />}
-                iconPosition="right"
-              >
-                Ver perfil
-              </Button>
-            </View>
-          </View>
-        </AnimatedPressable>
-      </View>
-    );
-  };
-
-  const renderFavoritesSection = () => {
-    if (favoriteSpecialists.length === 0) return null;
-
-    return (
-      <View style={styles.favoriteSection}>
-        <View style={styles.resultsHeader}>
-          <Text style={styles.resultsTitle}>Favoritos</Text>
-          <Text style={styles.resultsMeta}>Privado para ti</Text>
-        </View>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.favoritesRail}
-        >
-          {favoriteSpecialists.map((specialist) => {
-            const avatarUri = specialist.avatar;
-            const showAvatarImage = Boolean(avatarUri && !failedAvatarUris.has(avatarUri));
-
-            return (
-              <AnimatedPressable
-                key={`favorite-${specialist.id}`}
-                onPress={() => handleSpecialistPress(specialist.id)}
-                style={styles.favoriteCard}
-                pressScale={0.98}
-              >
-                {renderFavoriteButton(specialist, true)}
-                <View style={styles.favoriteAvatar}>
-                  {showAvatarImage ? (
-                    <Image
-                      source={{ uri: avatarUri ?? undefined }}
-                      style={[styles.favoriteAvatarImage, { backgroundColor: theme.bgCard }]}
-                      onError={() => {
-                        if (avatarUri) {
-                          setFailedAvatarUris(prev => new Set(prev).add(avatarUri));
-                        }
-                      }}
-                    />
-                  ) : (
-                    <Text style={styles.favoriteAvatarInitial}>{specialist.initial}</Text>
-                  )}
-                </View>
-                <Text style={styles.favoriteName} numberOfLines={1}>{specialist.name}</Text>
-                <Text style={styles.favoriteSpec} numberOfLines={2}>
-                  {getProfessionalTypeLabel(specialist.professionalType, specialist.professionalTypeLabel)}
-                </Text>
-              </AnimatedPressable>
-            );
-          })}
-        </ScrollView>
-      </View>
-    );
-  };
-
-  const activeFilterCount = specialties.length + approaches.length + selectedFilters.length
-    + selectedProfessionalTypes.length + Number(Boolean(language)) + Number(Boolean(religion))
-    + Number(proximityEnabled);
-
-  const clearFilters = () => {
-    setSpecialties([]);
-    setApproaches([]);
-    setSelectedFilters([]);
-    setSelectedProfessionalTypes([]);
-    setLanguage(undefined);
-    setReligion(undefined);
-    setProximityEnabled(false);
-    if (sortOption === 'distance') setSortOption('recommended');
-  };
-
-  const renderEmptyState = () => (
-    <View style={styles.emptyState}>
-      <View style={styles.stateIconWrap}>
-        <Ionicons name="search-outline" size={42} color={theme.textMuted} />
-      </View>
-      <Text style={styles.stateTitle}>No encontramos especialistas</Text>
-      <Text style={styles.stateDescription}>
-        Prueba con otra búsqueda o ajusta los filtros para ampliar resultados.
-      </Text>
-      {(searchQuery || activeFilterCount > 0) ? (
-        <Button
-          variant="outline"
-          onPress={() => {
-            setSearchQuery('');
-            clearFilters();
-          }}
-        >
-          Limpiar filtros
-        </Button>
-      ) : null}
-    </View>
-  );
-
-  const renderErrorState = () => (
-    <View style={styles.emptyState}>
-      <View style={styles.stateIconWrap}>
-        <Ionicons name="alert-circle-outline" size={44} color={theme.warning} />
-      </View>
-      <Text style={styles.stateTitle}>No se pudo cargar el listado</Text>
-      <Text style={styles.stateDescription}>{error}</Text>
-      <Button
-        variant="primary"
-        onPress={() => fetchSpecialists()}
-        icon={<Ionicons name="refresh" size={16} color={theme.textOnPrimary} />}
-      >
-        Reintentar
-      </Button>
-    </View>
-  );
-
-  const renderPostsEmptyState = () => (
-    <View style={styles.emptyState}>
-      <View style={styles.stateIconWrap}>
-        <Ionicons name="document-text-outline" size={42} color={theme.textMuted} />
-      </View>
-      <Text style={styles.stateTitle}>Publicaciones, pronto</Text>
-      <Text style={styles.stateDescription}>
-        Aquí mostraremos contenido útil creado por especialistas cuando activemos esta parte.
-      </Text>
-    </View>
-  );
-
-  const renderGrid = () => {
-    const rows = [];
-    for (let i = 0; i < filteredSpecialists.length; i += gridColumns) {
-      const rowItems = filteredSpecialists.slice(i, i + gridColumns);
-      rows.push(
-          <View key={i} style={styles.gridRow}>
-            {rowItems.map((specialist, index) => (
-            <View key={specialist.id} style={[styles.gridItem, { width: gridItemWidth }]}>
-              <SpecialistCardGrid
-                specialist={specialist}
-                position={i + index < 3 ? (i + index + 1) as 1 | 2 | 3 : undefined}
-                onPress={() => handleSpecialistPress(specialist.id)}
-                onToggleFavorite={user?.type === 'client' ? () => handleToggleFavorite(specialist.id) : undefined}
-              />
-            </View>
-          ))}
-        </View>,
-      );
+  const setProximity = (distance?: number) => {
+    if (distance !== undefined && location) {
+      setFilters(current => ({ ...current, near: true, ...location, maxDistance: distance, modality: 'IN_PERSON' }));
+      setSort('distance');
+    } else {
+      setFilters(current => ({ ...current, near: undefined, lat: undefined, lng: undefined, maxDistance: undefined }));
+      if (sort === 'distance') setSort('recommended');
     }
-    return rows;
   };
+  const setModality = (modality?: PublicSpecialistModality) => {
+    setFilters(current => ({ ...current, modality,
+      ...(modality !== 'IN_PERSON' ? { near: undefined, lat: undefined, lng: undefined, maxDistance: undefined } : {}) }));
+    if (modality !== 'IN_PERSON' && sort === 'distance') setSort('recommended');
+  };
+  const submitSearch = () => {
+    const value = queryInput.trim();
+    if (value.length === 1 || value.length > 80) { setSearchError('Escribe entre 2 y 80 caracteres para buscar.'); return; }
+    setSearchError(undefined); setQuery(value);
+  };
+  const activeFilters: { key: string; label: string; remove: () => void }[] = [];
+  if (query) activeFilters.push({ key: 'q', label: `«${query}»`, remove: () => { setQuery(''); setQueryInput(''); setSearchError(undefined); } });
+  for (const value of filters.specialties ?? []) activeFilters.push({ key: `s-${value}`, label: optionLabel(SPECIALTIES, value), remove: () => update('specialties', filters.specialties?.filter(item => item !== value)) });
+  for (const value of filters.approaches ?? []) activeFilters.push({ key: `a-${value}`, label: optionLabel(APPROACHES, value), remove: () => update('approaches', filters.approaches?.filter(item => item !== value)) });
+  if (filters.language) activeFilters.push({ key: 'language', label: optionLabel(options?.languages ?? [], filters.language), remove: () => update('language', undefined) });
+  if (filters.religion) activeFilters.push({ key: 'religion', label: optionLabel(options?.religions ?? [], filters.religion), remove: () => update('religion', undefined) });
+  if (filters.professionalType) activeFilters.push({ key: 'type', label: PROFESSIONS.find(item => item.value === filters.professionalType)?.label ?? '', remove: () => update('professionalType', undefined) });
+  if (filters.modality) activeFilters.push({ key: 'modality', label: MODALITIES.find(item => item.value === filters.modality)?.label ?? '', remove: () => setModality(undefined) });
+  if (filters.maxPrice !== undefined) activeFilters.push({ key: 'price', label: `Hasta ${filters.maxPrice} €`, remove: () => update('maxPrice', undefined) });
+  if (filters.minRating) activeFilters.push({ key: 'rating', label: `${String(filters.minRating).replace('.', ',')} estrellas o más`, remove: () => update('minRating', undefined) });
+  if (filters.near) activeFilters.push({ key: 'near', label: `Hasta ${filters.maxDistance} km`, remove: () => setProximity() });
+  const hasServerFilters = Boolean(filters.specialties?.length || filters.approaches?.length || filters.language || filters.religion
+    || filters.professionalType || filters.modality || filters.maxPrice !== undefined || filters.minRating || filters.near);
+  const favorites = data.personalization?.favoriteSpecialists ?? EMPTY_SPECIALISTS;
+  const favoriteIds = data.personalization?.favoriteSpecialistIds ?? EMPTY_IDS;
+  const matched = data.matches?.specialists ?? EMPTY_SPECIALISTS;
+  const effectiveSort = sort === 'recommended' && !matched.length ? 'name' : sort;
+  // Personalization can contain a legacy price; the current directory owns offer details.
+  const source = useMemo(() => tab === 'favorites' && !hasServerFilters
+    ? favorites.map(item => data.available.find(current => current.id === item.id) ?? item)
+    : data.available, [tab, hasServerFilters, favorites, data.available]);
+  const cards = useMemo(() => searchAndSortPatientCards(
+    patientDirectoryCards(source, matched, filters).filter(card => tab !== 'favorites' || favoriteIds.includes(card.id)), query, effectiveSort,
+  ), [source, matched, filters, tab, favoriteIds, query, effectiveSort]);
+  const sortOptions: { label: string; value: PatientDirectorySort }[] = [
+    ...(matched.length ? [{ label: 'Recomendaciones', value: 'recommended' as const }] : []),
+    { label: 'Nombre: A–Z', value: 'name' }, { label: 'Mejor valorados', value: 'rating' },
+    { label: 'Precio: menor primero', value: 'price_low' }, { label: 'Precio: mayor primero', value: 'price_high' },
+    ...(filters.near ? [{ label: 'Más cercanos', value: 'distance' as const }] : []),
+  ];
+  const openProfile = (card: PatientDirectoryCard) => navigation.navigate('SpecialistDetail', { specialistId: card.id, optionId: card.matchedOptionId ?? undefined });
+  const original = (id: string): SpecialistData | undefined => source.find(item => item.id === id) ?? favorites.find(item => item.id === id)
+    ?? (data.personalization?.primarySpecialist?.specialist.id === id ? data.personalization.primarySpecialist.specialist : undefined);
+  const favoriteState = (id: string): DirectoryFavoriteState => ({ selected: favoriteIds.includes(id), busy: data.pendingIds.has(id),
+    disabled: data.personalLoading || data.personalError || !data.personalization,
+    onPress: () => { const item = original(id); if (item) void data.toggleFavorite(item); } });
+  const renderCard = (card: PatientDirectoryCard) => <DirectorySpecialistCard key={card.id} specialist={card}
+    compactDirectory={cardWidth >= 460} mobileDirectory={mobile} profileOptions={options}
+    onPress={() => openProfile(card)} style={styles.card} priceIsSelection={Boolean(card.matchedOptionId)} priceUnavailable={!card.publicOptions?.length} distanceKm={filters.near ? card.distance : undefined}
+    favorite={isClient ? favoriteState(card.id) : undefined} />;
 
-  if (error) {
-    return <View style={styles.screen}>{renderErrorState()}</View>;
-  }
+  const filterPanel = <View style={[styles.filters, desktop && styles.filterSurface, desktop && surface]}>
+    {desktop ? <Text accessibilityRole="header" style={[styles.filterTitle, label, { fontFamily: theme.fontDisplay }]}>Filtros</Text> : null}
+    <SearchableProfileSelect label="¿En qué necesitas apoyo?" options={SPECIALTIES} values={filters.specialties ?? []}
+      onChange={values => update('specialties', values)} multiple max={22} emptyLabel="Todas las especialidades" />
+    <View style={styles.field}><Text style={label}>Modalidad de consulta</Text>
+      <SimpleDropdown options={MODALITIES} value={filters.modality ?? null} onSelect={setModality} onClear={() => setModality(undefined)}
+        placeholder="Cualquier modalidad" accessibilityLabel="Modalidad" compact presentation="portal" portalAnimation="none" focusOptionOnShow keyboardNavigation />
+    </View>
+    <SearchableProfileSelect label="Idioma de las sesiones" options={options?.languages ?? []} values={filters.language ? [filters.language] : []}
+      disabled={!options} renderIcon={renderLanguageIcon} onChange={values => update('language', values[0])} emptyLabel="Cualquiera" />
+    <View style={styles.field}><Text style={label}>Precio por sesión</Text>
+      <SimpleDropdown options={PRICES} value={filters.maxPrice ?? null} onSelect={value => update('maxPrice', value)} onClear={() => update('maxPrice', undefined)}
+        placeholder="Cualquier precio" accessibilityLabel="Precio" compact presentation="portal" portalAnimation="none" focusOptionOnShow keyboardNavigation />
+    </View>
+    <SearchableProfileSelect label="Enfoque terapéutico" options={APPROACHES} values={filters.approaches ?? []}
+      onChange={values => update('approaches', values)} multiple max={12} emptyLabel="Cualquier enfoque" />
+    <View style={styles.field}><Text style={label}>Tipo de profesional</Text>
+      <SimpleDropdown options={PROFESSIONS} value={filters.professionalType ?? null} onSelect={value => update('professionalType', value)} onClear={() => update('professionalType', undefined)}
+        placeholder="Todos los tipos" accessibilityLabel="Tipo de profesional" compact presentation="portal" portalAnimation="none" focusOptionOnShow keyboardNavigation />
+    </View>
+    <View style={styles.field}><Text style={label}>Valoraciones</Text>
+      <SimpleDropdown options={RATINGS} value={filters.minRating ?? null} onSelect={value => update('minRating', value)} onClear={() => update('minRating', undefined)}
+        placeholder="Cualquier valoración" accessibilityLabel="Valoración" compact presentation="portal" portalAnimation="none" focusOptionOnShow keyboardNavigation />
+    </View>
+    {isClient ? <View style={styles.field}><Text style={label}>Cerca de mí</Text>
+      {location ? <SimpleDropdown options={DISTANCES} value={filters.near ? filters.maxDistance ?? 10 : null} onSelect={setProximity} onClear={() => setProximity()}
+        placeholder="Sin límite de distancia" accessibilityLabel="Distancia" compact presentation="portal" portalAnimation="none" focusOptionOnShow keyboardNavigation />
+        : locationState === 'loading' ? <Text style={text}>Consultando tu ubicación…</Text>
+          : <Button variant="outline" onPress={() => locationState === 'error' ? setLocationAttempt(value => value + 1) : navigation.navigate('Profile')}>
+            {locationState === 'error' ? 'Reintentar ubicación' : 'Añadir ubicación al perfil'}</Button>}
+      <Text style={[text, styles.small]}>La distancia se aplica a consultas presenciales.</Text>
+    </View> : null}
+    {options?.religionEnabled ? <>
+      <Pressable accessibilityRole="button" accessibilityState={{ expanded: moreFiltersOpen }} onPress={() => setMoreFiltersOpen(value => !value)} style={styles.textButton}>
+        <Text style={[label, { color: theme.primary }]}>Más filtros{filters.religion ? ' · 1' : ''}</Text>
+        <Ionicons name={moreFiltersOpen ? 'chevron-up' : 'chevron-down'} size={16} color={theme.primary} />
+      </Pressable>
+      {moreFiltersOpen ? <SearchableProfileSelect label="Perspectiva espiritual o religiosa" options={options.religions} values={filters.religion ? [filters.religion] : []}
+        onChange={values => update('religion', values[0])} emptyLabel="Cualquiera" /> : null}
+    </> : null}
+    {optionsError ? <Button variant="outline" onPress={retryOptions}>Reintentar opciones de filtros</Button> : null}
+  </View>;
 
-  return (
-    <View style={styles.screen}>
+  const needsDirectory = tab === 'all' || hasServerFilters;
+  const resultsLoading = (needsDirectory && data.loading) || (tab === 'favorites' && data.personalLoading && !data.personalization);
+  const resultsError = (needsDirectory && data.error) || (tab === 'favorites' && data.personalError);
+  const primary = data.personalization?.primarySpecialist;
+  const resultCount = `${cards.length} resultado${cards.length === 1 ? '' : 's'}`;
+  return <View testID="patient-directory" style={[styles.screen, { backgroundColor: theme.bgMuted }]} onLayout={event => setWidth(event.nativeEvent.layout.width)}>
+    <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={[styles.content, mobile && styles.mobileContent]}>
       <View style={styles.header}>
-        <View style={styles.headerRow}>
-          <View style={styles.headerCopy}>
-            <Text accessibilityRole="header" style={styles.title}>Encuentra tu especialista</Text>
-            <Text style={styles.subtitle}>
-              Un espacio para encontrar el apoyo que necesitas.
-            </Text>
-          </View>
-
-          {user?.type === 'client' ? renderQuestionnaireAction() : null}
+        <View style={styles.heading}><Text accessibilityRole="header" style={[styles.title, label, mobile && styles.mobileTitle]}>Encuentra tu especialista</Text>
+          <Text style={[text, styles.subtitle]}>Compara perfiles verificados y encuentra el apoyo que necesitas.</Text></View>
+        {isClient ? <Button variant="outline" size="small" disabled={!data.matches || data.matchesError} onPress={() => data.matches?.hasCompletedQuestionnaire
+          ? navigation.navigate('QuestionnaireResults', { adviceId: undefined }) : navigation.navigate('Questionnaire')}>
+          {data.matches?.hasCompletedQuestionnaire ? 'Ver recomendaciones' : 'Hacer cuestionario'}</Button> : null}
+      </View>
+      {data.matchesError ? <View style={styles.notice}><Text style={text}>No se pudieron cargar tus recomendaciones.</Text>
+        <Button variant="outline" onPress={data.retryMatches}>Reintentar recomendaciones</Button></View> : null}
+      <View style={styles.searchRow}>
+        <Input value={queryInput} onChangeText={setQueryInput} placeholder={mobile ? 'Nombre o especialidad' : 'Nombre, profesión o especialidad'} accessibilityLabel="Buscar especialistas"
+          onSubmitEditing={submitSearch} returnKeyType="search" error={searchError} containerStyle={styles.searchInput}
+          leftIcon={<Ionicons name="search-outline" size={22} color={theme.primary} />} />
+        <Button variant="primary" onPress={submitSearch}>Buscar</Button>
+      </View>
+      <View style={styles.toolbar}>
+        <View style={styles.tabs}>
+          {(['all', ...(isClient ? ['favorites'] as const : [])] as const).map(value => <Pressable key={value} accessibilityRole="tab"
+            accessibilityLabel={value === 'all' ? 'Todos' : 'Favoritos'} accessibilityState={{ selected: tab === value }} onPress={() => setTab(value)}
+            style={[styles.tab, { borderBottomColor: tab === value ? theme.primary : 'transparent' }]}>
+            <Text style={[label, { color: tab === value ? theme.primary : theme.textSecondary }]}>
+              {value === 'all' ? 'Todos' : `Favoritos${data.personalization && !data.personalError ? ` · ${favoriteIds.length}` : ''}`}</Text>
+          </Pressable>)}
         </View>
-
-        {activeTab === 'specialists' ? (
-          <View style={styles.searchRow}>
-            <View style={styles.searchWrap}>
-              <SearchBar value={searchQuery} onChangeText={setSearchQuery} placeholder={isMobile ? 'Buscar especialista…' : undefined} />
-            </View>
-            <AnimatedPressable
-              onPress={() => setFiltersOpen(true)}
-              hoverLift={false}
-              accessibilityLabel={activeFilterCount ? `Filtros: ${activeFilterCount} ${activeFilterCount === 1 ? 'activo' : 'activos'}` : 'Abrir filtros'}
-              accessibilityState={{ expanded: filtersOpen }}
-              style={[styles.filterButton, activeFilterCount > 0 && styles.filterButtonActive]}
-            >
-              <Ionicons name="options-outline" size={19} color={theme.textPrimary} />
-              <Text style={styles.filterButtonText}>Filtros</Text>
-              {activeFilterCount > 0 ? (
-                <View style={styles.filterCount}><Text style={styles.filterCountText}>{activeFilterCount}</Text></View>
-              ) : null}
-            </AnimatedPressable>
-          </View>
-        ) : null}
-
-        <View style={styles.navigationRow}>
-            <View style={styles.tabsRow}>
-              {(['specialists', 'posts'] as const).map((tab) => {
-                const active = activeTab === tab;
-                return (
-                  <AnimatedPressable
-                    key={tab}
-                    onPress={() => setActiveTab(tab)}
-                    hoverLift={false}
-                    accessibilityRole="tab"
-                    accessibilityState={{ selected: active }}
-                    style={[styles.tab, active ? styles.tabActive : undefined]}
-                  >
-                    <Text style={[styles.tabText, active ? styles.tabTextActive : null]}>
-                      {tab === 'specialists' ? 'Especialistas' : 'Publicaciones'}
-                    </Text>
-                  </AnimatedPressable>
-                );
-              })}
-            </View>
-
-          {activeTab === 'specialists' ? <ViewToggle viewMode={viewMode} onViewModeChange={setViewMode} /> : null}
+        <View style={styles.toolbarActions}>
+          {!desktop ? <Button variant="outline" accessibilityLabel={activeFilters.length ? `Filtros: ${activeFilters.length} activos` : 'Abrir filtros'} onPress={() => setFiltersOpen(true)}>
+            {`Filtros${activeFilters.length ? ` · ${activeFilters.length}` : ''}`}</Button> : null}
+          <View style={styles.sort}><SimpleDropdown options={sortOptions} value={effectiveSort} onSelect={setSort} accessibilityLabel="Ordenar especialistas"
+            compact presentation="portal" portalAnimation="none" focusOptionOnShow keyboardNavigation selectionIndicator="radio" highlightSelection={false} optionsAlign="right" /></View>
         </View>
       </View>
-
-      <DirectoryFiltersSheet
-        visible={filtersOpen}
-        onClose={() => setFiltersOpen(false)}
-        onClear={clearFilters}
-        hasFilters={activeFilterCount > 0}
-      >
-        <View style={styles.filterPanel}>
-          <Text style={styles.subtitle}>Ajusta la búsqueda a lo que necesitas.</Text>
-
-            {user?.type === 'client' ? (
-              <LocationFilterDropdown
-                fullWidth
-                enabled={proximityEnabled}
-                maxDistance={maxDistance}
-                distanceOptions={DISTANCE_OPTIONS}
-                hasLocation={clientLocation.hasLocation}
-                onToggleEnabled={toggleProximity}
-                onDistanceChange={(distance) => {
-                  setMaxDistance(distance);
-                  if (!proximityEnabled && clientLocation.hasLocation) {
-                    setProximityEnabled(true);
-                  }
-                  fetchSpecialists(true, distance);
-                }}
-              />
-            ) : null}
-
-          <View style={styles.filterFields}>
-            <SearchableProfileSelect label="Especialidades" options={PROFESSIONAL_SPECIALTY_OPTIONS.map(option => ({...option, aliases: [...option.aliases]}))} values={specialties} onChange={values => {setSpecialties(values); setShowAllSpecialists(true);}} multiple max={22} emptyLabel="Todas las especialidades" />
-            <SearchableProfileSelect label="Enfoques terapéuticos" options={PROFESSIONAL_THERAPEUTIC_APPROACH_OPTIONS.map(option => ({...option, aliases: [...option.aliases]}))} values={approaches} onChange={values => {setApproaches(values); setShowAllSpecialists(true);}} multiple max={12} emptyLabel="Todos los enfoques" />
-          </View>
-          <ProfileDiscoveryFilters stacked language={language} religion={religion} onChange={values => { setLanguage(values.language); setReligion(values.religion); setShowAllSpecialists(true); }} />
-          <View style={styles.filtersRail}>
-            <SearchableProfileSelect
-              label="Tipo profesional"
-              options={PROFESSIONAL_TYPE_OPTIONS.map(option => ({ value: option.id, label: option.label, aliases: [] }))}
-              values={selectedProfessionalTypes}
-              onChange={values => setSelectedProfessionalTypes(PROFESSIONAL_TYPE_OPTIONS.filter(option => values.includes(option.id)).map(option => option.id))}
-              multiple
-              emptyLabel="Todos los tipos"
-            />
-            <SearchableProfileSelect
-              label="Motivo de consulta"
-              options={FILTER_OPTIONS.map(option => ({ value: option.id, label: option.label, aliases: [] }))}
-              values={selectedFilters}
-              onChange={setSelectedFilters}
-              multiple
-              emptyLabel="Todas las áreas"
-            />
+      {activeFilters.length ? <View style={styles.chips}>
+        {activeFilters.map(filter => <Pressable key={filter.key} accessibilityRole="button" accessibilityLabel={`Quitar filtro: ${filter.label}`}
+          onPress={filter.remove} style={[styles.chip, { backgroundColor: theme.secondaryMuted }]}>
+          <Text style={[text, styles.small]}>{filter.label}</Text><Ionicons name="close" size={14} color={theme.textPrimary} />
+        </Pressable>)}
+        <Pressable accessibilityRole="button" accessibilityLabel="Limpiar filtros" onPress={clear} style={styles.textButton}>
+          <Text style={[label, { color: theme.primary }]}>Limpiar filtros</Text>
+        </Pressable>
+      </View> : null}
+      {data.personalError && tab === 'all' ? <View style={styles.notice}><Text style={text}>No se pudieron cargar tus favoritos y tu especialista. Puedes seguir explorando.</Text>
+        <Button variant="outline" onPress={data.retryPersonalization}>Reintentar favoritos</Button></View> : null}
+      {data.favoriteError ? <Text accessibilityRole="alert" style={[text, { color: theme.error }]}>{data.favoriteError}</Text> : null}
+      <View style={[styles.layout, desktop && styles.desktopLayout]}>
+        {desktop ? <View style={styles.sidebar}>{filterPanel}</View> : null}
+        <View style={styles.results}>
+          {tab === 'all' && primary && !data.personalError ? <View style={[styles.continuity, surface]}>
+            <View style={styles.continuityHeading}><Text style={[text, styles.small]}>TU ESPECIALISTA</Text>
+              <Text style={[label, styles.continuityName]}>Continúa con {primary.specialist.user.name}</Text></View>
+            <Button variant="outline" size="small" onPress={() => openProfile(toPatientDirectoryCard(primary.specialist))}>Ver perfil</Button>
+            <DirectoryFavoriteButton name={primary.specialist.user.name} state={favoriteState(primary.specialist.id)} />
+          </View> : null}
+          <View style={styles.resultsHeading}><Text accessibilityRole="header" style={label}>{tab === 'all' ? 'Especialistas disponibles' : 'Tus favoritos'}</Text>
+            <Text style={[text, styles.small]}>{tab === 'favorites' ? 'Privado para ti' : !resultsLoading && !resultsError ? resultCount : ''}</Text></View>
+          {tab === 'favorites' && !resultsLoading && !resultsError && favoriteIds.length > 0 ? <Text style={[text, styles.resultCount]}>{resultCount}</Text> : null}
+          {resultsLoading ? <View accessibilityLabel="Cargando especialistas" style={styles.state}><ActivityIndicator color={theme.primary} /><Text style={text}>Cargando especialistas…</Text></View>
+            : resultsError ? <View style={styles.state}><Text accessibilityRole="alert" style={label}>{tab === 'favorites' && data.personalError ? 'No se pudieron cargar tus favoritos' : 'No se pudo cargar el listado'}</Text>
+              <Button variant="outline" onPress={tab === 'favorites' && data.personalError ? data.retryPersonalization : data.retry}>Reintentar</Button></View>
+              : cards.length === 0 ? <View style={styles.state}><Ionicons name={tab === 'favorites' ? 'heart-outline' : 'search-outline'} size={32} color={theme.primary} />
+                <Text style={[label, styles.emptyTitle]}>{tab === 'favorites' && !favoriteIds.length ? 'Todavía no tienes favoritos' : 'No encontramos especialistas'}</Text>
+                <Text style={[text, styles.emptyCopy]}>{tab === 'favorites' && !favoriteIds.length ? 'Guarda los perfiles que te interesen pulsando el corazón. Solo tú puedes verlos.' : 'Prueba con otra búsqueda o ajusta los filtros para ampliar resultados.'}</Text>
+                {tab === 'favorites' && !favoriteIds.length ? <Button variant="outline" onPress={() => setTab('all')}>Explorar especialistas</Button> : activeFilters.length ? <Button variant="outline" onPress={clear}>Limpiar filtros</Button> : null}
+              </View> : null}
+          <View testID="patient-directory-grid" onLayout={event => setGridWidth(event.nativeEvent.layout.width)} style={styles.grid}>
+            {!resultsLoading && !resultsError ? Array.from({ length: Math.ceil(cards.length / columns) }, (_, index) => <View key={index} style={styles.row}>
+              {cards.slice(index * columns, (index + 1) * columns).map(card => <View key={card.id} style={styles.cell}>{renderCard(card)}</View>)}
+              {columns === 2 && index * columns + 1 === cards.length ? <View style={styles.cell} /> : null}
+            </View>) : null}
           </View>
         </View>
-
-      </DirectoryFiltersSheet>
-
-      {activeTab === 'specialists' ? (
-        <ScrollView
-          style={styles.scroll}
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-        >
-          {!loading ? renderPrimarySpecialist() : null}
-          {!loading ? renderFavoritesSection() : null}
-
-          {primarySpecialist && !showAllSpecialists && !loading ? (
-            <View style={styles.revealListCard}>
-              <View style={styles.revealCopy}>
-                <Text style={styles.revealTitle}>También puedes explorar otros especialistas</Text>
-                <Text style={styles.revealSubtitle}>
-                  Tu especialista aparece primero, pero la lista completa sigue disponible cuando quieras comparar.
-                </Text>
-              </View>
-              <Button
-                variant="outline"
-                onPress={() => setShowAllSpecialists(true)}
-                icon={<Ionicons name="list-outline" size={16} color={theme.primary} />}
-              >
-                Ver todos los especialistas
-              </Button>
-            </View>
-          ) : null}
-
-          {(!primarySpecialist || showAllSpecialists) ? (
-            <>
-              <View style={styles.resultsHeader}>
-                <Text style={styles.resultsTitle}>Especialistas disponibles</Text>
-                {!loading ? (
-                  <Text style={styles.resultsMeta}>
-                    {filteredSpecialists.length} resultado{filteredSpecialists.length !== 1 ? 's' : ''}
-                  </Text>
-                ) : null}
-              </View>
-
-              {loading ? <SpecialistsLoadingState count={6} viewMode={viewMode} /> : null}
-              {!loading && filteredSpecialists.length === 0 ? renderEmptyState() : null}
-              {!loading && filteredSpecialists.length > 0 && viewMode === 'grid' ? renderGrid() : null}
-              {!loading && filteredSpecialists.length > 0 && viewMode === 'list' ? (
-                <View style={styles.listWrap}>
-                  {filteredSpecialists.map((specialist, index) => (
-                    <SpecialistListItem
-                      key={specialist.id}
-                      specialist={specialist}
-                      position={index < 3 ? (index + 1) as 1 | 2 | 3 : undefined}
-                      onPress={() => handleSpecialistPress(specialist.id)}
-                      onToggleFavorite={user?.type === 'client' ? () => handleToggleFavorite(specialist.id) : undefined}
-                    />
-                  ))}
-                </View>
-              ) : null}
-            </>
-          ) : null}
-        </ScrollView>
-      ) : (
-        <View style={styles.postsWrap}>
-          {renderPostsEmptyState()}
-        </View>
-      )}
-    </View>
-  );
-};
-
-function getSortLabel(sortOption: SortOption) {
-  switch (sortOption) {
-    case 'recommended':
-      return 'Recomendaciones';
-    case 'rating':
-      return 'Valoración';
-    case 'price_low':
-      return 'Precio bajo';
-    case 'price_high':
-      return 'Precio alto';
-    case 'distance':
-      return 'Distancia';
-    default:
-      return 'Ordenar';
-  }
+      </View>
+    </ScrollView>
+    {!desktop ? <DirectoryFiltersSheet visible={filtersOpen} onClose={() => setFiltersOpen(false)} onClear={clear} hasFilters={activeFilters.length > 0}>{filterPanel}</DirectoryFiltersSheet> : null}
+  </View>;
 }
 
-function createStyles(theme: Theme, isDark: boolean, isMobile: boolean) {
-  return StyleSheet.create({
-    screen: {
-      flex: 1,
-      backgroundColor: theme.bg,
-    },
-    header: {
-      backgroundColor: theme.bgCard,
-      paddingTop: isMobile ? spacing.md : spacing.lg,
-      paddingHorizontal: isMobile ? spacing.md : spacing.lg,
-      gap: spacing.md,
-      borderBottomWidth: 1,
-      borderBottomColor: theme.borderLight,
-    },
-    headerRow: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      gap: spacing.sm,
-    },
-    headerCopy: {
-      flexGrow: 1,
-      flexShrink: 1,
-      flexBasis: 340,
-      gap: 6,
-    },
-    title: {
-      fontSize: isMobile ? 24 : 28,
-      lineHeight: isMobile ? 31 : 36,
-      letterSpacing: -0.6,
-      fontFamily: theme.fontSansBold,
-      color: theme.textPrimary,
-    },
-    subtitle: {
-      fontSize: 14,
-      fontFamily: theme.fontSans,
-      color: theme.textSecondary,
-      lineHeight: 20,
-      maxWidth: 560,
-    },
-    searchRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.sm,
-    },
-    searchWrap: {
-      minWidth: 0,
-      flex: 1,
-    },
-    filterButton: {
-      minHeight: 48,
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: 8,
-      paddingHorizontal: 14,
-      borderRadius: 12,
-      borderWidth: 1,
-      borderColor: theme.border,
-    },
-    filterButtonActive: { backgroundColor: theme.primaryAlpha12, borderColor: theme.primaryAlpha20 },
-    filterButtonText: { fontSize: 14, fontFamily: theme.fontSansSemiBold, color: theme.textPrimary },
-    filterCount: { minWidth: 22, height: 22, paddingHorizontal: 5, borderRadius: 11, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.primary },
-    filterCountText: { fontSize: 12, fontFamily: theme.fontSansSemiBold, color: theme.textOnPrimary },
-    navigationRow: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      gap: spacing.sm,
-      paddingBottom: spacing.sm,
-    },
-    filterPanel: { padding: spacing.lg, gap: spacing.lg },
-    filterFields: { gap: spacing.lg },
-    proximityWrap: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.sm,
-      flexWrap: 'wrap',
-    },
-    proximityToggle: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 8,
-      alignSelf: 'flex-start',
-      paddingHorizontal: 12,
-      paddingVertical: 8,
-      borderRadius: 999,
-      backgroundColor: isDark ? theme.bgElevated : theme.bgAlt,
-      borderWidth: 1.5,
-      borderColor: theme.primary,
-    },
-    proximityToggleActive: {
-      backgroundColor: theme.primary,
-    },
-    proximityText: {
-      fontSize: 13,
-      fontFamily: theme.fontSansSemiBold,
-      color: theme.primary,
-    },
-    proximityTextActive: {
-      color: theme.textOnPrimary,
-    },
-    distanceScroll: {
-      gap: spacing.sm,
-      paddingBottom: 2,
-    },
-    distanceChip: {
-      paddingHorizontal: 10,
-      paddingVertical: 7,
-      borderRadius: 999,
-      backgroundColor: isDark ? theme.bgElevated : theme.bgAlt,
-      borderWidth: 1,
-      borderColor: theme.border,
-    },
-    distanceChipActive: {
-      backgroundColor: theme.primary,
-      borderColor: theme.primary,
-    },
-    distanceChipText: {
-      fontSize: 12,
-      fontFamily: theme.fontSansMedium,
-      color: theme.textSecondary,
-    },
-    distanceChipTextActive: {
-      color: theme.textOnPrimary,
-      fontFamily: theme.fontSansBold,
-    },
-    hintText: {
-      paddingHorizontal: spacing.lg,
-      paddingTop: spacing.xs,
-      fontSize: 12,
-      fontFamily: theme.fontSans,
-      color: theme.textMuted,
-    },
-    filtersRail: {
-      gap: spacing.lg,
-    },
-    tabsRow: {
-      flexDirection: 'row',
-      gap: isMobile ? 12 : spacing.md,
-    },
-    tab: {
-      minHeight: 44,
-      justifyContent: 'center',
-      borderBottomWidth: 2,
-      borderBottomColor: 'transparent',
-    },
-    tabActive: {
-      borderBottomColor: theme.primary,
-    },
-    tabText: {
-      fontSize: isMobile ? 12 : 13,
-      fontFamily: theme.fontSansSemiBold,
-      color: theme.textSecondary,
-    },
-    tabTextActive: {
-      color: theme.primaryDark,
-    },
-    questionnaireAction: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      alignSelf: 'flex-start',
-      gap: 7,
-      minHeight: 42,
-      paddingHorizontal: 14,
-      paddingVertical: 9,
-      borderRadius: 10,
-    },
-    questionnaireActionCompact: {
-      width: 42,
-      minWidth: 42,
-      height: 42,
-      minHeight: 42,
-      justifyContent: 'center',
-      paddingHorizontal: 0,
-      paddingVertical: 0,
-      gap: 0,
-      borderRadius: 14,
-    },
-    questionnaireActionActive: {
-      backgroundColor: theme.primaryAlpha12,
-    },
-    questionnaireActionText: {
-      fontSize: 12,
-      fontFamily: theme.fontSansSemiBold,
-      color: theme.textSecondary,
-    },
-    questionnaireActionTextActive: {
-      color: theme.primaryDark,
-    },
-    scroll: {
-      flex: 1,
-    },
-    scrollContent: {
-      paddingHorizontal: spacing.lg,
-      paddingTop: spacing.lg,
-      paddingBottom: spacing.xxxl,
-      gap: spacing.lg,
-    },
-    heroBanner: {
-      borderRadius: 24,
-      overflow: 'hidden',
-      shadowColor: theme.shadowPrimary,
-      shadowOffset: { width: 0, height: 12 },
-      shadowOpacity: 0.9,
-      shadowRadius: 24,
-      elevation: 3,
-    },
-    heroBannerSurface: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.md,
-      padding: spacing.lg,
-      justifyContent: 'space-between',
-      flexWrap: 'wrap',
-    },
-    heroBannerSurfaceCompact: {
-      paddingVertical: spacing.md,
-    },
-    heroBadge: {
-      width: 48,
-      height: 48,
-      borderRadius: 16,
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: 'rgba(255,255,255,0.16)',
-    },
-    heroCopy: {
-      flex: 1,
-      minWidth: 220,
-    },
-    heroTitle: {
-      fontSize: 18,
-      fontFamily: theme.fontSansBold,
-      color: theme.textOnPrimary,
-      marginBottom: 4,
-    },
-    heroSubtitle: {
-      fontSize: 14,
-      fontFamily: theme.fontSans,
-      color: 'rgba(255,255,255,0.86)',
-      lineHeight: 20,
-    },
-    heroAction: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      alignSelf: 'flex-start',
-      gap: 8,
-      minHeight: 44,
-      paddingHorizontal: 16,
-      paddingVertical: 11,
-      borderRadius: 999,
-      backgroundColor: 'rgba(255,255,255,0.16)',
-      borderWidth: 1,
-      borderColor: 'rgba(255,255,255,0.24)',
-      shadowColor: 'rgba(26, 38, 28, 0.22)',
-      shadowOffset: { width: 0, height: 8 },
-      shadowOpacity: 1,
-      shadowRadius: 18,
-      elevation: 2,
-    },
-    heroActionSecondary: {
-      backgroundColor: 'rgba(255,255,255,0.12)',
-    },
-    heroActionText: {
-      fontSize: 13,
-      fontFamily: theme.fontSansBold,
-      color: theme.textOnPrimary,
-    },
-    refineBanner: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.md,
-      padding: spacing.md,
-      borderRadius: 20,
-      backgroundColor: theme.bgCard,
-      borderWidth: 1,
-      borderColor: theme.primaryMuted,
-      shadowColor: theme.shadowCard,
-      shadowOffset: { width: 0, height: 8 },
-      shadowOpacity: 0.6,
-      shadowRadius: 20,
-      elevation: 2,
-    },
-    refineIcon: {
-      width: 44,
-      height: 44,
-      borderRadius: 14,
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: theme.primaryAlpha12,
-    },
-    refineCopy: {
-      flex: 1,
-    },
-    refineTitle: {
-      fontSize: 15,
-      fontFamily: theme.fontSansBold,
-      color: theme.textPrimary,
-      marginBottom: 2,
-    },
-    refineSubtitle: {
-      fontSize: 13,
-      fontFamily: theme.fontSans,
-      color: theme.textSecondary,
-      lineHeight: 19,
-    },
-    refineAction: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 4,
-      paddingHorizontal: 12,
-      paddingVertical: 8,
-      borderRadius: 999,
-      backgroundColor: theme.primaryAlpha12,
-    },
-    refineActionText: {
-      fontSize: 12,
-      fontFamily: theme.fontSansBold,
-      color: theme.primary,
-    },
-    resultsHeader: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      gap: spacing.md,
-    },
-    resultsTitle: {
-      fontSize: 20,
-      fontFamily: theme.fontHeading,
-      color: theme.textPrimary,
-    },
-    resultsMeta: {
-      fontSize: 13,
-      fontFamily: theme.fontSans,
-      color: theme.textMuted,
-    },
-    gridRow: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      alignItems: 'stretch',
-      gap: spacing.md,
-      marginBottom: spacing.md,
-    },
-    gridItem: {
-      minWidth: 280,
-      alignSelf: 'stretch',
-      flexGrow: 0,
-      flexShrink: 0,
-    },
-    listWrap: {
-      gap: spacing.md,
-    },
-    primarySection: {
-      gap: spacing.md,
-    },
-    primaryHeader: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'flex-start',
-      gap: spacing.md,
-    },
-    primaryEyebrow: {
-      fontSize: 12,
-      fontFamily: theme.fontSansBold,
-      color: theme.primary,
-      textTransform: 'uppercase',
-      letterSpacing: 0.8,
-    },
-    primaryTitle: {
-      marginTop: 3,
-      fontSize: 24,
-      fontFamily: theme.fontHeading,
-      color: theme.textPrimary,
-    },
-    primaryCard: {
-      borderRadius: 22,
-      overflow: 'hidden',
-      borderWidth: 1,
-      borderColor: theme.primaryMuted,
-      shadowColor: theme.shadowCard,
-      shadowOffset: { width: 0, height: 14 },
-      shadowOpacity: 0.8,
-      shadowRadius: 28,
-      elevation: 4,
-    },
-    primaryCardInner: {
-      padding: spacing.lg,
-      flexDirection: isMobile ? 'column' : 'row',
-      alignItems: isMobile ? 'flex-start' : 'center',
-      gap: spacing.lg,
-    },
-    primaryAvatar: {
-      width: 86,
-      height: 86,
-      borderRadius: 28,
-      alignItems: 'center',
-      justifyContent: 'center',
-      overflow: 'hidden',
-      backgroundColor: theme.primary,
-    },
-    primaryAvatarImage: {
-      width: 86,
-      height: 86,
-    },
-    primaryAvatarInitial: {
-      fontSize: 34,
-      fontFamily: theme.fontHeading,
-      color: theme.textOnPrimary,
-    },
-    primaryCopy: {
-      flex: 1,
-      minWidth: 0,
-      gap: 6,
-    },
-    primaryPillsRow: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: spacing.sm,
-    },
-    primaryPill: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 6,
-      paddingHorizontal: 10,
-      paddingVertical: 7,
-      borderRadius: 999,
-      backgroundColor: isDark ? theme.bgElevated : theme.bgAlt,
-      borderWidth: 1,
-      borderColor: theme.borderLight,
-    },
-    primaryPillText: {
-      fontSize: 12,
-      fontFamily: theme.fontSansSemiBold,
-      color: theme.textSecondary,
-    },
-    primaryName: {
-      fontSize: 25,
-      fontFamily: theme.fontHeading,
-      color: theme.textPrimary,
-    },
-    primarySpecialization: {
-      fontSize: 14,
-      fontFamily: theme.fontSansSemiBold,
-      color: theme.primary,
-    },
-    primaryDescription: {
-      fontSize: 14,
-      lineHeight: 20,
-      fontFamily: theme.fontSans,
-      color: theme.textSecondary,
-    },
-    primaryActions: {
-      alignSelf: isMobile ? 'stretch' : 'center',
-    },
-    favoriteIconButton: {
-      width: 44,
-      height: 44,
-      borderRadius: 22,
-      alignItems: 'center',
-      justifyContent: 'center',
-      borderWidth: 1,
-    },
-    favoriteIconButtonCompact: {
-      position: 'absolute',
-      top: 10,
-      right: 10,
-      width: 34,
-      height: 34,
-      borderRadius: 17,
-      alignItems: 'center',
-      justifyContent: 'center',
-      borderWidth: 1,
-      zIndex: 2,
-    },
-    favoriteSection: {
-      gap: spacing.md,
-    },
-    favoritesRail: {
-      gap: spacing.md,
-      paddingRight: spacing.lg,
-    },
-    favoriteCard: {
-      width: 164,
-      minHeight: 180,
-      padding: spacing.md,
-      borderRadius: 18,
-      backgroundColor: theme.bgCard,
-      borderWidth: 1,
-      borderColor: theme.borderLight,
-      shadowColor: theme.shadowCard,
-      shadowOffset: { width: 0, height: 8 },
-      shadowOpacity: 0.6,
-      shadowRadius: 18,
-      elevation: 2,
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: 8,
-    },
-    favoriteAvatar: {
-      width: 58,
-      height: 58,
-      borderRadius: 29,
-      overflow: 'hidden',
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: theme.primary,
-    },
-    favoriteAvatarImage: {
-      width: 58,
-      height: 58,
-    },
-    favoriteAvatarInitial: {
-      fontSize: 22,
-      fontFamily: theme.fontHeading,
-      color: theme.textOnPrimary,
-    },
-    favoriteName: {
-      fontSize: 14,
-      fontFamily: theme.fontSansBold,
-      color: theme.textPrimary,
-      textAlign: 'center',
-      width: '100%',
-    },
-    favoriteSpec: {
-      fontSize: 12,
-      lineHeight: 16,
-      fontFamily: theme.fontSans,
-      color: theme.textSecondary,
-      textAlign: 'center',
-    },
-    revealListCard: {
-      padding: spacing.lg,
-      borderRadius: 20,
-      backgroundColor: theme.bgCard,
-      borderWidth: 1,
-      borderColor: theme.borderLight,
-      flexDirection: isMobile ? 'column' : 'row',
-      alignItems: isMobile ? 'stretch' : 'center',
-      justifyContent: 'space-between',
-      gap: spacing.md,
-    },
-    revealCopy: {
-      flex: 1,
-      gap: 4,
-    },
-    revealTitle: {
-      fontSize: 17,
-      fontFamily: theme.fontSansBold,
-      color: theme.textPrimary,
-    },
-    revealSubtitle: {
-      fontSize: 13,
-      lineHeight: 19,
-      fontFamily: theme.fontSans,
-      color: theme.textSecondary,
-    },
-    emptyState: {
-      minHeight: 360,
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingHorizontal: spacing.xl,
-      gap: spacing.md,
-    },
-    stateIconWrap: {
-      width: 82,
-      height: 82,
-      borderRadius: 24,
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: isDark ? theme.bgElevated : theme.bgAlt,
-      borderWidth: 1,
-      borderColor: theme.borderLight,
-    },
-    stateTitle: {
-      fontSize: 22,
-      fontFamily: theme.fontHeading,
-      color: theme.textPrimary,
-      textAlign: 'center',
-    },
-    stateDescription: {
-      maxWidth: 520,
-      fontSize: 15,
-      fontFamily: theme.fontSans,
-      color: theme.textSecondary,
-      textAlign: 'center',
-      lineHeight: 22,
-    },
-    postsWrap: {
-      flex: 1,
-      paddingHorizontal: spacing.lg,
-    },
-  });
+export default function SpecialistsScreen() {
+  const { user } = useAuth();
+  return <PatientSpecialistsScreen key={`${user?.type ?? 'guest'}:${user?.id ?? ''}`} isClient={user?.type === 'client'} />;
 }
 
-export default SpecialistsScreen;
+const styles = StyleSheet.create({
+  screen: { flex: 1, minHeight: 0 },
+  content: { padding: 24, paddingBottom: 48, gap: 20, width: '100%', maxWidth: 1800, alignSelf: 'center' },
+  mobileContent: { padding: 16, gap: 16 },
+  header: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 16 },
+  heading: { flex: 1, minWidth: 200, gap: 6 },
+  title: { fontSize: 30, lineHeight: 38 }, mobileTitle: { fontSize: 25, lineHeight: 32 }, subtitle: { fontSize: 15, lineHeight: 23 },
+  searchRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 }, searchInput: { flex: 1, minWidth: 0, marginBottom: 0 },
+  toolbar: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
+  tabs: { flexDirection: 'row', gap: 24 }, tab: { minHeight: 48, justifyContent: 'center', borderBottomWidth: 2 },
+  toolbarActions: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 12 }, sort: { minWidth: 190, flexShrink: 1 },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center' },
+  chip: { minHeight: 36, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, flexDirection: 'row', alignItems: 'center', gap: 6 },
+  textButton: { minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  small: { fontSize: 12, lineHeight: 18 }, layout: { gap: 24 }, desktopLayout: { flexDirection: 'row', alignItems: 'flex-start' },
+  sidebar: { width: 260 }, filters: { padding: 20, gap: 22 }, filterSurface: { borderWidth: 1, borderRadius: 18 },
+  filterTitle: { fontSize: 28, lineHeight: 34 }, field: { gap: 10 },
+  results: { flex: 1, minWidth: 0, gap: 16 }, resultsHeading: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
+  resultCount: { fontSize: 12, marginTop: -8 }, grid: { gap: 20, width: '100%' }, row: { flexDirection: 'row', gap: 20 }, cell: { flex: 1, minWidth: 0 }, card: { flex: 1 },
+  continuity: { borderWidth: 1, borderRadius: 16, padding: 16, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  continuityHeading: { flex: 1, minWidth: 0, gap: 4 }, continuityName: { fontSize: 15, lineHeight: 22 },
+  notice: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 12 },
+  state: { padding: 32, gap: 16, alignItems: 'center' }, emptyTitle: { fontSize: 20, textAlign: 'center' }, emptyCopy: { maxWidth: 420, textAlign: 'center', lineHeight: 23 },
+});
