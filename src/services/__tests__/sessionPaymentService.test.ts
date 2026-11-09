@@ -12,14 +12,23 @@ jest.mock("expo-secure-store", () => ({
   WHEN_UNLOCKED_THIS_DEVICE_ONLY: "device",
 }));
 jest.mock("expo-web-browser", () => ({ openBrowserAsync: jest.fn() }));
+jest.mock('../specialistsService', () => ({invalidateSpecialistsCache: jest.fn()}));
+import { invalidateSpecialistsCache } from '../specialistsService';
 import { api } from "../api";
 import {
   getPayment,
+  cancelPayment,
   refundPayment,
   openCheckout,
   verifyPaymentAccess,
 } from "../sessionPaymentService";
 import { setItemAsync } from "expo-secure-store";
+
+it('cancelling a paid reservation invalidates recommendations after success', async () => {
+  jest.mocked(api.post).mockResolvedValueOnce({data:{id:'reservation',status:'CANCELLED'}});
+  await cancelPayment('reservation', false, 5000);
+  expect(invalidateSpecialistsCache).toHaveBeenCalledTimes(1);
+});
 
 beforeEach(() => {
   jest.clearAllMocks();

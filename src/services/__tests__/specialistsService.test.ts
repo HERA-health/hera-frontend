@@ -23,6 +23,7 @@ import {
   addFavoriteSpecialist,
   getFavoriteSpecialistStatus,
   getFeaturedSpecialists,
+  getMatchedSpecialists,
   getAllSpecialists,
   getPublicSpecialistDetails,
   getSpecialistDetails,
@@ -42,6 +43,38 @@ import {
 } from '../specialistsService';
 
 const mockedApi = api as jest.Mocked<typeof api>;
+
+test('refreshing recommendations does not invalidate other discovery reads or send client options to the server', async () => {
+  invalidateSpecialistsCache();
+  mockedApi.get.mockReset();
+  const {getSpecialistDiscoveryRevision} = require('../../utils/specialistDiscoveryRevision');
+  const revision = getSpecialistDiscoveryRevision();
+  mockedApi.get.mockResolvedValue({data:{data:{specialists:[],hasCompletedQuestionnaire:true}}});
+  await getMatchedSpecialists();
+  await getMatchedSpecialists({forceRefresh:true});
+  expect(mockedApi.get).toHaveBeenCalledTimes(2);
+  expect(mockedApi.get).toHaveBeenLastCalledWith('/specialists/matched/for-me',{timeout:15000});
+  expect(getSpecialistDiscoveryRevision()).toBe(revision);
+  invalidateSpecialistsCache();
+});
+
+test('targeted matching retry bypasses both caches and earlier responses cannot replace it', async () => {
+  invalidateSpecialistsCache();
+  mockedApi.get.mockReset();
+  const old = {specialists: [], hasCompletedQuestionnaire: true, needsClarification: true};
+  const fresh = {...old, needsClarification: false};
+  let finish!: (value: unknown) => void;
+  mockedApi.get.mockReturnValueOnce(new Promise(resolve => {finish = resolve;}));
+  const pending = getMatchedSpecialists();
+  mockedApi.get.mockResolvedValueOnce({data: {data: fresh}});
+  await expect(getMatchedSpecialists({prioritizeAvailabilityFor: 'last-pro'})).resolves.toEqual(fresh);
+  expect(mockedApi.get).toHaveBeenLastCalledWith('/specialists/matched/for-me', {timeout: 15000, params: {prioritizeAvailabilityFor: 'last-pro'}});
+  finish({data: {data: old}});
+  await pending;
+  await expect(getMatchedSpecialists()).resolves.toEqual(fresh);
+  expect(mockedApi.get).toHaveBeenCalledTimes(2);
+  invalidateSpecialistsCache();
+});
 const mockedWebBrowser = jest.mocked(WebBrowser);
 
 describe('authenticated specialist profile errors', () => {

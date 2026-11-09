@@ -3,6 +3,7 @@ import { Platform } from "react-native";
 import * as SecureStore from "expo-secure-store";
 import * as WebBrowser from "expo-web-browser";
 import { api } from "./api";
+import { invalidateSpecialistsCache } from './specialistsService';
 import { durableCommandKey } from "./heraCommissionService";
 
 export interface PaymentAcceptance {
@@ -128,13 +129,15 @@ export async function cancelPayment(
   expectedRefundCents: number,
 ) {
   const { path, headers } = await paymentAccess(id, guest);
-  return (
+  const payment = (
     await api.post<SessionPayment>(
       `${path}/cancel`,
       { expectedRefundCents },
       { headers },
     )
   ).data;
+  invalidateSpecialistsCache();
+  return payment;
 }
 export const listPayments = async (page = 0) =>
   (

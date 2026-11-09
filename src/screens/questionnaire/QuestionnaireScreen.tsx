@@ -86,6 +86,9 @@ const choiceIcons: Record<string, Record<string, ChoiceIcon>> = {
     'self-esteem': 'sunny-outline',
     solutions: 'bulb-outline',
     growth: 'flower-outline',
+    'trauma-recovery': 'shield-checkmark-outline',
+    boundaries: 'hand-left-outline',
+    'couple-family-conflicts': 'people-circle-outline',
     unsure: 'help-circle-outline',
   },
   previousTherapy: {
@@ -227,10 +230,10 @@ export function QuestionnaireScreen() {
             let next = selected
               ? answerList(answers, field).filter((v) => v !== option.value)
               : [...answerList(answers, field), option.value];
-            if (field === 'concerns' && next.length > 3) {
+            if (field === 'concerns' && next.length > 5) {
               setErrorChoice(option.value);
               setError(
-                'Puedes elegir hasta tres áreas. Quita una antes de añadir otra para centrarnos en lo más importante.',
+                'Puedes elegir hasta cinco áreas. Quita una antes de añadir otra para centrarnos en lo más importante.',
               );
               return;
             }
@@ -744,8 +747,8 @@ export function QuestionnaireScreen() {
             {step === 4 ? (
               <>
                 <Text accessibilityLiveRegion="polite" style={muted}>
-                  {answerList(answers, 'concerns').length} de 3 áreas
-                  seleccionadas. Elige entre una y tres para centrarnos en lo
+                  {answerList(answers, 'concerns').length} de 5 áreas
+                  seleccionadas. Elige entre una y cinco para centrarnos en lo
                   más importante. No necesitas tener un diagnóstico.
                 </Text>
                 <View

@@ -2,6 +2,7 @@ import { api } from './api';
 import {
   invalidateSpecialistsCache,
   type SpecialistData,
+  type MatchingResultsOptions,
 } from './specialistsService';
 export type QuestionnaireAnswers = Record<string, string | string[]>;
 export interface QuestionnaireChoice {
@@ -116,11 +117,11 @@ export const respondAdvice = async (id: string, response: string) =>
       { timeout: 30000 },
     )
   ).data.data;
-export const getAssistedResults = async (id: string) =>
+export const getAssistedResults = async (id: string, options: MatchingResultsOptions = {}) =>
   (
-    await api.get<{ data: { specialists: SpecialistData[]; consentWithdrawn: boolean; privateDraft: boolean; expiresAt: string | null } }>(
+    await api.get<{ data: { specialists: SpecialistData[]; needsClarification?: boolean; consentWithdrawn: boolean; privateDraft: boolean; expiresAt: string | null } }>(
       `/questionnaire/advice/${encodeURIComponent(id)}/results`,
-      { timeout: 15000 },
+      { timeout: 15000, ...(options.prioritizeAvailabilityFor ? {params: options} : {}) },
     )
   ).data.data;
 

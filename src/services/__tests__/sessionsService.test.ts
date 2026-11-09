@@ -5,17 +5,33 @@ jest.mock('../api', () => ({
     patch: jest.fn(),
   },
 }));
+jest.mock('../specialistsService', () => ({invalidateSpecialistsCache: jest.fn()}));
 
 import { api } from '../api';
+import { invalidateSpecialistsCache } from '../specialistsService';
 import {
   createPublicSession,
   createSession,
+  cancelSession,
   getAvailableSlots,
   getBookingQuote,
   getPublicBookingQuote,
 } from '../sessionsService';
 
 const mockedApi = api as jest.Mocked<typeof api>;
+
+test('successful reservation and cancellation invalidate recommendations, rejected mutations do not', async () => {
+  jest.clearAllMocks();
+  mockedApi.post.mockResolvedValue({data: {data: {id: 'created'}}});
+  await createSession({specialistId: 'pro', date: '2026-12-01T10:00:00Z', type: 'VIDEO_CALL', duration: 60});
+  expect(invalidateSpecialistsCache).toHaveBeenCalledTimes(1);
+  mockedApi.patch.mockResolvedValue({});
+  await cancelSession('created');
+  expect(invalidateSpecialistsCache).toHaveBeenCalledTimes(2);
+  mockedApi.patch.mockRejectedValueOnce(new Error('Cancelación rechazada'));
+  await expect(cancelSession('created')).rejects.toThrow('Cancelación rechazada');
+  expect(invalidateSpecialistsCache).toHaveBeenCalledTimes(2);
+});
 
 describe('sessionsService.getBookingQuote', () => {
   beforeEach(() => {

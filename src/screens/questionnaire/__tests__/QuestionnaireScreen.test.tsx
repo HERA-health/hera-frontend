@@ -138,16 +138,16 @@ test('hidden dependencies are removed without losing unrelated answers', () => {
   ).toBe('');
   expect(updateQuestionnaire(adult, 'contexts', []).religion).toBe('');
 });
-test('three areas maximum and optional last steps', () => {
+test('five areas maximum and optional last steps', () => {
   expect(
     questionnaireStepError(
       {
         ...emptyQuestionnaire(),
-        concerns: ['anxiety', 'panic', 'depression', 'grief'],
+        concerns: ['anxiety', 'panic', 'depression', 'grief', 'trauma', 'emotions'],
       },
       4,
     ),
-  ).toMatch(/tres/);
+  ).toMatch(/cinco/);
   expect(questionnaireStepError(emptyQuestionnaire(), 7)).toBeNull();
   expect(questionnaireStepError(emptyQuestionnaire(), 8)).toBeNull();
 });
@@ -183,12 +183,12 @@ test('review uses answer labels and editing a section preserves the selection', 
   ).toBe(true);
 });
 
-test('a fourth area shows an inline error and keeps the three existing selections', async () => {
+test('a sixth area shows an inline error and keeps the five existing selections', async () => {
   jest.mocked(getQuestionnaireDefinition).mockResolvedValue({
     ...definition,
     groups: [['emotional', 'Bienestar emocional']],
     choices: {
-      concerns: ['Ansiedad', 'Tristeza', 'Pánico', 'Soledad'].map(
+      concerns: ['Ansiedad', 'Tristeza', 'Pánico', 'Duelo', 'Emociones', 'Soledad'].map(
         (label, index) => ({ value: String(index), label, group: 'emotional' }),
       ),
     },
@@ -206,7 +206,7 @@ test('a fourth area shows an inline error and keeps the three existing selection
     </QuestionnaireDraftProvider>,
   );
   await screen.findByRole('checkbox', { name: 'Ansiedad' });
-  for (const name of ['Ansiedad', 'Tristeza', 'Pánico', 'Soledad']) {
+  for (const name of ['Ansiedad', 'Tristeza', 'Pánico', 'Duelo', 'Emociones', 'Soledad']) {
     fireEvent.press(screen.getByRole('checkbox', { name }));
   }
   expect(
@@ -217,8 +217,8 @@ test('a fourth area shows an inline error and keeps the three existing selection
     screen
       .getAllByRole('checkbox')
       .filter((option) => option.props.accessibilityState.checked),
-  ).toHaveLength(3);
-  expect(screen.getByRole('alert').props.children).toMatch(/hasta tres áreas/);
+  ).toHaveLength(5);
+  expect(screen.getByRole('alert').props.children).toMatch(/hasta cinco áreas/);
   fireEvent.press(screen.getByRole('checkbox', { name: 'Pánico' }));
   expect(screen.queryByRole('alert')).toBeNull();
   fireEvent.press(screen.getByRole('checkbox', { name: 'Soledad' }));
@@ -226,4 +226,34 @@ test('a fourth area shows an inline error and keeps the three existing selection
     screen.getByRole('checkbox', { name: 'Soledad' }).props.accessibilityState
       .checked,
   ).toBe(true);
+});
+
+test('precise goals keep saved generic answers, enforce uncertainty exclusivity and appear in review', async () => {
+  const goals = [
+    {value:'pain',label:'Elaborar una experiencia dolorosa, un trauma o una pérdida'},
+    {value:'trauma-recovery',label:'Superar experiencias traumáticas'},
+    {value:'boundaries',label:'Aprender a establecer límites'},
+    {value:'couple-family-conflicts',label:'Resolver conflictos de pareja o familiares'},
+    {value:'unsure',label:'Todavía no lo tengo claro'},
+  ];
+  jest.mocked(getQuestionnaireDefinition).mockResolvedValue({...definition,labels:{goals:'Objetivos'},choices:{goals},steps:definition.steps.map((step,index)=>({...step,fields:index===4?['goals']:[]}))});
+  function SeedGoals() {
+    const draft = useQuestionnaireDraft();
+    React.useEffect(() => {draft.setAnswers({...emptyQuestionnaire(),workingStyles:['guided'],goals:['pain'],previousTherapy:'first'});draft.setStep(5);}, []);
+    return <QuestionnaireScreen />;
+  }
+  render(<QuestionnaireDraftProvider><SeedGoals /></QuestionnaireDraftProvider>);
+  await screen.findByRole('checkbox',{name:goals[0].label});
+  expect(screen.getByRole('checkbox',{name:goals[0].label})).toBeChecked();
+  fireEvent.press(screen.getByRole('checkbox',{name:goals[1].label}));
+  expect(screen.getByRole('checkbox',{name:goals[0].label})).toBeChecked();
+  fireEvent.press(screen.getByRole('checkbox',{name:goals[4].label}));
+  expect(screen.getByRole('checkbox',{name:goals[0].label})).not.toBeChecked();
+  expect(screen.getByRole('checkbox',{name:goals[1].label})).not.toBeChecked();
+  for (const goal of goals.slice(1,4)) fireEvent.press(screen.getByRole('checkbox',{name:goal.label}));
+  expect(screen.getByRole('checkbox',{name:goals[4].label})).not.toBeChecked();
+  fireEvent.press(screen.getByText('Continuar'));
+  fireEvent.press(screen.getByText('Continuar'));
+  fireEvent.press(screen.getByText('Continuar'));
+  expect(screen.getByText(goals.slice(1,4).map(goal=>goal.label).join(' · '))).toBeTruthy();
 });

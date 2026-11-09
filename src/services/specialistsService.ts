@@ -206,7 +206,10 @@ export interface MatchedSpecialistsResponse {
   specialists: SpecialistData[];
   hasCompletedQuestionnaire: boolean;
   needsQuestionnaireRefresh?: boolean;
+  needsClarification?: boolean;
 }
+
+export interface MatchingResultsOptions { prioritizeAvailabilityFor?: string }
 
 export interface PrimarySpecialistSessionContext {
   id: string;
@@ -500,9 +503,14 @@ export const openPublicCertificateDocument = async (
  * Gets matched specialists for the current client with evidence-based match explanations
  * based on their questionnaire answers
  */
-export const getMatchedSpecialists = async (): Promise<MatchedSpecialistsResponse> => {
+export const getMatchedSpecialists = async (options: MatchingResultsOptions & { forceRefresh?: boolean } = {}): Promise<MatchedSpecialistsResponse> => {
+  // A targeted retry must neither reuse a cached search nor join its in-flight read.
   const revision = getSpecialistDiscoveryRevision();
   const cacheKey = getMatchedCacheKey();
+  if (options.forceRefresh || options.prioritizeAvailabilityFor) {
+    matchedSpecialistsCache.delete(cacheKey);
+    matchedSpecialistsRequests.delete(cacheKey);
+  }
   const cached = getFreshCache(matchedSpecialistsCache, cacheKey);
   if (cached) {
     return cached;
@@ -513,9 +521,9 @@ export const getMatchedSpecialists = async (): Promise<MatchedSpecialistsRespons
     return inFlight;
   }
 
-  const request = api
-    .get<{ success: boolean; data: MatchedSpecialistsResponse }>('/specialists/matched/for-me', { timeout: 15000 })
-    .then((response) => revision === getSpecialistDiscoveryRevision()
+  const request: Promise<MatchedSpecialistsResponse> = api
+    .get<{ success: boolean; data: MatchedSpecialistsResponse }>('/specialists/matched/for-me', { timeout: 15000, ...(options.prioritizeAvailabilityFor ? {params: {prioritizeAvailabilityFor: options.prioritizeAvailabilityFor}} : {}) })
+    .then((response) => revision === getSpecialistDiscoveryRevision() && matchedSpecialistsRequests.get(cacheKey) === request
       ? setCache(matchedSpecialistsCache, cacheKey, response.data.data) : response.data.data)
     .catch((error: unknown) => {
       throw new Error(getErrorMessage(error, 'Error al cargar especialistas recomendados'));

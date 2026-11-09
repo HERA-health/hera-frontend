@@ -12,6 +12,7 @@ import {
   type SpecialistData,
 } from '../../../services/specialistsService';
 import { getErrorMessage } from '../../../constants/errors';
+import { matchingChoiceLabel, PROFESSIONAL_THERAPEUTIC_APPROACH_OPTIONS } from '../../../constants/professionalMatchingOptions';
 
 interface Props {
   specialist: SpecialistData;
@@ -29,6 +30,7 @@ export function MatchedSpecialistRow({ specialist, languages, identityContentHei
   const { theme } = useTheme();
   const chooseButton = useRef<AnimatedPressableHandle>(null);
   const [expanded, setExpanded] = useState(false);
+  const [presentationExpanded, setPresentationExpanded] = useState(false);
   const [photoFailed, setPhotoFailed] = useState(false);
   const [favorite, setFavorite] = useState<boolean | null>(null);
   const [favoriteBusy, setFavoriteBusy] = useState(true);
@@ -79,6 +81,12 @@ export function MatchedSpecialistRow({ specialist, languages, identityContentHei
     }
   };
   const option = specialist.publicOptions?.find(item => item.optionId === specialist.matchedOptionId);
+  const description = specialist.description?.trim() ?? '';
+  const approaches = [...new Set([
+    specialist.matchingProfile?.therapeuticApproach,
+    specialist.matchingProfile?.customTherapeuticApproaches,
+  ].flatMap(values => Array.isArray(values) ? values.filter((value): value is string => typeof value === 'string' && !!value.trim()) : [])
+    .map(value => matchingChoiceLabel(value, PROFESSIONAL_THERAPEUTIC_APPROACH_OPTIONS)))];
   const reasons = [...new Set(specialist.matchingReasons?.map(reason =>
     `${reason.kind === 'related' ? 'Relación parcial: ' : ''}${reason.label}`,
   ) ?? [])];
@@ -121,6 +129,11 @@ export function MatchedSpecialistRow({ specialist, languages, identityContentHei
           </AnimatedPressable>
         </View>
         {favoriteError ? <Text accessibilityRole="alert" style={[styles.detail, { color: theme.error, fontFamily: theme.fontSans }]}>{favoriteError}{favorite === null ? ' Pulsa el icono para reintentar.' : ''}</Text> : null}
+        {description || approaches.length ? <View style={styles.reasons}>
+          {description ? <Text style={[styles.detail, muted]} numberOfLines={presentationExpanded ? undefined : 3}>{description}</Text> : null}
+          {approaches.length ? <Text style={[styles.detail, muted]}>Enfoques declarados: {(presentationExpanded ? approaches : approaches.slice(0, 2)).join(' · ')}{!presentationExpanded && approaches.length > 2 ? '…' : ''}</Text> : null}
+          {description || approaches.length > 2 ? <Button size="small" variant="ghost" style={styles.moreReasons} accessibilityState={{ expanded: presentationExpanded }} onPress={() => setPresentationExpanded(!presentationExpanded)}>{presentationExpanded ? 'Ver menos presentación' : 'Ver presentación completa'}</Button> : null}
+        </View> : null}
         <View style={styles.reasons}>
           <Text style={[styles.reasonHeading, strong]}>Afinidad contigo</Text>
           {specialist.partialMatch ? <Text style={[styles.detail, { ...strong, color: theme.warning }]}>Coincidencia parcial con tus áreas</Text> : null}

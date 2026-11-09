@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   ScrollView,
@@ -18,7 +18,6 @@ import { Button } from '../../components/common/Button';
 import {
   getMatchedSpecialists,
   type SpecialistData,
-  invalidateSpecialistsCache,
 } from '../../services/specialistsService';
 import {
   getAssistedResults,
@@ -30,6 +29,8 @@ import type { AnimatedPressableHandle } from '../../components/common/AnimatedPr
 import { MatchedSpecialistRow } from './components/MatchedSpecialistRow';
 import { useProfileOptions } from '../../hooks/useProfileOptions';
 import { optionLabel } from '../../utils/profileOptions';
+import { useDiscoveryRevalidation } from '../../hooks/useDiscoveryRevalidation';
+import { getSpecialistDiscoveryRevision } from '../../utils/specialistDiscoveryRevision';
 
 export function QuestionnaireResultsScreen() {
   const { theme } = useTheme();
@@ -43,6 +44,8 @@ export function QuestionnaireResultsScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [refresh, setRefresh] = useState(false);
+  const [needsClarification, setNeedsClarification] = useState(false);
+  const withdrawalPending = useRef(false);
   const [count, setCount] = useState(3);
   const [contentWidth, setContentWidth] = useState(0);
   const [identityHeights, setIdentityHeights] = useState<Record<string, { width: number | undefined; height: number }>>({});
@@ -63,28 +66,36 @@ export function QuestionnaireResultsScreen() {
   const columns = Math.min(3, Math.max(1, Math.floor((contentWidth + 16) / 336)));
   const cardWidth = contentWidth ? Math.floor((contentWidth - (columns - 1) * 16) / columns) : undefined;
   const { options } = useProfileOptions();
-  const load = async () => {
+  const load = useCallback(async (prioritizeAvailabilityFor?: string) => {
+    if (withdrawalPending.current) return;
     const version = ++requestVersion.current;
     setLoading(true);
     setError('');
     setSpecialists([]);
     setRefresh(false);
-    setCount(3);
+    setNeedsClarification(false);
     setPrivateDraft(false);
+    const revision = getSpecialistDiscoveryRevision();
+    const assertCurrentRevision = () => {
+      if (revision !== getSpecialistDiscoveryRevision()) throw new Error('La búsqueda ha cambiado. Actualiza los resultados.');
+    };
     try {
-      invalidateSpecialistsCache();
       if (adviceId) {
-        const result = await getAssistedResults(adviceId);
+        const result = await getAssistedResults(adviceId, prioritizeAvailabilityFor ? {prioritizeAvailabilityFor} : undefined);
         if (version !== requestVersion.current) return;
+        assertCurrentRevision();
         setSpecialists(result.specialists);
         setRefresh(result.consentWithdrawn);
         setPrivateDraft(result.privateDraft);
+        setNeedsClarification(result.needsClarification ?? false);
       }
       else {
-        const result = await getMatchedSpecialists();
+        const result = await getMatchedSpecialists({forceRefresh: true, ...(prioritizeAvailabilityFor ? {prioritizeAvailabilityFor} : {})});
         if (version !== requestVersion.current) return;
+        assertCurrentRevision();
         setSpecialists(result.specialists);
         setRefresh(!result.hasCompletedQuestionnaire);
+        setNeedsClarification(result.needsClarification ?? false);
       }
     } catch (e) {
       if (version !== requestVersion.current) return;
@@ -94,12 +105,17 @@ export function QuestionnaireResultsScreen() {
     } finally {
       if (version === requestVersion.current) setLoading(false);
     }
-  };
+  }, [adviceId]);
+  const revalidate = useCallback(() => load(), [load]);
+  useDiscoveryRevalidation(revalidate);
   useEffect(() => {
+    withdrawalPending.current = false;
+    setWithdrawing(false);
     void load();
     setAdvice(null);
+    setCount(3);
     return () => { requestVersion.current++; };
-  }, [adviceId]);
+  }, [load]);
   const text = {
     fontFamily: theme.fontSans,
     fontSize: 16,
@@ -132,6 +148,8 @@ export function QuestionnaireResultsScreen() {
           El tipo de terapia y las edades indicadas no se usan para seleccionar
           estos resultados. Confirma con el profesional que atiende tu caso
           antes de reservar.
+          {' '}Los textos abiertos, la descripción y la formación no se analizan
+          para ordenar. La ubicación presencial considera el municipio de la consulta principal.
         </Text>
         {adviceId ? (
           <Text
@@ -196,7 +214,7 @@ export function QuestionnaireResultsScreen() {
             >
               {error}
             </Text>
-            <Button onPress={() => void load()}>Reintentar</Button>
+            <Button onPress={() => void load()}>Actualizar búsqueda</Button>
           </View>
         )}
         {!loading && !error && !specialists.length ? (
@@ -216,13 +234,17 @@ export function QuestionnaireResultsScreen() {
                 ? adviceId
                   ? 'Has retirado el consentimiento para nuevas recomendaciones.'
                   : 'Actualiza tus respuestas para recibir recomendaciones.'
+                : needsClarification ? 'Necesitamos concretar un área de apoyo.'
                 : 'No encontramos un encaje suficiente con estas preferencias.'}
             </Text>
             <Text style={text}>
-              Puedes pedir orientación al equipo o explorar el directorio por tu
-              cuenta. Los profesionales del directorio no son recomendaciones de
+              {needsClarification
+                ? 'Has elegido solo «Otro motivo». Tus respuestas están guardadas. Selecciona al menos un área concreta o pide orientación al equipo. También puedes explorar el directorio por tu cuenta. '
+                : 'Puedes pedir orientación al equipo o explorar el directorio por tu cuenta. '}
+              Los profesionales del directorio no son recomendaciones de
               este cuestionario.
             </Text>
+            {needsClarification && adviceId ? <Button variant="outline" onPress={() => navigation.navigate('Questionnaire')}>Iniciar otro cuestionario</Button> : null}
             <Button
               variant="outline"
               onPress={() => navigation.navigate('Specialists')}
@@ -231,6 +253,7 @@ export function QuestionnaireResultsScreen() {
             </Button>
           </View>
         ) : null}
+        {!loading && specialists.length > 0 ? <Text style={{ ...text, color: theme.textSecondary }}>Mostrando {Math.min(count, specialists.length)} de {specialists.length} profesionales. Quedan {Math.max(0, specialists.length - count)} por ver.</Text> : null}
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 16, alignItems: 'stretch' }}>
         {!loading ? specialists.slice(0, count).map((specialist, index) => (
           <View key={specialist.id} style={{ width: cardWidth ?? '100%' }}>
@@ -247,7 +270,7 @@ export function QuestionnaireResultsScreen() {
                 ? current : { ...current, [specialist.id]: { width: cardWidth, height } })}
             assisted={!!adviceId}
             languages={specialist.languagesSpoken?.map(language => optionLabel(options?.languages ?? [], language)) ?? []}
-            onRetryAvailability={() => void load()}
+            onRetryAvailability={() => void load(specialist.id)}
             onChoose={(trigger) => adviceId
               ? openAdvice(specialist.id, trigger)
               : navigation.navigate('Booking', { specialistId: specialist.id, optionId: specialist.matchedOptionId ?? undefined })}
@@ -270,24 +293,32 @@ export function QuestionnaireResultsScreen() {
             textStyle={{ fontSize: 12 }}
             loading={withdrawing}
             onPress={() => {
+              withdrawalPending.current = true;
               requestVersion.current++;
+              const withdrawalVersion = requestVersion.current;
               setLoading(false);
               setWithdrawing(true);
               void withdrawQuestionnaireConsent(adviceId)
                 .then(() => {
-                  requestVersion.current++;
+                  if (withdrawalVersion !== requestVersion.current) return;
                   setRefresh(true);
+                  setNeedsClarification(false);
                   setSpecialists([]);
                 })
-                .catch((e) =>
+                .catch((e) => {
+                  if (withdrawalVersion !== requestVersion.current) return;
                   setError(
                     getErrorMessage(
                       e,
                       'No se ha podido retirar el consentimiento.',
                     ),
-                  ),
-                )
-                .finally(() => setWithdrawing(false));
+                  );
+                })
+                .finally(() => {
+                  if (withdrawalVersion !== requestVersion.current) return;
+                  withdrawalPending.current = false;
+                  setWithdrawing(false);
+                });
             }}
           >
             Retirar consentimiento para nuevas recomendaciones

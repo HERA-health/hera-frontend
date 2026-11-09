@@ -1,4 +1,5 @@
 import type { PaymentAcceptance, PaymentRequired } from './sessionPaymentService';
+import { invalidateSpecialistsCache } from './specialistsService';
 import type { PackageBilling } from './packageService';
 import { api } from './api';
 import { getErrorCode, getErrorMessage } from '../constants/errors';
@@ -170,6 +171,7 @@ export const createSession = async (sessionData: CreateSessionRequest): Promise<
     if (!response.data.data) {
       throw new Error('No se pudo crear la cita');
     }
+    invalidateSpecialistsCache();
     return response.data.data;
   } catch (error: unknown) {
     throw new Error(getErrorMessage(error, 'No se pudo crear la cita'));
@@ -235,6 +237,7 @@ export const createPublicSession = async (
       throw new Error('No se pudo crear la cita');
     }
 
+    invalidateSpecialistsCache();
     return response.data.data;
   } catch (error: unknown) {
     throw new Error(getErrorMessage(error, 'No se pudo crear la cita'));
@@ -259,6 +262,7 @@ export const getMySessions = async (): Promise<ClientSession[]> => {
 export const cancelSession = async (sessionId: string): Promise<void> => {
   try {
     await api.patch(`/sessions/${sessionId}/cancel`);
+    invalidateSpecialistsCache();
   } catch (error: unknown) {
     throw new Error(getErrorMessage(error, 'No se pudo cancelar la sesión'));
   }
@@ -313,7 +317,9 @@ export const verifyPublicBookingQuote = async (requestId: string, code: string):
 
 export const verifyPublicBooking = async (requestId: string, code: string, quoteReference?: string, paymentAcceptance?: PaymentAcceptance, billing?: PackageBilling) => {
   try {
-    return (await api.post<{ data: BookingResult }>('/hera-commissions/public-requests/verify', { requestId, code, quoteReference, paymentAcceptance, ...(billing ? { billing } : {}) })).data.data;
+    const result = (await api.post<{ data: BookingResult }>('/hera-commissions/public-requests/verify', { requestId, code, quoteReference, paymentAcceptance, ...(billing ? { billing } : {}) })).data.data;
+    invalidateSpecialistsCache();
+    return result;
   } catch (error: unknown) {
     throw new Error(getErrorMessage(error, 'No se pudo confirmar la cita. Intenta de nuevo.'));
   }

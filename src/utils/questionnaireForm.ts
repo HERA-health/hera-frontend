@@ -85,7 +85,7 @@ export function questionnaireStepError(
     !answerText(answers, 'city').trim()
   )
     return 'Selecciona la ciudad donde quieres acudir.';
-  if (step === 4 && answerList(answers, 'concerns').length > 3)
-    return 'Selecciona como máximo tres áreas de apoyo.';
+  if (step === 4 && answerList(answers, 'concerns').length > 5)
+    return 'Selecciona como máximo cinco áreas de apoyo.';
   return null;
 }

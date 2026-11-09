@@ -5,6 +5,8 @@
  */
 
 import { useDirectoryNavigation } from '../../hooks/useDirectoryNavigation';
+import { useDiscoveryRevalidation } from '../../hooks/useDiscoveryRevalidation';
+import { getSpecialistDiscoveryRevision } from '../../utils/specialistDiscoveryRevision';
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   View,
@@ -145,15 +147,20 @@ export default function HomeScreen() {
   const moodScaleAnims = useRef(MOODS.map(() => new Animated.Value(1))).current;
 
   // ── Data fetching ──────────────────────────────────────────────────────────
-  useEffect(() => {
+  const requestVersion = useRef(0);
+  const loadHome = useCallback(async () => {
+    const version = ++requestVersion.current;
     if (!user) { setLoading(false); return; }
-    Promise.allSettled([
+    setTopSpecialists([]);
+    const revision = getSpecialistDiscoveryRevision();
+    await Promise.allSettled([
       getMySessions(),
-      getMatchedSpecialists(),
+      getMatchedSpecialists({forceRefresh: true}),
       user.type === 'client' ? getSpecialistPersonalization() : Promise.resolve(null),
     ]).then(([sessRes, specRes, personalizationRes]) => {
+      if (version !== requestVersion.current) return;
       if (sessRes.status === 'fulfilled') setSessions(sessRes.value);
-      if (specRes.status === 'fulfilled') {
+      if (specRes.status === 'fulfilled' && revision === getSpecialistDiscoveryRevision()) {
         setHasCompletedQuestionnaire(specRes.value.hasCompletedQuestionnaire);
         setTopSpecialists(specRes.value.specialists.slice(0, 4));
       }
@@ -163,6 +170,16 @@ export default function HomeScreen() {
       setLoading(false);
     });
   }, [user]);
+  useDiscoveryRevalidation(loadHome);
+  useEffect(() => {
+    setSessions([]);
+    setTopSpecialists([]);
+    setPrimarySpecialist(null);
+    setHasCompletedQuestionnaire(false);
+    setLoading(true);
+    void loadHome();
+    return () => { requestVersion.current++; };
+  }, [loadHome]);
 
   // ── Live countdown ─────────────────────────────────────────────────────────
   useEffect(() => {
