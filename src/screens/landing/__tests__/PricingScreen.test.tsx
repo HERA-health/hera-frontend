@@ -73,7 +73,7 @@ describe('public pricing catalogue', () => {
     expect(details.getByText('5 personalizadas')).toBeTruthy();
     fireEvent.press(screen.getByLabelText('Consultar Horizonte'));
     details = within(screen.getByTestId('pricing-plan-details'));
-    expect(details.getByLabelText('Horizonte · 89,99 €/mes + IVA')).toBeTruthy();
+    expect(details.getByLabelText('Horizonte · 69,99 €/mes + IVA')).toBeTruthy();
     expect(details.getByText('2 TB por especialista')).toBeTruthy();
     expect(details.getByText('Destacado')).toBeTruthy();
     expect(screen.getByLabelText('Ver detalles de Horizonte').props.accessibilityState.expanded).toBe(true);

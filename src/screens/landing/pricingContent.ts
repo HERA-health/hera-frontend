@@ -45,7 +45,7 @@ export const PRICING_PLANS: readonly PricingPlan[] = [
   },
   {
     id: 'horizonte', name: 'Horizonte', description: 'Pacientes propios sin límite y un perfil destacado.',
-    monthlyPrice: '89,99', ownPatients: 'Ilimitados', storageLabel: '2 TB', statistics: 'Completas',
+    monthlyPrice: '69,99', ownPatients: 'Ilimitados', storageLabel: '2 TB', statistics: 'Completas',
     documents: 'Incluidos', supervision: 'Incluida', templates: 'Todas',
     directoryProfile: 'Destacado', publications: 'Incluidas', support: 'Priorizado',
   },

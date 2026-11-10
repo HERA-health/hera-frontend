@@ -126,9 +126,9 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
       accessibilityLabel="Ver planes para especialistas"
       accessibilityState={Platform.OS === 'web' ? undefined : { selected: context === 'pricing' }}
       ariaCurrent={context === 'pricing' ? 'page' : undefined}
-      style={[styles.navLink, { minHeight: 44, justifyContent: 'center', borderBottomWidth: context === 'pricing' ? 2 : 0, borderBottomColor: theme.primary }]}
+      style={[styles.navLink, { minHeight: 44, justifyContent: 'center' }]}
     >
-      <Text style={[styles.navLinkText, { color: context === 'questionnaire' ? theme.textSecondary : theme.primary, fontFamily: context === 'questionnaire' ? theme.fontSans : theme.fontSansSemiBold }]}>{isMobile && !landing ? 'Planes' : 'Planes y precios'}</Text>
+      <Text style={[styles.navLinkText, { color: theme.textSecondary, fontFamily: theme.fontSansMedium }]}>{isMobile && !landing ? 'Planes' : 'Planes y precios'}</Text>
     </AnimatedPressable>
   ) : null;
 
