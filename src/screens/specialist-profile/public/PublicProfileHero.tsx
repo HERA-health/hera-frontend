@@ -102,9 +102,15 @@ export function PublicProfileHero({ specialist, onPractice, onReviews, reviewsVi
           </Text>}
       </View>
       <View style={[styles.identity, mobile && styles.identityMobile]}>
-        <View style={styles.nameRow}>
+        <View style={[styles.nameRow, mobile && styles.nameRowMobile]}>
         <Text accessibilityRole="header" style={[styles.name, mobile && styles.nameMobile, { color: theme.textPrimary, fontFamily: theme.fontDisplay }]}>{specialist.name}{specialist.age != null ? <Text style={{ color: theme.textSecondary, fontFamily: theme.fontSans, fontSize: 20 }}>{` ·\u00a0${specialist.age}\u00a0años`}</Text> : null}</Text>
-        <Pressable accessibilityRole="button" accessibilityLabel="Compartir perfil" onPress={onShare} style={styles.iconAction}><Ionicons name="share-social-outline" size={19} color={theme.primary} /></Pressable>
+        <View style={styles.actions}>
+          <Pressable accessibilityRole="button" accessibilityLabel="Compartir perfil" onPress={onShare} style={styles.iconAction}><Ionicons name="share-social-outline" size={19} color={theme.primary} /></Pressable>
+          {showFavorite ? <Pressable accessibilityRole="button" accessibilityLabel={isFavorite ? 'Quitar de guardados' : 'Guardar perfil'} disabled={favoriteLoading}
+            accessibilityState={{ disabled: favoriteLoading, selected: isFavorite }} onPress={onFavorite} style={styles.iconAction}>
+            <Ionicons name={isFavorite ? 'heart' : 'heart-outline'} size={20} color={theme.primary} />
+          </Pressable> : null}
+        </View>
         </View>
         <Text style={[styles.profession, body]}>{getProfessionalTypeLabel(specialist.professionalType, specialist.professionalTypeLabel)}</Text>
         {!mobile ? trust : null}
@@ -113,17 +119,11 @@ export function PublicProfileHero({ specialist, onPractice, onReviews, reviewsVi
     </View>
     {mobile ? trust : null}
     {mobile ? details : null}
-    {!desktop || showFavorite ? <View style={[styles.bottom, desktop && { justifyContent: 'flex-end' }]}>
-      {!desktop ? <View style={styles.specialties}>
+    {!desktop && specialist.specializations.length > 0 ? <View style={styles.bottom}>
+      <View style={styles.specialties}>
         {specialist.specializations.slice(0, 3).map(value => <View key={value} style={[styles.chip, { backgroundColor: theme.bgCard }]}><Text style={[styles.small, strong]}>{translateSpecialty(value)}</Text></View>)}
         {specialist.specializations.length > 3 ? <Pressable accessibilityRole="button" onPress={onPractice} style={styles.textAction}><Text style={link}>Ver todas (+{specialist.specializations.length - 3})</Text></Pressable> : null}
-      </View> : null}
-      {showFavorite ? <View style={styles.actions}>
-        <Pressable accessibilityRole="button" accessibilityLabel={isFavorite ? 'Quitar de guardados' : 'Guardar perfil'} disabled={favoriteLoading}
-          accessibilityState={{ disabled: favoriteLoading, selected: isFavorite }} onPress={onFavorite} style={styles.iconAction}>
-          <Ionicons name={isFavorite ? 'heart' : 'heart-outline'} size={20} color={theme.primary} />
-        </Pressable>
-      </View> : null}
+      </View>
     </View> : null}
   </View>;
 }
@@ -138,8 +138,9 @@ const styles = StyleSheet.create({
   identity: { flex: 1, minWidth: 0, paddingTop: 4 },
   identityMobile: { paddingTop: 0 },
   nameRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
+  nameRowMobile: { flexWrap: 'wrap' },
   name: { flex: 1, fontSize: 38, lineHeight: 46, letterSpacing: -0.6 },
-  nameMobile: { fontSize: 28, lineHeight: 35, letterSpacing: -0.4 },
+  nameMobile: { minWidth: 100, fontSize: 28, lineHeight: 35, letterSpacing: -0.4 },
   profession: { fontSize: 15, lineHeight: 22, marginTop: 6 },
   credentials: { zIndex: 20, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: 12, rowGap: 0, marginTop: 10 },
   verificationAnchor: { position: 'relative', zIndex: 21, maxWidth: '100%' },
@@ -159,6 +160,6 @@ const styles = StyleSheet.create({
   bottom: { marginTop: 18, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 12 },
   specialties: { flex: 1, minWidth: 180, flexDirection: 'row', flexWrap: 'wrap', gap: 7, alignItems: 'center' },
   chip: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 8, maxWidth: '100%' },
-  actions: { flexDirection: 'row' },
+  actions: { flexDirection: 'row', flexShrink: 0, marginLeft: 'auto' },
   iconAction: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
 });
