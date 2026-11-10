@@ -330,10 +330,12 @@ describe('LandingPage', () => {
     expect(onViewPlans).toHaveBeenCalledTimes(1);
   });
 
-  it('opens pricing from the professional landing section without starting registration', () => {
+  it('opens pricing from the hero and professional section without starting registration', () => {
     render(<LandingPage />);
-    fireEvent.press(screen.getByRole('link', { name: 'Ver planes y precios' }));
-    expect(navigate).toHaveBeenCalledTimes(1);
+    const links = screen.getAllByRole('link', { name: 'Ver planes y precios' });
+    expect(links).toHaveLength(2);
+    links.forEach(link => fireEvent.press(link));
+    expect(navigate).toHaveBeenCalledTimes(2);
     expect(navigate).toHaveBeenCalledWith('Pricing');
   });
 
@@ -440,6 +442,7 @@ describe('LandingPage', () => {
       onFindSpecialist: jest.fn(),
       onExploreProfessionals: jest.fn(),
       onProfessionalAction: jest.fn(),
+      onViewPlans: jest.fn(),
       professionalActionLabel: 'Crear cuenta profesional',
     };
     const { rerender } = render(<HeroSection {...props} showScrollIndicator />);
@@ -467,6 +470,7 @@ describe('LandingPage', () => {
       render(<HeroSection
         onFindSpecialist={jest.fn()} onExploreProfessionals={jest.fn()}
         onProfessionalAction={jest.fn()} professionalActionLabel="Crear cuenta profesional"
+        onViewPlans={jest.fn()}
         onScrollIndicatorPress={onScrollIndicatorPress}
       />);
       fireEvent.press(screen.getByLabelText('Descubrir especialistas'));

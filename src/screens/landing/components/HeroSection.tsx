@@ -13,6 +13,7 @@ interface HeroSectionProps {
   onQuestionnaire?: () => void;
   onExploreProfessionals: () => void;
   onProfessionalAction: () => void;
+  onViewPlans: () => void;
   professionalActionLabel: string;
   showScrollIndicator?: boolean;
   onScrollIndicatorPress?: () => void;
@@ -25,7 +26,7 @@ const PROOFS = [
 ] as const;
 
 export function HeroSection({
-  onFindSpecialist, onQuestionnaire, onExploreProfessionals, onProfessionalAction,
+  onFindSpecialist, onQuestionnaire, onExploreProfessionals, onProfessionalAction, onViewPlans,
   professionalActionLabel, showScrollIndicator = true, onScrollIndicatorPress,
 }: HeroSectionProps) {
   const { width, height } = useWindowDimensions();
@@ -121,6 +122,12 @@ export function HeroSection({
                   <AnimatedPressable onPress={onFindSpecialist} href="/especialistas" accessibilityRole="link" accessibilityLabel="Ver especialistas" hoverLift={false} pressScale={1} style={[styles.action, { minHeight: 44, marginTop: 6, paddingVertical: 8, borderWidth: 1, borderColor: theme.borderStrong }]}>
                     <Text style={[styles.actionText, { color: theme.textPrimary, fontFamily: theme.fontSansSemiBold }]}>Ver especialistas</Text>
                     <Ionicons name="search-outline" size={17} color={theme.textPrimary} />
+                  </AnimatedPressable>
+                ) : null}
+                {index === 1 ? (
+                  <AnimatedPressable onPress={onViewPlans} href={Platform.OS === 'web' ? '/planes' : undefined} accessibilityRole="link" accessibilityLabel="Ver planes y precios" hoverLift={false} pressScale={1} style={[styles.action, { minHeight: 44, marginTop: 6, paddingVertical: 8, borderWidth: 1, borderColor: theme.borderStrong }]}>
+                    <Text style={[styles.actionText, { color: theme.textPrimary, fontFamily: theme.fontSansSemiBold }]}>Ver planes y precios</Text>
+                    <Ionicons name="arrow-forward" size={17} color={theme.textPrimary} />
                   </AnimatedPressable>
                 ) : null}
                 {isMobile ? (

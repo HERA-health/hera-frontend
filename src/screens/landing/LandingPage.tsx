@@ -454,6 +454,7 @@ export const LandingPage: React.FC = () => {
           onFindSpecialist={() => handlePatientCTA('hero')}
           onExploreProfessionals={() => handleExploreProfessionals('hero')}
           onProfessionalAction={() => handleProfessionalRegister('hero')}
+          onViewPlans={() => navigation.navigate('Pricing')}
           professionalActionLabel={professionalActionLabel}
           showScrollIndicator={showScrollIndicator}
           onScrollIndicatorPress={handleScrollToContent}
