@@ -4,6 +4,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from '@testing-library/react-native';
 import { QuestionnaireScreen } from '../QuestionnaireScreen';
 import {
@@ -28,8 +29,9 @@ jest.mock('../../../contexts/ThemeContext', () => ({
 jest.mock('../../../contexts/AuthContext', () => ({
   useAuth: () => ({ user: null }),
 }));
+const mockNavigate = jest.fn();
 jest.mock('@react-navigation/native', () => ({
-  useNavigation: () => ({ navigate: jest.fn() }),
+  useNavigation: () => ({ navigate: mockNavigate }),
   usePreventRemove: jest.fn(),
 }));
 jest.mock('../../../components/common/alert', () => ({
@@ -64,7 +66,46 @@ const definition: QuestionnaireDefinition = {
   })),
 };
 beforeEach(() => {
+  mockNavigate.mockClear();
   jest.mocked(getQuestionnaireDefinition).mockResolvedValue(definition);
+});
+
+test.each([
+  ['Crear cuenta gratuita', 'Register'],
+  ['Ya tengo cuenta', 'Login'],
+])('summary action %s opens %s with the questionnaire ready', async (label, destination) => {
+  let latestDraft: ReturnType<typeof useQuestionnaireDraft> | undefined;
+  function SeedSummary() {
+    const draft = useQuestionnaireDraft();
+    latestDraft = draft;
+    React.useEffect(() => {
+      draft.setAnswers({ ...emptyQuestionnaire(), therapyType: 'individual', modalities: ['online'], languages: ['spanish'], budget: 'upTo70', start: 'soon', concerns: ['anxiety'], workingStyles: ['guided'], goals: ['unsure'], previousTherapy: 'first' });
+      draft.setAdult(true);
+      draft.setAccepted(true);
+      draft.setStep(8);
+    }, []);
+    return <QuestionnaireScreen />;
+  }
+  render(<QuestionnaireDraftProvider><SeedSummary /></QuestionnaireDraftProvider>);
+  const completion = await screen.findByTestId('questionnaire-completion');
+  fireEvent.press(within(completion).getByRole('button', { name: label }));
+  expect(mockNavigate).toHaveBeenCalledWith(destination, { userType: 'CLIENT' });
+  expect(latestDraft?.ready).toBe(true);
+  expect(latestDraft?.answers.budget).toBe('upTo70');
+});
+
+test('summary completion sends an incomplete questionnaire back to its missing answer', async () => {
+  function SeedIncompleteSummary() {
+    const draft = useQuestionnaireDraft();
+    React.useEffect(() => { draft.setStep(8); }, []);
+    return <QuestionnaireScreen />;
+  }
+  render(<QuestionnaireDraftProvider><SeedIncompleteSummary /></QuestionnaireDraftProvider>);
+  const completion = await screen.findByTestId('questionnaire-completion');
+  fireEvent.press(within(completion).getByRole('button', { name: 'Crear cuenta gratuita' }));
+  expect(mockNavigate).not.toHaveBeenCalled();
+  expect(screen.getByRole('radio', { name: 'Individual' })).toBeTruthy();
+  expect(screen.getByText('Selecciona una respuesta en cada pregunta obligatoria para continuar.')).toBeTruthy();
 });
 test('intro details expand without changing either consent checkbox', async () => {
   render(<QuestionnaireDraftProvider><QuestionnaireScreen /></QuestionnaireDraftProvider>);
@@ -150,6 +191,49 @@ test('five areas maximum and optional last steps', () => {
   ).toMatch(/cinco/);
   expect(questionnaireStepError(emptyQuestionnaire(), 7)).toBeNull();
   expect(questionnaireStepError(emptyQuestionnaire(), 8)).toBeNull();
+});
+
+test('all preferences, including conditional questions, are labelled optional and can be skipped', async () => {
+  function SeedPreferences() {
+    const draft = useQuestionnaireDraft();
+    React.useEffect(() => {
+      draft.setAnswers({ ...emptyQuestionnaire(), contexts: ['religion', 'discrimination'] });
+      draft.setStep(7);
+    }, []);
+    return <QuestionnaireScreen />;
+  }
+  render(<QuestionnaireDraftProvider><SeedPreferences /></QuestionnaireDraftProvider>);
+  await screen.findByText('gender (opcional)');
+  for (const key of ['contexts', 'religion', 'discrimination', 'contextNote']) {
+    expect(screen.getByText(`${key} (opcional)`)).toBeTruthy();
+  }
+  fireEvent.press(screen.getByText('Continuar'));
+  expect(screen.getByLabelText('additionalNote (opcional)')).toBeTruthy();
+});
+
+test('saved budget ranges remain visible until the patient chooses a new maximum', async () => {
+  jest.mocked(getQuestionnaireDefinition).mockResolvedValue({
+    ...definition,
+    choices: { budget: [
+      { value: 'upTo70', label: 'Hasta 70 €' },
+      { value: '50to70', label: 'Entre 50 y 70 €', deprecated: true },
+      { value: 'under50', label: 'Menos de 50 €', deprecated: true },
+    ] },
+  });
+  function SeedBudget() {
+    const draft = useQuestionnaireDraft();
+    React.useEffect(() => {
+      draft.setAnswers({ ...emptyQuestionnaire(), budget: '50to70' });
+      draft.setStep(3);
+    }, []);
+    return <QuestionnaireScreen />;
+  }
+  render(<QuestionnaireDraftProvider><SeedBudget /></QuestionnaireDraftProvider>);
+  expect((await screen.findByRole('radio', { name: 'Entre 50 y 70 €' })).props.accessibilityState.checked).toBe(true);
+  expect(screen.queryByText('Menos de 50 €')).toBeNull();
+  fireEvent.press(screen.getByRole('radio', { name: 'Hasta 70 €' }));
+  expect(screen.getByRole('radio', { name: 'Hasta 70 €' }).props.accessibilityState.checked).toBe(true);
+  expect(screen.queryByText('Entre 50 y 70 €')).toBeNull();
 });
 
 test('review uses answer labels and editing a section preserves the selection', async () => {

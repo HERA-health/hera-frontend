@@ -31,6 +31,9 @@ const pictures: Record<string, Record<string, QuestionnairePictogramName>> = {
   },
   modalities: { online: 'online', 'in-person': 'in-person' },
   budget: {
+    upTo50: 'under50',
+    upTo70: '50to70',
+    upTo100: 'over70',
     under50: 'under50',
     '50to70': '50to70',
     over70: 'over70',

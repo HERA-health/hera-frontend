@@ -21,6 +21,7 @@ import {
 
 interface Props {
   label: string;
+  optional?: boolean;
   options: ProfileOption[];
   values: string[];
   onChange: (values: string[]) => void;
@@ -33,6 +34,7 @@ interface Props {
 }
 export function SearchableProfileSelect({
   label,
+  optional = false,
   options,
   values,
   onChange,
@@ -84,6 +86,7 @@ export function SearchableProfileSelect({
         ]}
       >
         {label}
+        {optional ? <Text style={{ color: theme.textSecondary, fontFamily: theme.fontSans, fontSize: 14 }}> (opcional)</Text> : null}
       </Text>
       {multiple && values.length > 0 ? (
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
@@ -128,7 +131,7 @@ export function SearchableProfileSelect({
         ref={triggerRef}
         disabled={disabled}
         accessibilityRole="button"
-        accessibilityLabel={`${label}: ${values[0] ? optionLabel(options, values[0]) : emptyLabel}`}
+        accessibilityLabel={`${label}${optional ? ' (opcional)' : ''}: ${values[0] ? optionLabel(options, values[0]) : emptyLabel}`}
         accessibilityState={{ disabled, expanded: open }}
         onPress={() => {
           setQuery('');

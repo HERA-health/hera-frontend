@@ -9,6 +9,7 @@ export interface QuestionnaireChoice {
   value: string;
   label: string;
   group?: string;
+  deprecated?: boolean;
 }
 export interface QuestionnaireDefinition {
   version: '2';

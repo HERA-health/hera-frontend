@@ -54,6 +54,9 @@ const choiceIcons: Record<string, Record<string, ChoiceIcon>> = {
   },
   modalities: { online: 'videocam-outline', 'in-person': 'location-outline' },
   budget: {
+    upTo50: 'wallet-outline',
+    upTo70: 'wallet-outline',
+    upTo100: 'wallet-outline',
     under50: 'wallet-outline',
     '50to70': 'wallet-outline',
     over70: 'wallet-outline',
@@ -191,7 +194,8 @@ export function QuestionnaireScreen() {
     setError('');
     setErrorChoice(null);
   };
-  const title = (label: string) => (
+  const optionalFields = ['gender', 'contexts', 'religion', 'discrimination'];
+  const title = (label: string, optional = false) => (
     <Text
       accessibilityRole="header"
       style={{
@@ -202,12 +206,14 @@ export function QuestionnaireScreen() {
       }}
     >
       {label}
+      {optional ? <Text style={{ ...muted, fontFamily: theme.fontSans }}> (opcional)</Text> : null}
     </Text>
   );
   const choices = (field: string, multiple = false, group?: string, availableWidth = formWidth) => {
     const list =
       definition?.choices[field]?.filter(
-        (option) => !group || option.group === group,
+        (option) => (!group || option.group === group) &&
+          (!option.deprecated || answers[field] === option.value),
       ) ?? [];
     return (
       <View
@@ -285,7 +291,7 @@ export function QuestionnaireScreen() {
   };
   const field = (key: string, multiple = false, availableWidth = formWidth) => (
     <View style={{ marginBottom: 6 }}>
-      {title(definition?.labels[key] ?? key)}
+      {title(definition?.labels[key] ?? key, optionalFields.includes(key))}
       {choices(key, multiple, undefined, availableWidth)}
     </View>
   );
@@ -300,9 +306,9 @@ export function QuestionnaireScreen() {
         backgroundColor: theme.bgMuted,
       }}
     >
-      {title(`${definition?.labels[key] ?? key} · opcional`)}
+      {title(definition?.labels[key] ?? key, true)}
       <TextInput
-        accessibilityLabel={definition?.labels[key] ?? key}
+        accessibilityLabel={`${definition?.labels[key] ?? key} (opcional)`}
         value={answerText(answers, key)}
         onChangeText={(value) => set(key, value)}
         maxLength={500}
@@ -330,6 +336,7 @@ export function QuestionnaireScreen() {
     <View style={{ marginVertical: 8 }}>
       <SearchableProfileSelect
         label={definition?.labels[key] ?? key}
+        optional={optionalFields.includes(key)}
         renderIcon={key === 'languages' ? renderLanguageIcon : undefined}
         emptyLabel={
           key === 'languages'
@@ -557,8 +564,10 @@ export function QuestionnaireScreen() {
                       style={{
                         minHeight: 44,
                         ...focusStyle,
+                        backgroundColor: theme.bgCard,
+                        borderRadius: 12,
                       }}
-                      variant="ghost"
+                      variant="outline"
                       onPress={() => advance('Login')}
                     >
                       Ya tengo cuenta
@@ -627,6 +636,8 @@ export function QuestionnaireScreen() {
         >
           {step === 0
             ? 'Encuentra un profesional para ti.'
+            : step === 8
+              ? 'Tu siguiente paso: encontrar a tu profesional'
             : definition?.steps[step - 1]?.title}
         </Text>
         {loading ? (
@@ -741,6 +752,12 @@ export function QuestionnaireScreen() {
             {step === 3 ? (
               <>
                 {field('budget')}
+                <Text style={muted}>
+                  Elige el máximo que quieres pagar por sesión. Incluiremos también opciones más económicas.
+                </Text>
+                {definition.choices.budget?.some(option => option.deprecated && option.value === answers.budget) ? (
+                  <Text style={muted}>Tu respuesta anterior se conserva como una franja de precio. Elige un máximo si quieres actualizarla.</Text>
+                ) : null}
                 {field('start')}
               </>
             ) : null}
@@ -871,10 +888,36 @@ export function QuestionnaireScreen() {
             ) : null}
             {step === 8 ? (
               <>
+                <View
+                  testID="questionnaire-completion"
+                  style={{ backgroundColor: theme.bgMuted, borderRadius: 16, padding: 16, gap: 12, marginBottom: 12 }}
+                >
+                  <Text style={text}>
+                    {user
+                      ? 'Guarda tus respuestas para ver los especialistas compatibles contigo.'
+                      : 'Crea tu cuenta gratuita para guardar tus respuestas y ver los especialistas compatibles contigo.'}
+                  </Text>
+                  <View style={{ flexDirection: formWidth >= 520 ? 'row' : 'column', alignItems: formWidth >= 520 ? 'center' : 'stretch', gap: 8 }}>
+                    <Button
+                      style={{ ...focusStyle, minHeight: 48, borderRadius: 12, shadowOpacity: 0, elevation: 0 }}
+                      icon={<Ionicons aria-hidden name="arrow-forward" size={18} color={theme.actionPrimaryText} />}
+                      iconPosition="right"
+                      onPress={() => advance()}
+                    >
+                      {user ? 'Guardar y ver resultados' : 'Crear cuenta gratuita'}
+                    </Button>
+                    {!user ? (
+                      <Button variant="outline" style={{ ...focusStyle, minHeight: 48, borderRadius: 12, backgroundColor: theme.bgCard }} onPress={() => advance('Login')}>
+                        Ya tengo cuenta
+                      </Button>
+                    ) : null}
+                  </View>
+                </View>
+                {title('Revisa tus respuestas')}
+                <Text style={muted}>Puedes editar cualquier sección o añadir algo más antes de continuar.</Text>
                 {openText('additionalNote')}
                 <Text style={muted}>
-                  Puedes revisar cualquier sección antes de guardar. Los textos
-                  abiertos se conservarán como contexto para el profesional; no
+                  Los textos abiertos se conservarán como contexto para el profesional; no
                   se utilizan para ordenar recomendaciones.
                 </Text>
                 <View
