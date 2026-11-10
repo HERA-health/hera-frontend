@@ -160,10 +160,6 @@ export function PricingScreen(): React.ReactElement {
               <Text style={[styles.eyebrow, { color: theme.primary, fontFamily: theme.fontSansSemiBold }]}>PARA ESPECIALISTAS</Text>
               <Text accessibilityRole="header" aria-level={1} style={[styles.title, !tablet && styles.titleMobile, display]}>Planes pensados para tu forma de trabajar.</Text>
               <Text style={[styles.intro, body]}>Recibe pacientes desde HERA o reúne toda tu consulta en un mismo espacio.</Text>
-              <View style={styles.availability}>
-                <Ionicons name="information-circle-outline" color={theme.primary} size={16} accessible={false} />
-                <Text style={[styles.caption, body, styles.flex]}>{PRICING_AVAILABILITY}</Text>
-              </View>
             </View>
             {desktop ? <Image
               source={Platform.OS === 'web' ? require('../../../assets/landing/psychologist-landscape-640.webp') : require('../../../assets/landing/psychologist-landscape-640.jpg')}
@@ -171,10 +167,41 @@ export function PricingScreen(): React.ReactElement {
             /> : null}
           </View>
 
+          <View style={[styles.directory, { backgroundColor: theme.surface, borderColor: theme.borderLight }]}>
+            <View style={[styles.directoryColumns, desktop && styles.horizontal]}>
+              <View style={[styles.directoryCopy, desktop && styles.directoryCopyDesktop]}>
+                <Text style={[styles.eyebrow, { color: theme.primary, fontFamily: theme.fontSansSemiBold }]}>01 / DIRECTORIO</Text>
+                <Text accessibilityRole="header" aria-level={2} style={[styles.directoryTitle, display]}>Empieza en HERA sin suscripción.</Text>
+                <Text style={[styles.small, body]}>La modalidad de entrada para especialistas: recibe y atiende a pacientes que llegan desde HERA.</Text>
+                <Text style={[styles.small, strong]}>Sin cuota mensual fija. Comisión por sesión.</Text>
+              </View>
+              <View style={[styles.commissions, desktop && styles.flex]}>
+                <Text style={[styles.small, strong]}>Comisiones por sesión</Text>
+                <View style={styles.commissionScale}>{DIRECTORY_OFFER.commissions.map((item, index) => <View key={item.session} style={[styles.commissionStep, index > 0 && styles.commissionDivider, { borderColor: theme.borderLight }]}>
+                  <Text style={[styles.rate, strong]}>{item.rate}</Text>
+                  <Text style={[styles.caption, body]}>{item.session}</Text>
+                </View>)}</View>
+                <Text style={[styles.caption, body]}>La escala se cuenta para cada relación entre paciente y especialista.</Text>
+              </View>
+            </View>
+            <View style={[styles.directoryIncludes, tablet && styles.directoryIncludesRow, { backgroundColor: theme.landingProfessional }]}>
+              <View style={styles.directoryStorage}>
+                <Text style={styles.directoryStorageIcon} accessible={false} aria-hidden>📁</Text>
+                <Text style={[styles.small, strong, styles.directoryStorageLabel]}>{DIRECTORY_OFFER.storageLabel} de almacenamiento total</Text>
+              </View>
+              <Text style={[styles.caption, body, tablet && styles.flex]}>Agenda, historial, documentos, consentimientos, facturación, recordatorios, Google Meet y resumen de actividad.</Text>
+            </View>
+            <Text style={[styles.directoryScope, styles.caption, body]}>Herramientas para tus pacientes de HERA. La gestión de pacientes propios no está incluida.</Text>
+          </View>
+
           <View style={styles.subscriptionHeading}>
-            <Text style={[styles.eyebrow, { color: theme.primary, fontFamily: theme.fontSansSemiBold }]}>01 / SUSCRIPCIONES</Text>
+            <Text style={[styles.eyebrow, { color: theme.primary, fontFamily: theme.fontSansSemiBold }]}>02 / SUSCRIPCIONES</Text>
             <Text accessibilityRole="header" aria-level={2} style={[styles.sectionTitle, display]}>Tu consulta, con espacio para crecer.</Text>
             <Text style={[styles.body, body]}>Gestiona también tus pacientes propios y amplía las prestaciones de tu consulta.</Text>
+            <View style={styles.availability}>
+              <Ionicons name="information-circle-outline" color={theme.primary} size={16} accessible={false} />
+              <Text style={[styles.caption, body, styles.flex]}>{PRICING_AVAILABILITY}</Text>
+            </View>
           </View>
           <View style={[styles.cards, desktop && styles.horizontal]}>
             {PRICING_PLANS.map(plan => {
@@ -312,33 +339,6 @@ export function PricingScreen(): React.ReactElement {
             </View>
           </View> : null}
 
-          <View style={[styles.directory, { backgroundColor: theme.surface, borderColor: theme.borderLight }]}>
-            <View style={[styles.directoryColumns, desktop && styles.horizontal]}>
-              <View style={[styles.directoryCopy, desktop && styles.directoryCopyDesktop]}>
-                <Text style={[styles.eyebrow, { color: theme.primary, fontFamily: theme.fontSansSemiBold }]}>02 / DIRECTORIO</Text>
-                <Text accessibilityRole="header" aria-level={2} style={[styles.directoryTitle, display]}>Conecta con nuevos pacientes.</Text>
-                <Text style={[styles.small, body]}>Recibe y atiende a pacientes que llegan desde HERA.</Text>
-                <Text style={[styles.small, strong]}>Sin cuota mensual fija. Comisión por sesión.</Text>
-              </View>
-              <View style={[styles.commissions, desktop && styles.flex]}>
-                <Text style={[styles.small, strong]}>Comisiones por sesión</Text>
-                <View style={styles.commissionScale}>{DIRECTORY_OFFER.commissions.map((item, index) => <View key={item.session} style={[styles.commissionStep, index > 0 && styles.commissionDivider, { borderColor: theme.borderLight }]}>
-                  <Text style={[styles.rate, strong]}>{item.rate}</Text>
-                  <Text style={[styles.caption, body]}>{item.session}</Text>
-                </View>)}</View>
-                <Text style={[styles.caption, body]}>La escala se cuenta para cada relación entre paciente y especialista.</Text>
-              </View>
-            </View>
-            <View style={[styles.directoryIncludes, tablet && styles.directoryIncludesRow, { backgroundColor: theme.landingProfessional }]}>
-              <View style={styles.directoryStorage}>
-                <Text style={styles.directoryStorageIcon} accessible={false} aria-hidden>📁</Text>
-                <Text style={[styles.small, strong, styles.directoryStorageLabel]}>{DIRECTORY_OFFER.storageLabel} de almacenamiento total</Text>
-              </View>
-              <Text style={[styles.caption, body, tablet && styles.flex]}>Agenda, historial, documentos, consentimientos, facturación, recordatorios, Google Meet y resumen de actividad.</Text>
-            </View>
-            <Text style={[styles.directoryScope, styles.caption, body]}>Herramientas para tus pacientes de HERA. La gestión de pacientes propios no está incluida.</Text>
-          </View>
-
           <View style={[styles.essentials, { backgroundColor: theme.landingProfessional }]}>
             <View style={styles.essentialsHeading}>
               <Text style={[styles.eyebrow, { color: theme.primary, fontFamily: theme.fontSansSemiBold }]}>INCLUIDO EN LOS TRES PLANES</Text>
@@ -409,7 +409,7 @@ const styles = StyleSheet.create({
   caption: { fontSize: 12, lineHeight: 19 },
   body: { fontSize: 15, lineHeight: 24 },
   sectionTitle: { fontSize: 27, lineHeight: 34 },
-  directory: { marginTop: 26, padding: 18, borderWidth: 1, borderRadius: 14 },
+  directory: { padding: 18, borderWidth: 1, borderRadius: 14 },
   directoryTitle: { fontSize: 24, lineHeight: 30 },
   directoryColumns: { gap: 20 },
   directoryCopy: { gap: 5 },
@@ -426,7 +426,7 @@ const styles = StyleSheet.create({
   directoryStorageLabel: { flexShrink: 1 },
   directoryScope: { marginTop: 6 },
   checkRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
-  subscriptionHeading: { paddingTop: 6, paddingBottom: 16, gap: 5 },
+  subscriptionHeading: { paddingTop: 26, paddingBottom: 16, gap: 5 },
   cards: { gap: 18 },
   card: { padding: 22, borderWidth: 1, borderRadius: 14, overflow: 'hidden', gap: 6 },
   cardAccent: { height: 4, position: 'absolute', top: 0, left: 0, right: 0 },
