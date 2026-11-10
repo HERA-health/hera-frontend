@@ -1,3 +1,5 @@
+import React from 'react';
+jest.mock('@react-navigation/native', () => ({ useFocusEffect: (effect: () => void | (() => void)) => jest.requireActual<typeof React>('react').useEffect(effect, [effect]) }));
 import { act, renderHook, waitFor } from '@testing-library/react-native';
 import { usePatientSpecialists } from '../usePatientSpecialists';
 import * as service from '../../../services/specialistsService';
@@ -36,6 +38,19 @@ test('changing filters reloads only the directory and ignores outdated responses
   expect(hook.result.current.available).toEqual([person]);
   expect(service.getSpecialistPersonalization).toHaveBeenCalledTimes(1);
   expect(service.getMatchedSpecialists).toHaveBeenCalledTimes(1);
+});
+
+test('refresh keeps an existing list mounted while its response is pending', async () => {
+  const filters = {};
+  const hook = renderHook(() => usePatientSpecialists(filters, true));
+  await waitFor(() => expect(hook.result.current.loading).toBe(false));
+  const response = deferred<service.SpecialistData[]>();
+  jest.mocked(service.getAllSpecialists).mockReturnValueOnce(response.promise);
+  act(() => { void hook.result.current.retry(); });
+  expect(hook.result.current.loading).toBe(false);
+  expect(hook.result.current.available).toEqual([person]);
+  await act(async () => response.resolve([person, { ...person, id: 'two' }]));
+  expect(hook.result.current.available).toHaveLength(2);
 });
 test('confirms a save once, preserves failures, and removes the last favorite', async () => {
   const pending = deferred<void>();

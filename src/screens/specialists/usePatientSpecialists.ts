@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import * as service from '../../services/specialistsService';
 import { useDiscoveryRevalidation } from '../../hooks/useDiscoveryRevalidation';
+import { useFocusEffect } from '@react-navigation/native';
 
 /** Private state lives only in the account-keyed screen, never in a shared cache. */
-export function usePatientSpecialists(filters: service.SpecialistFilters, isClient: boolean) {
+export function usePatientSpecialists(filters: service.SpecialistFilters, isClient: boolean, directoryEnabled = true) {
   const [available, setAvailable] = useState<service.SpecialistData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -16,6 +17,7 @@ export function usePatientSpecialists(filters: service.SpecialistFilters, isClie
   const [pendingIds, setPendingIds] = useState<Set<string>>(new Set());
   const alive = useRef(true);
   const listRequest = useRef(0);
+  const loadedFilters = useRef<service.SpecialistFilters | null>(null);
   const personalRequest = useRef(0);
   const matchRequest = useRef(0);
   const pending = useRef(new Set<string>());
@@ -33,18 +35,24 @@ export function usePatientSpecialists(filters: service.SpecialistFilters, isClie
   }, []);
 
   const loadDirectory = useCallback(async () => {
+    if (!directoryEnabled) return;
     const request = ++listRequest.current;
-    setLoading(true);
+    // Keep the same list mounted during focus refreshes so its scroll does not
+    // collapse before the response arrives. New filters still get a loading state.
+    setLoading(loadedFilters.current !== filters);
     setError(false);
     try {
       const data = await service.getAllSpecialists(filters);
-      if (alive.current && request === listRequest.current) setAvailable(data);
+      if (alive.current && request === listRequest.current) {
+        loadedFilters.current = filters;
+        setAvailable(data);
+      }
     } catch {
       if (alive.current && request === listRequest.current) setError(true);
     } finally {
       if (alive.current && request === listRequest.current) setLoading(false);
     }
-  }, [filters]);
+  }, [filters, directoryEnabled]);
 
   const loadPersonalization = useCallback(async () => {
     if (!isClient || pending.current.size) return;
@@ -65,7 +73,7 @@ export function usePatientSpecialists(filters: service.SpecialistFilters, isClie
   }, [isClient]);
 
   const loadMatches = useCallback(async () => {
-    if (!isClient) return;
+    if (!isClient || !directoryEnabled) return;
     const request = ++matchRequest.current;
     setMatchesError(false);
     try {
@@ -74,14 +82,24 @@ export function usePatientSpecialists(filters: service.SpecialistFilters, isClie
     } catch {
       if (alive.current && request === matchRequest.current) setMatchesError(true);
     }
-  }, [isClient]);
+  }, [isClient, directoryEnabled]);
 
-  useEffect(() => { void loadDirectory(); }, [loadDirectory]);
-  useEffect(() => { void loadPersonalization(); void loadMatches(); }, [loadPersonalization, loadMatches]);
+  useFocusEffect(useCallback(() => {
+    void loadDirectory();
+    return () => { listRequest.current++; };
+  }, [loadDirectory]));
+  useFocusEffect(useCallback(() => {
+    void loadPersonalization();
+    return () => { personalRequest.current++; };
+  }, [loadPersonalization]));
+  useFocusEffect(useCallback(() => {
+    void loadMatches();
+    return () => { matchRequest.current++; };
+  }, [loadMatches]));
   const refresh = useCallback(async () => {
     await Promise.all([loadDirectory(), loadPersonalization(), loadMatches()]);
   }, [loadDirectory, loadPersonalization, loadMatches]);
-  useDiscoveryRevalidation(refresh);
+  useDiscoveryRevalidation(refresh, false);
 
   const toggleFavorite = useCallback(async (specialist: service.SpecialistData) => {
     const current = personalRef.current;

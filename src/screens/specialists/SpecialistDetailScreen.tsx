@@ -1,6 +1,9 @@
 import { useDiscoveryRevalidation } from '../../hooks/useDiscoveryRevalidation';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useFocusEffect } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { RootStackParamList } from '../../constants/types';
+import { navigatePatientSpecialists } from '../../navigation/patientSpecialistsNavigation';
 import React, { useCallback, useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Button } from '../../components/common';
@@ -23,15 +26,18 @@ import type {
 
 interface SpecialistDetailScreenProps {
   route: { params?: { adviceId?: string; specialistId?: string; intentToken?: string; optionId?: string } };
-  navigation: {
-    navigate: (screen: string, params?: Record<string, unknown>) => void;
-    goBack: () => void;
-  };
+  navigation: Pick<NativeStackNavigationProp<RootStackParamList>, 'navigate' | 'goBack' | 'dispatch'>;
 }
 
-export const SpecialistDetailScreen: React.FC<SpecialistDetailScreenProps> = ({
+export const SpecialistDetailScreen: React.FC<SpecialistDetailScreenProps> = (props) => {
+  const { user } = useAuth();
+  return <SpecialistProfileContent key={`${user?.id ?? 'guest'}:${props.route.params?.specialistId ?? ''}`} {...props} />;
+};
+
+export const SpecialistProfileContent: React.FC<SpecialistDetailScreenProps & { continuity?: boolean }> = ({
   route,
   navigation,
+  continuity = false,
 }) => {
   const appAlert = useAppAlert();
   const { isAuthenticated, user } = useAuth();
@@ -148,8 +154,8 @@ export const SpecialistDetailScreen: React.FC<SpecialistDetailScreenProps> = ({
         {specialistId ? <Button onPress={() => navigation.navigate('PublicSpecialistProfile', { profileRef: specialistId })} variant="outline" style={styles.errorButton}>
           Ver perfil público
         </Button> : null}
-        <Button onPress={navigation.goBack} variant="primary" size="large" style={styles.errorButton}>
-          Volver
+        <Button onPress={() => continuity ? navigatePatientSpecialists(navigation, 'SpecialistsDirectory') : navigation.goBack()} variant="primary" size="large" style={styles.errorButton}>
+          {continuity ? 'Ver todos los especialistas' : 'Volver'}
         </Button>
       </View>
     );
@@ -160,6 +166,7 @@ export const SpecialistDetailScreen: React.FC<SpecialistDetailScreenProps> = ({
       // A new route selection resets booking state; refreshing the same profile preserves it.
       key={JSON.stringify([specialist.id, route.params?.optionId ?? null])}
       presentationContext="patient"
+      continuity={continuity}
       assistedStart={!!route.params?.adviceId}
       renderPackageAction={route.params?.adviceId ? undefined : onModalVisibilityChange => (
         <ProfilePackages presentation="dialog" specialistId={specialist.id} intentToken={route.params?.intentToken}
@@ -178,7 +185,7 @@ export const SpecialistDetailScreen: React.FC<SpecialistDetailScreenProps> = ({
       canBook={canBook}
       isAuthenticated={isAuthenticated}
       isClient={user?.type === 'client'}
-      onBrowseSpecialists={() => navigation.navigate('Specialists')}
+      onBrowseSpecialists={() => navigatePatientSpecialists(navigation, 'SpecialistsDirectory')}
       onBookSession={handleBookSession}
       onOpenCertificate={(certificate) => void handleOpenCertificate(certificate)}
       onReviewSubmitted={() => void loadSpecialistDetails()}

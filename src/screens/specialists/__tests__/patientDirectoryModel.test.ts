@@ -39,3 +39,11 @@ test('omits unavailable credentials and does not mutate the source while sorting
   expect(searchAndSortPatientCards(source, '', 'price_low').map(item => item.id)).toEqual(['cheap', 'expensive']);
   expect(source[0].id).toBe('expensive');
 });
+
+test('favorites sort keeps every eligible result, prioritizes saved profiles and respects search', () => {
+  const cards = ['Ana', 'Zoe', 'Bea'].map(name => toPatientDirectoryCard(specialist(name, { user: { name } })));
+  expect(searchAndSortPatientCards(cards, '', 'favorites', ['Zoe', 'Bea', 'excluded']).map(card => card.id)).toEqual(['Bea', 'Zoe', 'Ana']);
+  expect(searchAndSortPatientCards(cards, '', 'favorites', []).map(card => card.id)).toEqual(['Ana', 'Bea', 'Zoe']);
+  expect(searchAndSortPatientCards(cards, 'Ana', 'favorites', ['Zoe']).map(card => card.id)).toEqual(['Ana']);
+  expect(cards.map(card => card.id)).toEqual(['Ana', 'Zoe', 'Bea']);
+});

@@ -176,6 +176,8 @@ export const linking: LinkingOptions<RootStackParamList> = {
       },
       ProfessionalClinicPatientDetail: 'mi-clinica/:clinicId/pacientes/:clinicPatientId',
       PublicSpecialists: 'especialistas',
+      Specialists: { path: 'paciente/especialistas', alias: ['Specialists'] },
+      SpecialistsDirectory: 'paciente/especialistas/directorio',
       ProfessionalShowcase: 'profesionales/recorrido',
       Pricing: 'planes',
       Landing: '',

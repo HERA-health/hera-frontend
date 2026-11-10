@@ -252,6 +252,10 @@ const SpecialistDetailRoute = createDeferredLayoutRoute<'SpecialistDetail'>(
   () => Platform.OS === 'web' ? import('../screens/specialists/SpecialistDetailScreen') : require('../screens/specialists/SpecialistDetailScreen'),
   { displayName: 'SpecialistDetailRoute', exportName: 'SpecialistDetailScreen' }
 );
+const SpecialistsDirectoryRoute = createDeferredLayoutRoute<'SpecialistsDirectory'>(
+  () => Platform.OS === 'web' ? import('../screens/specialists/SpecialistsScreen') : require('../screens/specialists/SpecialistsScreen'),
+  { displayName: 'SpecialistsDirectoryRoute', exportName: 'SpecialistsDirectoryScreen' }
+);
 const SessionsRoute = createDeferredLayoutRoute<'Sessions'>(
   () => Platform.OS === 'web' ? import('../screens/sessions/SessionsScreen') : require('../screens/sessions/SessionsScreen'),
   { displayName: 'SessionsRoute' }
@@ -1190,6 +1194,7 @@ export function RootNavigator() {
           component={SpecialistsRoute}
           options={{ headerTitle: 'Especialistas' }}
         />
+        <Stack.Screen name="SpecialistsDirectory" component={SpecialistsDirectoryRoute} options={{ headerTitle: 'Especialistas' }} />
         <Stack.Screen
           name="SpecialistDetail"
           component={SpecialistDetailRoute}

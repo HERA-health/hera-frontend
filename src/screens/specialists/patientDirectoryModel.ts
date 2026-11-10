@@ -4,7 +4,7 @@ import { getProfessionalTypeLabel } from '../../constants/professionalTypes';
 import { matchingChoiceLabel, PROFESSIONAL_SPECIALTY_OPTIONS, PROFESSIONAL_THERAPEUTIC_APPROACH_OPTIONS } from '../../constants/professionalMatchingOptions';
 import { optionSearchKey } from '../../utils/profileOptions';
 
-export type PatientDirectorySort = 'recommended' | 'name' | 'rating' | 'price_low' | 'price_high' | 'distance';
+export type PatientDirectorySort = 'recommended' | 'favorites' | 'name' | 'rating' | 'price_low' | 'price_high' | 'distance';
 export interface PatientDirectoryCard extends PublicSpecialistDirectoryCard {
   distance?: number;
   matchOrder?: number;
@@ -57,7 +57,8 @@ export function patientDirectoryCards(available: SpecialistData[], matched: Spec
   });
 }
 
-export function searchAndSortPatientCards(cards: PatientDirectoryCard[], query: string, sort: PatientDirectorySort) {
+export function searchAndSortPatientCards(cards: PatientDirectoryCard[], query: string, sort: PatientDirectorySort, favoriteIds: readonly string[] = []) {
+  const favorites = new Set(favoriteIds);
   const key = optionSearchKey(query.trim());
   const result = cards.filter(card => !key || optionSearchKey([
     card.name, card.professionalTypeLabel, card.specialization,
@@ -69,6 +70,7 @@ export function searchAndSortPatientCards(cards: PatientDirectoryCard[], query: 
   return result.sort((a, b) => {
     const byName = a.name.localeCompare(b.name, 'es');
     switch (sort) {
+      case 'favorites': return Number(favorites.has(b.id)) - Number(favorites.has(a.id)) || byName;
       case 'recommended': return (a.matchOrder ?? Infinity) - (b.matchOrder ?? Infinity) || byName;
       case 'rating': return (b.rating ?? 0) - (a.rating ?? 0) || (b.reviewCount ?? 0) - (a.reviewCount ?? 0) || byName;
       case 'price_low': return a.pricePerSession - b.pricePerSession || byName;

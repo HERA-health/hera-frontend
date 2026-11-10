@@ -1,3 +1,4 @@
+import { navigatePatientSpecialists } from '../../navigation/patientSpecialistsNavigation';
 /**
  * HomeScreen - Client Dashboard
  * Two-column desktop layout with staggered animations.
@@ -76,7 +77,7 @@ const getCountdown = (dateStr: string): { label: string; isUrgent: boolean } => 
   return { label: days === 1 ? 'Mañana' : `En ${days} días`, isUrgent: false };
 };
 
-type QuickActionScreen = 'MatchingAdvice' | 'Sessions' | 'Specialists' | 'Questionnaire' | 'QuestionnaireResults' | 'Profile';
+type QuickActionScreen = 'MatchingAdvice' | 'Sessions' | 'SpecialistsDirectory' | 'Questionnaire' | 'QuestionnaireResults' | 'Profile';
 type HomeNavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -324,7 +325,7 @@ export default function HomeScreen() {
       <View style={styles.heroQuickActions}>
         {([
           { icon: 'calendar-outline', label: 'Sesiones', screen: 'Sessions', color: theme.secondary, bg: theme.secondary + '18' },
-          { icon: 'search', label: 'Buscar', screen: hasCompletedQuestionnaire ? 'Specialists' : 'Questionnaire', color: theme.primary, bg: theme.primaryAlpha12 },
+          { icon: 'search', label: 'Buscar', screen: 'SpecialistsDirectory', color: theme.primary, bg: theme.primaryAlpha12 },
           {
             icon: hasCompletedQuestionnaire ? 'sparkles-outline' : 'clipboard-outline',
             label: hasCompletedQuestionnaire ? 'Mis recomendaciones' : 'Cuestionario',
@@ -340,7 +341,7 @@ export default function HomeScreen() {
             style={[styles.heroQuickPill, { backgroundColor: bg }]}
             onPress={() => screen === 'QuestionnaireResults'
               ? navigation.navigate(screen, { adviceId: undefined })
-              : navigation.navigate(screen)}
+              : screen === 'SpecialistsDirectory' ? navigatePatientSpecialists(navigation, screen) : navigation.navigate(screen)}
             hoverTranslateY={-2}
             pressScale={0.98}
           >
@@ -423,7 +424,7 @@ export default function HomeScreen() {
           <Text style={[styles.noSessionTitle, { color: theme.textPrimary, fontFamily: theme.fontSansBold }]}>Sin sesiones próximas</Text>
           <Text style={[styles.noSessionDesc, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>Reserva tu primera sesión con un especialista</Text>
           <Button
-            onPress={() => navigation.navigate(hasCompletedQuestionnaire ? 'Specialists' : 'Questionnaire')}
+            onPress={() => navigatePatientSpecialists(navigation, 'Specialists')}
             variant="primary"
             size="large"
             icon={<Ionicons name="arrow-forward" size={15} color="#FFFFFF" />}
@@ -596,7 +597,7 @@ export default function HomeScreen() {
       <Animated.View style={[styles.section, animStyle(4)]}>
         <View style={styles.sectionHeader}>
           <Text style={[styles.sectionTitle, { color: theme.textPrimary, fontFamily: theme.fontSansBold }]}>Tu especialista</Text>
-          <AnimatedPressable onPress={() => navigation.navigate('Specialists')} hoverLift={false} pressScale={0.98}>
+          <AnimatedPressable onPress={() => navigatePatientSpecialists(navigation, 'SpecialistsDirectory')} hoverLift={false} pressScale={0.98}>
             <Text style={[styles.sectionLink, { color: theme.primary, fontFamily: theme.fontSansSemiBold }]}>Ver especialistas</Text>
           </AnimatedPressable>
         </View>

@@ -1,3 +1,4 @@
+import { navigatePatientSpecialists } from '../../navigation/patientSpecialistsNavigation';
 import { showAppAlert, useAppAlert } from '../../components/common/alert';
 import React, { useEffect, useMemo, useRef } from 'react';
 import {
@@ -440,7 +441,7 @@ export function OnDutyPsychologistScreen() {
   const isDesktop = width >= 1024;
   const isTablet = width >= 768 && width < 1024;
   const handleExploreSpecialists = () => {
-    navigation.navigate('Specialists');
+    navigatePatientSpecialists(navigation, 'SpecialistsDirectory');
   };
 
   const handleViewSessions = () => {

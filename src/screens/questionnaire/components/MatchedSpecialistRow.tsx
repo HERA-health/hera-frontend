@@ -1,5 +1,5 @@
 import React, { useCallback, useRef, useState } from 'react';
-import { ActivityIndicator, Image, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Image, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useFocusEffect } from '@react-navigation/native';
 import { useTheme } from '../../../contexts/ThemeContext';
@@ -28,6 +28,8 @@ interface Props {
 
 export function MatchedSpecialistRow({ specialist, languages, identityContentHeight, onIdentityContentLayout, assisted, onChoose, onProfile, onRetryAvailability }: Props) {
   const { theme } = useTheme();
+  const { width } = useWindowDimensions();
+  const horizontalActions = width >= 600;
   const chooseButton = useRef<AnimatedPressableHandle>(null);
   const [expanded, setExpanded] = useState(false);
   const [presentationExpanded, setPresentationExpanded] = useState(false);
@@ -132,20 +134,20 @@ export function MatchedSpecialistRow({ specialist, languages, identityContentHei
         {description || approaches.length ? <View style={styles.reasons}>
           {description ? <Text style={[styles.detail, muted]} numberOfLines={presentationExpanded ? undefined : 3}>{description}</Text> : null}
           {approaches.length ? <Text style={[styles.detail, muted]}>Enfoques declarados: {(presentationExpanded ? approaches : approaches.slice(0, 2)).join(' · ')}{!presentationExpanded && approaches.length > 2 ? '…' : ''}</Text> : null}
-          {description || approaches.length > 2 ? <Button size="small" variant="ghost" style={styles.moreReasons} accessibilityState={{ expanded: presentationExpanded }} onPress={() => setPresentationExpanded(!presentationExpanded)}>{presentationExpanded ? 'Ver menos presentación' : 'Ver presentación completa'}</Button> : null}
+          {description || approaches.length > 2 ? <Button size="small" variant="outline" style={styles.presentationToggle} iconPosition="right"
+            icon={<Ionicons aria-hidden name={presentationExpanded ? "chevron-up" : "chevron-down"} size={18} color={theme.primary} />}
+            accessibilityState={{ expanded: presentationExpanded }} onPress={() => setPresentationExpanded(!presentationExpanded)}>{presentationExpanded ? 'Ocultar presentación' : 'Presentación completa'}</Button> : null}
         </View> : null}
-        <View style={styles.reasons}>
+        {reasons.length ? <View style={styles.reasons}>
           <Text style={[styles.reasonHeading, strong]}>Afinidad contigo</Text>
-          {specialist.partialMatch ? <Text style={[styles.detail, { ...strong, color: theme.warning }]}>Coincidencia parcial con tus áreas</Text> : null}
           {(expanded ? reasons : reasons.slice(0, 3)).map(reason => (
             <View key={reason} style={styles.reason}>
               <View style={[styles.reasonIcon, { backgroundColor: theme.secondaryMuted }]}><Ionicons aria-hidden name="checkmark" size={14} color={theme.textPrimary} /></View>
               <Text style={[styles.detail, body, styles.reasonText]}>{reason}</Text>
             </View>
           ))}
-          {!reasons.length ? <Text style={[styles.detail, muted]}>No hay motivos detallados disponibles.</Text> : null}
           {reasons.length > 3 ? <Button size="small" variant="ghost" style={styles.moreReasons} accessibilityState={{ expanded }} onPress={() => setExpanded(!expanded)}>{expanded ? 'Ver menos motivos' : `Ver todos los motivos (${reasons.length})`}</Button> : null}
-        </View>
+        </View> : null}
       </View>
       <View style={[styles.booking, styles.bookingBelow, { borderColor: theme.borderLight }]}>
         <View style={styles.priceRow}>
@@ -162,9 +164,9 @@ export function MatchedSpecialistRow({ specialist, languages, identityContentHei
           </Text>
         </View>
         {specialist.availabilityStatus === 'UNKNOWN' ? <Button size="small" variant="ghost" onPress={onRetryAvailability}>Reintentar agenda</Button> : null}
-        <View style={styles.actions}>
-          <Button size="small" focusRef={chooseButton} style={styles.action} onPress={() => onChoose(chooseButton.current)}>{assisted ? 'Me interesa este profesional' : 'Elegir cita'}</Button>
-          <Button size="small" variant="ghost" style={styles.action} onPress={onProfile}>Ver perfil</Button>
+        <View style={[styles.actions, horizontalActions && styles.actionsHorizontal]}>
+          <Button size="small" focusRef={chooseButton} style={horizontalActions ? { ...styles.action, flex: 1 } : styles.action} onPress={() => onChoose(chooseButton.current)}>{assisted ? 'Me interesa este profesional' : 'Elegir cita'}</Button>
+          <Button size="small" variant="outline" style={horizontalActions ? { ...styles.action, flex: 1 } : styles.action} onPress={onProfile}>Ver perfil</Button>
         </View>
       </View>
     </View>
@@ -189,12 +191,14 @@ const styles = StyleSheet.create({
   reason: { flexDirection: 'row', alignItems: 'flex-start', gap: 7 },
   reasonIcon: { width: 22, height: 22, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
   reasonText: { flex: 1 },
+  presentationToggle: { alignSelf: 'flex-start', minHeight: 44, paddingHorizontal: 14 },
   moreReasons: { alignSelf: 'flex-start', minHeight: 44, paddingHorizontal: 0 },
   booking: { gap: 8, justifyContent: 'center' },
   bookingBelow: { borderTopWidth: 1, paddingTop: 16 },
   priceRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', flexWrap: 'wrap', gap: 6 },
   price: { fontSize: 24, lineHeight: 30 },
   availability: { flexDirection: 'row', alignItems: 'flex-start', gap: 7 },
-  actions: { marginTop: 4, gap: 6 },
+  actions: { marginTop: 4, gap: 8 },
+  actionsHorizontal: { flexDirection: 'row', alignItems: 'stretch' },
   action: { minHeight: 44, paddingHorizontal: 12, borderRadius: 10, shadowOpacity: 0, elevation: 0 },
 });

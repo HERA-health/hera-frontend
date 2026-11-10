@@ -3,12 +3,12 @@ import { Platform } from 'react-native';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { QuestionnaireResultsScreen } from '../QuestionnaireResultsScreen';
 import { addFavoriteSpecialist, getFavoriteSpecialistStatus, removeFavoriteSpecialist, getMatchedSpecialists, type SpecialistData } from '../../../services/specialistsService';
-import { getAssistedResults, withdrawQuestionnaireConsent, sendAdvice } from '../../../services/questionnaireService';
+import { getAssistedResults, sendAdvice } from '../../../services/questionnaireService';
 let mockAdviceId: string | undefined;
 const mockNavigate = jest.fn();
 const mockListeners = new Set<() => void>();
-const mockNavigation = {navigate: mockNavigate, isFocused: () => true, addListener: (_event: string, callback: () => void) => {mockListeners.add(callback); return () => mockListeners.delete(callback);}};
-jest.mock('@react-navigation/native', () => ({useFocusEffect: (callback: () => void) => require('react').useEffect(callback, [callback]), useNavigation: () => mockNavigation, useRoute: () => ({params: {adviceId: mockAdviceId}})}));
+const mockNavigation = {navigate: mockNavigate, dispatch: jest.fn(), isFocused: () => true, addListener: (_event: string, callback: () => void) => {mockListeners.add(callback); return () => mockListeners.delete(callback);}};
+jest.mock('@react-navigation/native', () => ({CommonActions: jest.requireActual('@react-navigation/native').CommonActions, useFocusEffect: (callback: () => void) => require('react').useEffect(callback, [callback]), useNavigation: () => mockNavigation, useRoute: () => ({params: {adviceId: mockAdviceId}})}));
 jest.mock('../../../contexts/ThemeContext', () => ({useTheme: () => ({theme: require('../../../constants/theme').lightTheme})}));
 jest.mock('../../../hooks/useProfileOptions', () => ({useProfileOptions: () => ({options: null})}));
 jest.mock('../../../services/specialistsService', () => ({getMatchedSpecialists: jest.fn(), invalidateSpecialistsCache: jest.fn(), addFavoriteSpecialist: jest.fn(), getFavoriteSpecialistStatus: jest.fn(), removeFavoriteSpecialist: jest.fn()}));
@@ -32,23 +32,21 @@ test.each([undefined, 'minor-request'])('external consent withdrawal invalidates
   jest.mocked(getAssistedResults).mockReset();
 });
 
-test('results explain that therapy type and ages are not matched', async () => {
+test('results explain recommendations with concise patient-facing copy', async () => {
   jest.mocked(getMatchedSpecialists).mockResolvedValue({specialists: [professional], hasCompletedQuestionnaire: true});
   render(<QuestionnaireResultsScreen />);
   await screen.findByText('Resultado antiguo');
-  expect(screen.getByText(/El tipo de terapia y las edades indicadas no se usan/)).toBeTruthy();
+  expect(screen.getByText(/Profesionales con especialidades afines a tus respuestas/)).toBeTruthy();
   expect(screen.queryByText('Servicio compatible con tus preferencias')).toBeNull();
 });
 
-test('a recommendation response arriving after withdrawal cannot restore the cards', async () => {
-  let finish!: (value: Awaited<ReturnType<typeof getMatchedSpecialists>>) => void;
-  jest.mocked(getMatchedSpecialists).mockImplementation(() => new Promise(resolve => {finish = resolve;}));
-  jest.mocked(withdrawQuestionnaireConsent).mockResolvedValue();
+test('patients can redo the questionnaire from a clear action', async () => {
+  jest.mocked(getMatchedSpecialists).mockResolvedValue({specialists: [professional], hasCompletedQuestionnaire: true});
   render(<QuestionnaireResultsScreen />);
-  fireEvent.press(screen.getByText('Retirar consentimiento para nuevas recomendaciones'));
-  await waitFor(() => expect(screen.getByText('Actualiza tus respuestas para recibir recomendaciones.')).toBeTruthy());
-  await act(async () => {finish({specialists: [professional], hasCompletedQuestionnaire: true});});
-  expect(screen.queryByText('Resultado antiguo')).toBeNull();
+  await screen.findByText('Resultado antiguo');
+  expect(screen.queryByText('Retirar consentimiento para nuevas recomendaciones')).toBeNull();
+  fireEvent.press(screen.getByText('Rehacer cuestionario'));
+  expect(mockNavigate).toHaveBeenCalledWith('Questionnaire');
 });
 
 test('reloading a withdrawn minor request explains withdrawal instead of absence of specialists', async () => {
@@ -100,11 +98,12 @@ test('unknown favorite state can be retried and pending updates cannot be duplic
   expect(screen.getByRole('button', {name: 'Quitar a Resultado antiguo de favoritos'})).toBeTruthy();
 });
 
-test('reasons expand without hiding the partial match and booking retains the matched option', async () => {
+test('reasons expand without the partial affinity label and booking retains the matched option', async () => {
   const result = {...professional, partialMatch: true, matchedOptionId: 'option-1', matchingReasons: [1,2,3,4].map(index => ({kind: 'direct' as const, answer: 'anxiety', evidence: 'anxiety', label: `Motivo ${index}`}))};
   jest.mocked(getMatchedSpecialists).mockResolvedValue({specialists: [result], hasCompletedQuestionnaire: true});
   render(<QuestionnaireResultsScreen />);
-  await screen.findByText('Coincidencia parcial con tus áreas');
+  await screen.findByText('Motivo 1');
+  expect(screen.queryByText('Coincidencia parcial con tus áreas')).toBeNull();
   expect(screen.queryByText('Motivo 4')).toBeNull();
   fireEvent.press(screen.getByText('Ver todos los motivos (4)'));
   expect(screen.getByText('Motivo 4')).toBeTruthy();
@@ -134,7 +133,7 @@ test.each([undefined, 'minor-request'])('clarification has a distinct explanatio
   render(<QuestionnaireResultsScreen />);
   await screen.findByText('Necesitamos concretar un área de apoyo.');
   fireEvent.press(screen.getByText('Explorar directorio'));
-  expect(mockNavigate).toHaveBeenCalledWith('Specialists');
+  expect(mockNavigation.dispatch).toHaveBeenCalledWith(expect.objectContaining({ payload: { name: 'SpecialistsDirectory', pop: true } }));
 });
 
 test.each([undefined, 'minor-request'])('agenda retry identifies the selected professional (%s)', async adviceId => {
@@ -149,22 +148,26 @@ test.each([undefined, 'minor-request'])('agenda retry identifies the selected pr
   else expect(getMatchedSpecialists).toHaveBeenLastCalledWith({prioritizeAvailabilityFor: 'one', forceRefresh: true});
 });
 
-test('counts, declared presentation, selected option and focus refresh survive return from booking', async () => {
+test('pagination, declared presentation, selected option and focus refresh survive return from booking', async () => {
   const specialists = Array.from({length: 5}, (_, i) => ({...professional, id: `pro-${i}`, matchedOptionId: 'chosen', description: 'Presentación declarada por la profesional.', matchingProfile: {therapeuticApproach: ['cbt', 'emdr', 'eft'], customTherapeuticApproaches: ['Enfoque propio']}}));
   jest.mocked(getMatchedSpecialists).mockResolvedValue({specialists, hasCompletedQuestionnaire: true});
   render(<QuestionnaireResultsScreen />);
-  await screen.findByText('Mostrando 3 de 5 profesionales. Quedan 2 por ver.');
-  fireEvent.press(screen.getAllByText('Ver presentación completa')[0]);
+  await screen.findByText('Ver más profesionales');
+  expect(screen.getAllByText('Ver perfil')).toHaveLength(4);
+  expect(screen.queryByText(/Mostrando .* profesionales/)).toBeNull();
+  fireEvent.press(screen.getAllByText('Presentación completa')[0]);
   expect(screen.getByText(/Enfoque propio/)).toBeTruthy();
   fireEvent.press(screen.getAllByText('Ver perfil')[0]);
   expect(mockNavigate).toHaveBeenCalledWith('SpecialistDetail', {adviceId: undefined, specialistId: 'pro-0', optionId: 'chosen'});
   fireEvent.press(screen.getByText('Ver más profesionales'));
-  expect(screen.getByText('Mostrando 5 de 5 profesionales. Quedan 0 por ver.')).toBeTruthy();
+  expect(screen.getAllByText('Ver perfil')).toHaveLength(5);
+  expect(screen.queryByText('Ver más profesionales')).toBeNull();
   require('../../../utils/specialistDiscoveryRevision').invalidateSpecialistDiscovery();
   jest.replaceProperty(Platform, 'OS', 'web');
   await act(async () => {mockListeners.forEach(listener => listener());});
   expect(getMatchedSpecialists).toHaveBeenCalledTimes(2);
-  expect(screen.getByText('Mostrando 5 de 5 profesionales. Quedan 0 por ver.')).toBeTruthy();
+  expect(screen.getAllByText('Ver perfil')).toHaveLength(5);
+  expect(screen.queryByText('Ver más profesionales')).toBeNull();
 });
 
 test('an ineligible retry can recover with a fresh search', async () => {
@@ -190,4 +193,12 @@ test('changing assisted search discards a late response from the previous search
   await screen.findByText('Necesitamos concretar un área de apoyo.');
   await act(async () => finish({specialists:[professional],consentWithdrawn:false,privateDraft:true,expiresAt:null}));
   expect(screen.queryByText('Resultado antiguo')).toBeNull();
+});
+
+test('results open the general directory explicitly', async () => {
+  jest.mocked(getMatchedSpecialists).mockResolvedValue({specialists: [professional], hasCompletedQuestionnaire: true});
+  render(<QuestionnaireResultsScreen />);
+  await screen.findByText('Resultado antiguo');
+  fireEvent.press(screen.getByText('Ver todos los especialistas'));
+  expect(mockNavigation.dispatch).toHaveBeenCalledWith(expect.objectContaining({payload: {name: 'SpecialistsDirectory', pop: true}}));
 });

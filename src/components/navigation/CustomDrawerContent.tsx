@@ -129,6 +129,8 @@ export function CustomDrawerContent({
     (route: string) => {
       if (isProfessionalSection(route)) {
         navigateProfessionalSection(navigation, route);
+      } else if (route === 'Specialists') {
+        navigation.dispatch(CommonActions.navigate({ name: 'Specialists', pop: true }));
       } else if (route === 'QuestionnaireResults') {
         navigation.navigate(route, { adviceId: undefined });
       } else {
@@ -161,7 +163,7 @@ export function CustomDrawerContent({
         ) : null}
         isMobile={isMobile}
         userRole={userRole}
-        currentRoute={currentRoute}
+        currentRoute={['SpecialistsDirectory', 'SpecialistDetail'].includes(currentRoute) ? 'Specialists' : currentRoute}
         onNavigate={handleNavigate}
         user={sidebarUser}
         onLogout={handleLogout}

@@ -1,8 +1,10 @@
 import React from 'react';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
-import SpecialistsScreen from '../SpecialistsScreen';
+import { SpecialistsDirectoryScreen as SpecialistsScreen } from '../SpecialistsScreen';
+jest.mock('../SpecialistDetailScreen', () => ({ SpecialistProfileContent: () => null }));
 import * as service from '../../../services/specialistsService';
 const mockNavigate = jest.fn();
+const mockDispatch = jest.fn();
 // Supply layout measurements missing from the native test host; keep real controls.
 jest.mock('../../../components/common/AnimatedPressable', () => {
   const ReactModule = jest.requireActual<typeof React>('react');
@@ -15,7 +17,7 @@ jest.mock('../../../components/common/AnimatedPressable', () => {
   } };
 });
 let mockUser = { id: 'patient-one', type: 'client' };
-jest.mock('@react-navigation/native', () => ({ useNavigation: () => ({ navigate: mockNavigate }),
+jest.mock('@react-navigation/native', () => ({ CommonActions: jest.requireActual('@react-navigation/native').CommonActions, useNavigation: () => ({ navigate: mockNavigate, dispatch: mockDispatch }),
   useFocusEffect: (effect: () => void | (() => void)) => { jest.requireActual<typeof React>('react').useEffect(effect, [effect]); } }));
 jest.mock('../../../hooks/useDiscoveryRevalidation', () => ({ useDiscoveryRevalidation: jest.fn() }));
 jest.mock('../../../contexts/AuthContext', () => ({ useAuth: () => ({ user: mockUser }) }));
@@ -51,13 +53,42 @@ test('opens the selected session and preserves recommendations without obsolete 
   expect(screen.queryByText('Publicaciones')).toBeNull();
   expect(screen.queryByText('Top 1')).toBeNull();
 });
+
+test('recommendations opens the questionnaire when it is missing, without changing the button label', async () => {
+  jest.mocked(service.getMatchedSpecialists).mockResolvedValue({ specialists: [], hasCompletedQuestionnaire: false });
+  render(<SpecialistsScreen />);
+  await screen.findByText('Elena Martín');
+  fireEvent.press(screen.getByText('Ver recomendaciones'));
+  expect(mockNavigate).toHaveBeenCalledWith('Questionnaire');
+});
+
+test('explicit exploration never redirects a linked patient and offers a quiet return action', async () => {
+  jest.mocked(service.getSpecialistPersonalization).mockResolvedValue({ ...empty, primarySpecialist: {
+    specialist: person, session: { id: 'appointment', date: '2027-01-01T10:00:00Z', status: 'CONFIRMED', type: 'VIDEO_CALL' },
+  } });
+  render(<SpecialistsScreen />);
+  await screen.findByText('Elena Martín');
+  expect(screen.getByText('Encuentra tu especialista')).toBeTruthy();
+  expect(screen.queryByText('TU ESPECIALISTA')).toBeNull();
+  expect(mockDispatch).not.toHaveBeenCalled();
+  fireEvent.press(screen.getByText('Mi especialista'));
+  expect(mockDispatch).toHaveBeenCalledWith(expect.objectContaining({ payload: { name: 'Specialists', pop: true } }));
+});
+
+test('a recommendations failure does not send the patient to a new questionnaire', async () => {
+  jest.mocked(service.getMatchedSpecialists).mockRejectedValue(new Error('offline'));
+  render(<SpecialistsScreen />);
+  await screen.findByText('No se pudieron cargar tus recomendaciones.');
+  fireEvent.press(screen.getByText('Ver recomendaciones'));
+  expect(mockNavigate).not.toHaveBeenCalled();
+});
 test('favorite actions do not navigate, persist through tabs and show the last-removal empty state', async () => {
   render(<SpecialistsScreen />);
   fireEvent.press(await screen.findByLabelText('Guardar a Elena Martín en favoritos'));
   await waitFor(() => expect(screen.getByLabelText('Quitar a Elena Martín de favoritos')).toBeTruthy());
   expect(mockNavigate).not.toHaveBeenCalled();
   fireEvent.press(screen.getByRole('tab', { name: 'Favoritos' }));
-  expect(screen.getByText('Privado para ti')).toBeTruthy();
+  expect(screen.queryByText('Tus favoritos')).toBeNull();
   fireEvent.press(screen.getByLabelText('Quitar a Elena Martín de favoritos'));
   expect(await screen.findByText('Todavía no tienes favoritos')).toBeTruthy();
   expect(service.removeFavoriteSpecialist).toHaveBeenCalledWith('one');

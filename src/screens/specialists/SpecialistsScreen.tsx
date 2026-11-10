@@ -13,15 +13,17 @@ import { Input } from '../../components/common/Input';
 import { SimpleDropdown } from '../../components/common/SimpleDropdown';
 import { SearchableProfileSelect } from '../../components/common/SearchableProfileSelect';
 import { renderLanguageIcon } from '../../components/common/LanguageIcon';
-import { DirectoryFavoriteButton, DirectorySpecialistCard, type DirectoryFavoriteState } from '../../components/features/DirectorySpecialistCard';
+import { DirectorySpecialistCard, type DirectoryFavoriteState } from '../../components/features/DirectorySpecialistCard';
 import { DirectoryFiltersSheet } from './components/DirectoryFiltersSheet';
 import { useProfileOptions } from '../../hooks/useProfileOptions';
 import { optionLabel } from '../../utils/profileOptions';
 import { getMyClientProfile } from '../../services/clientService';
 import { trackScreen } from '../../services/analyticsService';
 import type { SpecialistData, SpecialistFilters, PublicSpecialistModality } from '../../services/specialistsService';
-import { patientDirectoryCards, searchAndSortPatientCards, toPatientDirectoryCard, type PatientDirectoryCard, type PatientDirectorySort } from './patientDirectoryModel';
+import { patientDirectoryCards, searchAndSortPatientCards, type PatientDirectoryCard, type PatientDirectorySort } from './patientDirectoryModel';
 import { usePatientSpecialists } from './usePatientSpecialists';
+import { SpecialistProfileContent } from './SpecialistDetailScreen';
+import { navigatePatientSpecialists } from '../../navigation/patientSpecialistsNavigation';
 
 const MODALITIES: { label: string; value: PublicSpecialistModality }[] = [
   { label: 'Terapia online', value: 'ONLINE' }, { label: 'Llamada', value: 'PHONE_CALL' }, { label: 'Terapia presencial', value: 'IN_PERSON' },
@@ -131,9 +133,10 @@ function PatientSpecialistsScreen({ isClient }: { isClient: boolean }) {
     ? favorites.map(item => data.available.find(current => current.id === item.id) ?? item)
     : data.available, [tab, hasServerFilters, favorites, data.available]);
   const cards = useMemo(() => searchAndSortPatientCards(
-    patientDirectoryCards(source, matched, filters).filter(card => tab !== 'favorites' || favoriteIds.includes(card.id)), query, effectiveSort,
+    patientDirectoryCards(source, matched, filters).filter(card => tab !== 'favorites' || favoriteIds.includes(card.id)), query, effectiveSort, favoriteIds,
   ), [source, matched, filters, tab, favoriteIds, query, effectiveSort]);
   const sortOptions: { label: string; value: PatientDirectorySort }[] = [
+    ...(isClient ? [{ label: 'Favoritos primero', value: 'favorites' as const }] : []),
     ...(matched.length ? [{ label: 'Recomendaciones', value: 'recommended' as const }] : []),
     { label: 'Nombre: A–Z', value: 'name' }, { label: 'Mejor valorados', value: 'rating' },
     { label: 'Precio: menor primero', value: 'price_low' }, { label: 'Precio: mayor primero', value: 'price_high' },
@@ -197,23 +200,32 @@ function PatientSpecialistsScreen({ isClient }: { isClient: boolean }) {
   const resultsLoading = (needsDirectory && data.loading) || (tab === 'favorites' && data.personalLoading && !data.personalization);
   const resultsError = (needsDirectory && data.error) || (tab === 'favorites' && data.personalError);
   const primary = data.personalization?.primarySpecialist;
-  const resultCount = `${cards.length} resultado${cards.length === 1 ? '' : 's'}`;
+  const sortControl = <View style={styles.sort}><SimpleDropdown options={sortOptions} value={effectiveSort} onSelect={setSort} accessibilityLabel="Ordenar especialistas"
+            compact presentation="portal" portalAnimation="none" focusOptionOnShow keyboardNavigation selectionIndicator="none" highlightSelection={false} optionsAlign="right" optionsMinWidth={280} maxHeight={400} /></View>;
   return <View testID="patient-directory" style={[styles.screen, { backgroundColor: theme.bgMuted }]} onLayout={event => setWidth(event.nativeEvent.layout.width)}>
     <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={[styles.content, mobile && styles.mobileContent]}>
       <View style={styles.header}>
         <View style={styles.heading}><Text accessibilityRole="header" style={[styles.title, label, mobile && styles.mobileTitle]}>Encuentra tu especialista</Text>
           <Text style={[text, styles.subtitle]}>Compara perfiles verificados y encuentra el apoyo que necesitas.</Text></View>
-        {isClient ? <Button variant="outline" size="small" disabled={!data.matches || data.matchesError} onPress={() => data.matches?.hasCompletedQuestionnaire
+        {isClient ? <View style={styles.headerActions}><Button variant="primary" icon={<Ionicons aria-hidden name="sparkles-outline" size={20} color={theme.actionPrimaryText} />} disabled={!data.matches || data.matchesError} onPress={() => data.matches?.hasCompletedQuestionnaire
           ? navigation.navigate('QuestionnaireResults', { adviceId: undefined }) : navigation.navigate('Questionnaire')}>
-          {data.matches?.hasCompletedQuestionnaire ? 'Ver recomendaciones' : 'Hacer cuestionario'}</Button> : null}
+          Ver recomendaciones</Button>
+          {primary && !data.personalError ? <Button variant="outline" icon={<Ionicons aria-hidden name="person-outline" size={20} color={theme.primary} />}
+            onPress={() => navigatePatientSpecialists(navigation, 'Specialists')}>
+            Mi especialista
+          </Button> : null}
+        </View> : null}
       </View>
       {data.matchesError ? <View style={styles.notice}><Text style={text}>No se pudieron cargar tus recomendaciones.</Text>
         <Button variant="outline" onPress={data.retryMatches}>Reintentar recomendaciones</Button></View> : null}
-      <View style={styles.searchRow}>
-        <Input value={queryInput} onChangeText={setQueryInput} placeholder={mobile ? 'Nombre o especialidad' : 'Nombre, profesión o especialidad'} accessibilityLabel="Buscar especialistas"
-          onSubmitEditing={submitSearch} returnKeyType="search" error={searchError} containerStyle={styles.searchInput}
-          leftIcon={<Ionicons name="search-outline" size={22} color={theme.primary} />} />
-        <Button variant="primary" onPress={submitSearch}>Buscar</Button>
+      <View style={[styles.searchControls, desktop && styles.searchControlsDesktop]}>
+        <View style={[styles.searchRow, desktop && styles.searchHalf]}>
+          <Input value={queryInput} onChangeText={setQueryInput} placeholder={mobile ? 'Nombre o especialidad' : 'Nombre, profesión o especialidad'} accessibilityLabel="Buscar especialistas"
+            onSubmitEditing={submitSearch} returnKeyType="search" error={searchError} containerStyle={styles.searchInput}
+            leftIcon={<Ionicons name="search-outline" size={22} color={theme.primary} />} />
+          <Button variant="primary" onPress={submitSearch}>Buscar</Button>
+        </View>
+        {desktop ? sortControl : null}
       </View>
       <View style={styles.toolbar}>
         <View style={styles.tabs}>
@@ -227,8 +239,7 @@ function PatientSpecialistsScreen({ isClient }: { isClient: boolean }) {
         <View style={styles.toolbarActions}>
           {!desktop ? <Button variant="outline" accessibilityLabel={activeFilters.length ? `Filtros: ${activeFilters.length} activos` : 'Abrir filtros'} onPress={() => setFiltersOpen(true)}>
             {`Filtros${activeFilters.length ? ` · ${activeFilters.length}` : ''}`}</Button> : null}
-          <View style={styles.sort}><SimpleDropdown options={sortOptions} value={effectiveSort} onSelect={setSort} accessibilityLabel="Ordenar especialistas"
-            compact presentation="portal" portalAnimation="none" focusOptionOnShow keyboardNavigation selectionIndicator="radio" highlightSelection={false} optionsAlign="right" /></View>
+          {!desktop ? sortControl : null}
         </View>
       </View>
       {activeFilters.length ? <View style={styles.chips}>
@@ -240,21 +251,12 @@ function PatientSpecialistsScreen({ isClient }: { isClient: boolean }) {
           <Text style={[label, { color: theme.primary }]}>Limpiar filtros</Text>
         </Pressable>
       </View> : null}
-      {data.personalError && tab === 'all' ? <View style={styles.notice}><Text style={text}>No se pudieron cargar tus favoritos y tu especialista. Puedes seguir explorando.</Text>
+      {data.personalError && tab === 'all' ? <View style={styles.notice}><Text style={text}>No se pudieron cargar tus datos personales. Puedes seguir explorando el directorio.</Text>
         <Button variant="outline" onPress={data.retryPersonalization}>Reintentar favoritos</Button></View> : null}
       {data.favoriteError ? <Text accessibilityRole="alert" style={[text, { color: theme.error }]}>{data.favoriteError}</Text> : null}
       <View style={[styles.layout, desktop && styles.desktopLayout]}>
         {desktop ? <View style={styles.sidebar}>{filterPanel}</View> : null}
         <View style={styles.results}>
-          {tab === 'all' && primary && !data.personalError ? <View style={[styles.continuity, surface]}>
-            <View style={styles.continuityHeading}><Text style={[text, styles.small]}>TU ESPECIALISTA</Text>
-              <Text style={[label, styles.continuityName]}>Continúa con {primary.specialist.user.name}</Text></View>
-            <Button variant="outline" size="small" onPress={() => openProfile(toPatientDirectoryCard(primary.specialist))}>Ver perfil</Button>
-            <DirectoryFavoriteButton name={primary.specialist.user.name} state={favoriteState(primary.specialist.id)} />
-          </View> : null}
-          <View style={styles.resultsHeading}><Text accessibilityRole="header" style={label}>{tab === 'all' ? 'Especialistas disponibles' : 'Tus favoritos'}</Text>
-            <Text style={[text, styles.small]}>{tab === 'favorites' ? 'Privado para ti' : !resultsLoading && !resultsError ? resultCount : ''}</Text></View>
-          {tab === 'favorites' && !resultsLoading && !resultsError && favoriteIds.length > 0 ? <Text style={[text, styles.resultCount]}>{resultCount}</Text> : null}
           {resultsLoading ? <View accessibilityLabel="Cargando especialistas" style={styles.state}><ActivityIndicator color={theme.primary} /><Text style={text}>Cargando especialistas…</Text></View>
             : resultsError ? <View style={styles.state}><Text accessibilityRole="alert" style={label}>{tab === 'favorites' && data.personalError ? 'No se pudieron cargar tus favoritos' : 'No se pudo cargar el listado'}</Text>
               <Button variant="outline" onPress={tab === 'favorites' && data.personalError ? data.retryPersonalization : data.retry}>Reintentar</Button></View>
@@ -276,9 +278,46 @@ function PatientSpecialistsScreen({ isClient }: { isClient: boolean }) {
   </View>;
 }
 
-export default function SpecialistsScreen() {
+export function SpecialistsDirectoryScreen() {
   const { user } = useAuth();
   return <PatientSpecialistsScreen key={`${user?.type ?? 'guest'}:${user?.id ?? ''}`} isClient={user?.type === 'client'} />;
+}
+
+const ENTRY_FILTERS: SpecialistFilters = {};
+
+function PatientSpecialistEntry() {
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const { theme } = useTheme();
+  const data = usePatientSpecialists(ENTRY_FILTERS, true, false);
+  const primary = data.personalization?.primarySpecialist;
+  useEffect(() => {
+    if (data.personalization && !data.personalLoading && !data.personalError && !primary) {
+      // Preserve an existing list (including its filters and scroll), or replace
+      // this resolver on first entry. The directory itself never redirects.
+      navigation.popTo('SpecialistsDirectory', undefined, { merge: true });
+    }
+  }, [data.personalization, data.personalLoading, data.personalError, primary, navigation]);
+
+  if (data.personalError) return <View style={[styles.entryState, { backgroundColor: theme.bgMuted }]}>
+    <Text accessibilityRole="alert" style={{ color: theme.textPrimary, fontFamily: theme.fontSansSemiBold }}>
+      No hemos podido cargar tu especialista.
+    </Text>
+    <Button onPress={data.retryPersonalization}>Reintentar</Button>
+    <Button variant="outline" onPress={() => navigatePatientSpecialists(navigation, 'SpecialistsDirectory')}>Ver todos los especialistas</Button>
+  </View>;
+  if (primary) return <SpecialistProfileContent key={primary.specialist.id}
+    route={{ params: { specialistId: primary.specialist.id } }} navigation={navigation} continuity />;
+  return <View accessibilityLabel="Cargando tu especialista" style={[styles.entryState, { backgroundColor: theme.bgMuted }]}>
+    <ActivityIndicator color={theme.primary} />
+    <Text style={{ color: theme.textSecondary, fontFamily: theme.fontSans }}>Cargando tu espacio…</Text>
+  </View>;
+}
+
+export default function SpecialistsScreen() {
+  const { user } = useAuth();
+  return user?.type === 'client'
+    ? <PatientSpecialistEntry key={user.id} />
+    : <SpecialistsDirectoryScreen />;
 }
 
 const styles = StyleSheet.create({
@@ -288,20 +327,22 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 16 },
   heading: { flex: 1, minWidth: 200, gap: 6 },
   title: { fontSize: 30, lineHeight: 38 }, mobileTitle: { fontSize: 25, lineHeight: 32 }, subtitle: { fontSize: 15, lineHeight: 23 },
+  searchControls: { gap: 12 }, searchControlsDesktop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+  searchHalf: { width: '50%' },
   searchRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 }, searchInput: { flex: 1, minWidth: 0, marginBottom: 0 },
   toolbar: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   tabs: { flexDirection: 'row', gap: 24 }, tab: { minHeight: 48, justifyContent: 'center', borderBottomWidth: 2 },
-  toolbarActions: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 12 }, sort: { minWidth: 190, flexShrink: 1 },
+  toolbarActions: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 12 }, sort: { minWidth: 240, flexShrink: 1 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center' },
   chip: { minHeight: 36, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, flexDirection: 'row', alignItems: 'center', gap: 6 },
   textButton: { minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   small: { fontSize: 12, lineHeight: 18 }, layout: { gap: 24 }, desktopLayout: { flexDirection: 'row', alignItems: 'flex-start' },
   sidebar: { width: 260 }, filters: { padding: 20, gap: 22 }, filterSurface: { borderWidth: 1, borderRadius: 18 },
   filterTitle: { fontSize: 28, lineHeight: 34 }, field: { gap: 10 },
-  results: { flex: 1, minWidth: 0, gap: 16 }, resultsHeading: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
-  resultCount: { fontSize: 12, marginTop: -8 }, grid: { gap: 20, width: '100%' }, row: { flexDirection: 'row', gap: 20 }, cell: { flex: 1, minWidth: 0 }, card: { flex: 1 },
-  continuity: { borderWidth: 1, borderRadius: 16, padding: 16, flexDirection: 'row', alignItems: 'center', gap: 10 },
-  continuityHeading: { flex: 1, minWidth: 0, gap: 4 }, continuityName: { fontSize: 15, lineHeight: 22 },
+  results: { flex: 1, minWidth: 0, gap: 16 },
+  grid: { gap: 20, width: '100%' }, row: { flexDirection: 'row', gap: 20 }, cell: { flex: 1, minWidth: 0 }, card: { flex: 1 },
+  headerActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, alignItems: 'center' },
+  entryState: { flex: 1, padding: 32, gap: 20, alignItems: 'center', justifyContent: 'center' },
   notice: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 12 },
   state: { padding: 32, gap: 16, alignItems: 'center' }, emptyTitle: { fontSize: 20, textAlign: 'center' }, emptyCopy: { maxWidth: 420, textAlign: 'center', lineHeight: 23 },
 });

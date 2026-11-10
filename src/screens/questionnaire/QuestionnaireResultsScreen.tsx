@@ -1,3 +1,5 @@
+import { navigatePatientSpecialists } from '../../navigation/patientSpecialistsNavigation';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -21,7 +23,6 @@ import {
 } from '../../services/specialistsService';
 import {
   getAssistedResults,
-  withdrawQuestionnaireConsent,
 } from '../../services/questionnaireService';
 import { getErrorMessage } from '../../constants/errors';
 import { AdviceRequestModal } from './components/AdviceRequestModal';
@@ -45,12 +46,10 @@ export function QuestionnaireResultsScreen() {
   const [error, setError] = useState('');
   const [refresh, setRefresh] = useState(false);
   const [needsClarification, setNeedsClarification] = useState(false);
-  const withdrawalPending = useRef(false);
-  const [count, setCount] = useState(3);
+  const [count, setCount] = useState(4);
   const [contentWidth, setContentWidth] = useState(0);
   const [identityHeights, setIdentityHeights] = useState<Record<string, { width: number | undefined; height: number }>>({});
   const requestVersion = useRef(0);
-  const [withdrawing, setWithdrawing] = useState(false);
   const [privateDraft, setPrivateDraft] = useState(false);
   const [advice, setAdvice] = useState<{ key: string; specialistId?: string; draftId?: string; visible: boolean } | null>(null);
   const orientationButton = useRef<AnimatedPressableHandle>(null);
@@ -63,11 +62,10 @@ export function QuestionnaireResultsScreen() {
   const closeAdvice = () => {
     setAdvice(current => current ? { ...current, visible: false } : null);
   };
-  const columns = Math.min(3, Math.max(1, Math.floor((contentWidth + 16) / 336)));
+  const columns = Math.min(2, Math.max(1, Math.floor((contentWidth + 16) / 336)));
   const cardWidth = contentWidth ? Math.floor((contentWidth - (columns - 1) * 16) / columns) : undefined;
   const { options } = useProfileOptions();
   const load = useCallback(async (prioritizeAvailabilityFor?: string) => {
-    if (withdrawalPending.current) return;
     const version = ++requestVersion.current;
     setLoading(true);
     setError('');
@@ -109,11 +107,9 @@ export function QuestionnaireResultsScreen() {
   const revalidate = useCallback(() => load(), [load]);
   useDiscoveryRevalidation(revalidate);
   useEffect(() => {
-    withdrawalPending.current = false;
-    setWithdrawing(false);
     void load();
     setAdvice(null);
-    setCount(3);
+    setCount(4);
     return () => { requestVersion.current++; };
   }, [load]);
   const text = {
@@ -131,7 +127,7 @@ export function QuestionnaireResultsScreen() {
         alignItems: 'center',
       }}
     >
-      <View onLayout={(event) => setContentWidth(event.nativeEvent.layout.width)} style={{ maxWidth: 1120, width: '100%', gap: 14 }}>
+      <View onLayout={(event) => setContentWidth(event.nativeEvent.layout.width)} style={{ width: '100%', gap: 14 }}>
         <Text style={{ ...text, fontSize: 12, lineHeight: 18, fontFamily: theme.fontSansSemiBold, color: theme.textSecondary }}>TU SIGUIENTE PASO</Text>
         <Text
           accessibilityRole="header"
@@ -144,12 +140,7 @@ export function QuestionnaireResultsScreen() {
           Profesionales para ti
         </Text>
         <Text style={{ ...text, fontSize: 14, lineHeight: 21, color: theme.textSecondary, maxWidth: 900 }}>
-          Te mostramos el encaje con sus especialidades y enfoques declarados.
-          El tipo de terapia y las edades indicadas no se usan para seleccionar
-          estos resultados. Confirma con el profesional que atiende tu caso
-          antes de reservar.
-          {' '}Los textos abiertos, la descripción y la formación no se analizan
-          para ordenar. La ubicación presencial considera el municipio de la consulta principal.
+          Profesionales con especialidades afines a tus respuestas. Explora sus perfiles y encuentra el apoyo que necesitas.
         </Text>
         {adviceId ? (
           <Text
@@ -164,11 +155,12 @@ export function QuestionnaireResultsScreen() {
             y comprobar quién recibirá la terapia.
           </Text>
         ) : null}
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 4 }}>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 4 }}>
           <Button
             size="small"
             style={{ minHeight: 44 }}
-            variant="ghost"
+            variant={adviceId ? 'outline' : 'primary'}
+            icon={!adviceId ? <Ionicons aria-hidden name="refresh-outline" size={18} color={theme.actionPrimaryText} /> : undefined}
             onPress={() =>
               adviceId
                 ? navigation.navigate('MatchingAdvice', { id: adviceId })
@@ -177,28 +169,35 @@ export function QuestionnaireResultsScreen() {
           >
             {adviceId
               ? 'Ver respuestas guardadas'
-              : refresh
-                ? 'Completar cuestionario actualizado'
-                : 'Revisar cuestionario'}
+              : 'Rehacer cuestionario'}
           </Button>
           <Button
             size="small"
             style={{ minHeight: 44 }}
-            variant={adviceId || (!loading && !specialists.length) ? 'primary' : 'outline'}
+            variant={adviceId ? 'primary' : 'outline'}
             focusRef={orientationButton}
             disabled={!!adviceId && loading}
             onPress={() => openAdvice()}
           >
             {adviceId ? privateDraft ? 'Solicitar ayuda para empezar' : 'Ver solicitud' : 'Pedir orientación'}
           </Button>
-          {width >= 600 ? <Button
+          <Button
             size="small"
             style={{ minHeight: 44 }}
-            variant="ghost"
+            variant="outline"
             onPress={() => navigation.navigate('MatchingAdvice')}
           >
             Mis solicitudes
-          </Button> : null}
+          </Button>
+          <Button
+            size="small"
+            variant="outline"
+            style={{ minHeight: 44, ...(width >= 600 ? { marginLeft: 'auto' } : {}) }}
+            icon={<Ionicons aria-hidden name="grid-outline" size={18} color={theme.primary} />}
+            onPress={() => navigatePatientSpecialists(navigation, 'SpecialistsDirectory')}
+          >
+            Ver todos los especialistas
+          </Button>
         </View>
         {loading ? (
           <ActivityIndicator
@@ -247,13 +246,12 @@ export function QuestionnaireResultsScreen() {
             {needsClarification && adviceId ? <Button variant="outline" onPress={() => navigation.navigate('Questionnaire')}>Iniciar otro cuestionario</Button> : null}
             <Button
               variant="outline"
-              onPress={() => navigation.navigate('Specialists')}
+              onPress={() => navigatePatientSpecialists(navigation, 'SpecialistsDirectory')}
             >
               Explorar directorio
             </Button>
           </View>
         ) : null}
-        {!loading && specialists.length > 0 ? <Text style={{ ...text, color: theme.textSecondary }}>Mostrando {Math.min(count, specialists.length)} de {specialists.length} profesionales. Quedan {Math.max(0, specialists.length - count)} por ver.</Text> : null}
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 16, alignItems: 'stretch' }}>
         {!loading ? specialists.slice(0, count).map((specialist, index) => (
           <View key={specialist.id} style={{ width: cardWidth ?? '100%' }}>
@@ -280,48 +278,8 @@ export function QuestionnaireResultsScreen() {
         )) : null}
         </View>
         {count < specialists.length ? (
-          <Button size="small" style={{ minHeight: 44, alignSelf: 'center' }} variant="outline" onPress={() => setCount(count + 3)}>
+          <Button size="small" style={{ minHeight: 44, alignSelf: 'center' }} variant="outline" onPress={() => setCount(count + 4)}>
             Ver más profesionales
-          </Button>
-        ) : null}
-        {width < 600 ? <Button size="small" style={{ minHeight: 44, alignSelf: 'flex-start' }} variant="ghost" onPress={() => navigation.navigate('MatchingAdvice')}>Mis solicitudes</Button> : null}
-        {!refresh ? (
-          <Button
-            variant="ghost"
-            size="small"
-            style={{ minHeight: 44, alignSelf: 'flex-start', marginTop: 8 }}
-            textStyle={{ fontSize: 12 }}
-            loading={withdrawing}
-            onPress={() => {
-              withdrawalPending.current = true;
-              requestVersion.current++;
-              const withdrawalVersion = requestVersion.current;
-              setLoading(false);
-              setWithdrawing(true);
-              void withdrawQuestionnaireConsent(adviceId)
-                .then(() => {
-                  if (withdrawalVersion !== requestVersion.current) return;
-                  setRefresh(true);
-                  setNeedsClarification(false);
-                  setSpecialists([]);
-                })
-                .catch((e) => {
-                  if (withdrawalVersion !== requestVersion.current) return;
-                  setError(
-                    getErrorMessage(
-                      e,
-                      'No se ha podido retirar el consentimiento.',
-                    ),
-                  );
-                })
-                .finally(() => {
-                  if (withdrawalVersion !== requestVersion.current) return;
-                  withdrawalPending.current = false;
-                  setWithdrawing(false);
-                });
-            }}
-          >
-            Retirar consentimiento para nuevas recomendaciones
           </Button>
         ) : null}
       </View>

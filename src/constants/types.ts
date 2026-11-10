@@ -154,6 +154,7 @@ export type RootStackParamList = {
   MainStack: undefined;
   Home: undefined;
   Specialists: undefined;
+  SpecialistsDirectory: undefined;
   PublicSpecialists: { specialty?: ProfessionalSpecialtyValue } | undefined;
   Sessions: undefined;
   OnDutyPsychologist: undefined;

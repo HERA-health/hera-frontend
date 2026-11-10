@@ -22,6 +22,7 @@ import { useProfileObstruction } from './useProfileObstruction';
 
 interface Props {
   presentationContext?: 'public' | 'patient';
+  continuity?: boolean;
   assistedStart?: boolean;
   specialist: Specialist;
   reviews: Review[];
@@ -46,7 +47,7 @@ export function PublicSpecialistProfileLayout(props: Props) {
 
 function ProfileContent({ specialist, reviews, reviewsVisible, canBook, isAuthenticated, isClient, initialOptionId, renderPackageAction, notice,
   onBrowseSpecialists, onBookSession, onOpenCertificate, onReviewSubmitted, onScrollChange,
-  presentationContext = 'public', assistedStart = false }: Props) {
+  presentationContext = 'public', assistedStart = false, continuity = false }: Props) {
   const { theme } = useTheme();
   const { width: windowWidth } = useWindowDimensions();
   const [containerWidth, setContainerWidth] = useState<number | null>(null);
@@ -137,9 +138,15 @@ function ProfileContent({ specialist, reviews, reviewsVisible, canBook, isAuthen
       contentContainerStyle={[styles.scrollContent, { paddingTop: contentTop, paddingHorizontal: mobile ? 20 : 32, paddingBottom: desktop ? 64 : barHeight + 32 }]}>
       <View style={styles.container}>
         {notice}
-        <Pressable accessibilityRole="link" accessibilityLabel="Ver todos los especialistas" onPress={onBrowseSpecialists} style={styles.back}>
+        {continuity ? <View style={styles.continuityHeader}>
+          <View style={styles.continuityCopy}>
+            <Text accessibilityRole="header" style={{ color: theme.textPrimary, fontFamily: theme.fontSansSemiBold, fontSize: 24, lineHeight: 32 }}>Tu especialista</Text>
+            <Text style={{ color: theme.textSecondary, fontFamily: theme.fontSans, fontSize: 15, lineHeight: 22 }}>Consulta su perfil y reserva tu próxima sesión.</Text>
+          </View>
+          <Button variant="outline" onPress={onBrowseSpecialists}>Ver todos los especialistas</Button>
+        </View> : <Pressable accessibilityRole="link" accessibilityLabel="Ver todos los especialistas" onPress={onBrowseSpecialists} style={styles.back}>
           <Ionicons name="arrow-back" size={17} color={theme.primary} /><Text style={{ color: theme.primary, fontFamily: theme.fontSansSemiBold, fontSize: 13 }}>Todos los especialistas</Text>
-        </Pressable>
+        </Pressable>}
         <View onLayout={event => setColumnsY(event.nativeEvent.layout.y)} style={[styles.columns, desktop && styles.columnsDesktop]}>
           <View style={styles.main}>
             <PublicProfileHero specialist={specialist} layoutWidth={embedded ? width : undefined} reviewsVisible={reviewsVisible} onPractice={() => jumpTo(practiceY.current)}
@@ -187,6 +194,8 @@ const styles = StyleSheet.create({
   scrollContent: { paddingTop: 78 },
   container: { width: '100%', maxWidth: 1440, alignSelf: 'center' },
   back: { minHeight: 44, flexDirection: 'row', gap: 8, alignItems: 'center', alignSelf: 'flex-start', marginBottom: 8 },
+  continuityHeader: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 16, marginBottom: 32 },
+  continuityCopy: { gap: 6, flexShrink: 1 },
   columns: { gap: 32 },
   columnsDesktop: { flexDirection: 'row', alignItems: 'stretch' },
   main: { flex: 1, minWidth: 0 },

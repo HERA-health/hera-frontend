@@ -1,6 +1,6 @@
 import React from 'react';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
-import { SpecialistDetailScreen } from '../SpecialistDetailScreen';
+import { SpecialistDetailScreen, SpecialistProfileContent } from '../SpecialistDetailScreen';
 import { getSpecialistDetails, SpecialistDetailsError } from '../../../services/specialistsService';
 import type { SpecialistData } from '../../../services/specialistsService';
 import { getAvailableSlots } from '../../../services/sessionsService';
@@ -8,6 +8,7 @@ import { useDiscoveryRevalidation } from '../../../hooks/useDiscoveryRevalidatio
 import { ProfilePackages } from '../../../components/packages/ProfilePackages';
 
 jest.mock('@react-navigation/native', () => ({
+  CommonActions: jest.requireActual('@react-navigation/native').CommonActions,
   useFocusEffect: (effect: () => void | (() => void)) => jest.requireActual<typeof React>('react').useEffect(effect, [effect]),
 }));
 jest.mock('../../../hooks/useDiscoveryRevalidation', () => ({ useDiscoveryRevalidation: jest.fn() }));
@@ -50,7 +51,7 @@ const data = (id: string): SpecialistData => ({
     { specialistId: id, optionId: 'phone', serviceId: 'general', serviceName: 'General', modality: 'PHONE_CALL', durationMinutes: 30, priceCents: 3000 },
   ],
 });
-const navigation = { navigate: jest.fn(), goBack: jest.fn() };
+const navigation = { navigate: jest.fn(), goBack: jest.fn(), dispatch: jest.fn() };
 const slot = { startTime: '11:00', endTime: '11:30', available: true };
 const summary = () => within(screen.getByTestId('public-booking-summary'));
 const refreshProfile = () => act(async () => {
@@ -59,6 +60,22 @@ const refreshProfile = () => act(async () => {
   await reload();
 });
 beforeEach(() => { jest.clearAllMocks(); jest.mocked(getAvailableSlots).mockResolvedValue([slot]); });
+
+it('continuity reuses booking and presents exploration as a secondary button', async () => {
+  jest.mocked(getSpecialistDetails).mockResolvedValue(data('one'));
+  render(<SpecialistProfileContent continuity route={{ params: { specialistId: 'one' } }} navigation={navigation} />);
+  await screen.findByText('11:00');
+  expect(screen.getByRole('header', { name: 'Tu especialista' })).toBeTruthy();
+  expect(screen.queryByRole('link', { name: 'Ver todos los especialistas' })).toBeNull();
+  fireEvent.press(screen.getByRole('radio', { name: /General · Teléfono · 30 min/ }));
+  fireEvent.press(await screen.findByText('11:00'));
+  fireEvent.press(summary().getByText('Reservar'));
+  expect(navigation.navigate).toHaveBeenLastCalledWith('Booking', expect.objectContaining({
+    specialistId: 'one', optionId: 'phone', initialDate: '2099-07-29', initialSlotStartTime: '11:00', initialSlotEndTime: '11:30',
+  }));
+  fireEvent.press(screen.getByRole('button', { name: 'Ver todos los especialistas' }));
+  expect(navigation.dispatch).toHaveBeenLastCalledWith(expect.objectContaining({ payload: { name: 'SpecialistsDirectory', pop: true } }));
+});
 
 it('keeps a temporary failure on the profile and recovers when retried', async () => {
   jest.mocked(getSpecialistDetails).mockRejectedValueOnce(new Error('Fallo temporal')).mockResolvedValueOnce(data('one'));
@@ -107,7 +124,7 @@ it('uses the shared profile and carries the recommended service, intent and chos
     specialistId: 'one', optionId: 'phone', intentToken: 'intent', initialDate: '2099-07-29', initialSlotStartTime: '11:00', initialSlotEndTime: '11:30',
   });
   fireEvent.press(screen.getByRole('link', { name: 'Ver todos los especialistas' }));
-  expect(navigation.navigate).toHaveBeenLastCalledWith('Specialists');
+  expect(navigation.dispatch).toHaveBeenLastCalledWith(expect.objectContaining({ payload: { name: 'SpecialistsDirectory', pop: true } }));
 });
 
 it.each(['video', undefined, 'unavailable'])('resets the service and previous time when the route option changes to %s for the same specialist', async optionId => {

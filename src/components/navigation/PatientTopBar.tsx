@@ -10,10 +10,12 @@ import { AnimatedPressable } from '../common/AnimatedPressable';
 import { NavigationControl } from './NavigationControl';
 import { CLIENT_SECTIONS } from './sidebar/navConfig';
 import { isLargeScreenForRole } from './mainLayoutBreakpoints';
+import { navigatePatientSpecialists } from '../../navigation/patientSpecialistsNavigation';
 
 const ROUTE_TITLES: Record<string, string> = {
   ...Object.fromEntries(CLIENT_SECTIONS.flatMap((section) => section.items.map((item) => [item.route, item.label]))),
   SpecialistDetail: 'Perfil del especialista',
+  SpecialistsDirectory: 'Especialistas',
   Booking: 'Reservar sesión',
   Questionnaire: 'Cuestionario',
   QuestionnaireResults: 'Tus resultados',
@@ -38,7 +40,7 @@ export function PatientTopBar({ currentRoute, onOpenMobileSidebar }: PatientTopB
   const { user, logout } = useAuth();
   const navigation = useNavigation<AppNavigationProp>();
   const isDesktop = isLargeScreenForRole(width, false);
-  const showSearch = isLargeScreenForRole(width, true) && currentRoute !== 'Specialists';
+  const showSearch = isLargeScreenForRole(width, true) && !['Specialists', 'SpecialistsDirectory', 'SpecialistDetail'].includes(currentRoute);
   const [accountOpen, setAccountOpen] = useState(false);
   const [accountTop, setAccountTop] = useState(64);
   const [avatarFailed, setAvatarFailed] = useState(false);
@@ -76,7 +78,7 @@ export function PatientTopBar({ currentRoute, onOpenMobileSidebar }: PatientTopB
         <View style={styles.searchSlot}>
           <AnimatedPressable
             accessibilityLabel="Buscar especialistas"
-            onPress={() => navigation.navigate('Specialists')}
+            onPress={() => navigatePatientSpecialists(navigation, 'SpecialistsDirectory')}
             hoverLift={false}
             style={[styles.search, { backgroundColor: theme.bgCard, borderColor: theme.navigationBorder }]}
           >
@@ -89,7 +91,7 @@ export function PatientTopBar({ currentRoute, onOpenMobileSidebar }: PatientTopB
       <View style={styles.actions}>
         <AnimatedPressable
           accessibilityLabel="Reservar sesión"
-          onPress={() => navigation.navigate('Specialists')}
+          onPress={() => navigatePatientSpecialists(navigation, 'Specialists')}
           hoverLift={false}
           style={[styles.reserve, !isDesktop && styles.reserveCompact, { backgroundColor: theme.actionPrimary }]}
         >

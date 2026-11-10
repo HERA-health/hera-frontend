@@ -4,10 +4,11 @@ import { Image, Modal, View, useWindowDimensions } from 'react-native';
 import { PatientTopBar } from '../PatientTopBar';
 
 const mockNavigate = jest.fn();
+const mockDispatch = jest.fn();
 const mockLogout = jest.fn();
 const mockSetMode = jest.fn();
 
-jest.mock('@react-navigation/native', () => ({ useNavigation: () => ({ navigate: mockNavigate }) }));
+jest.mock('@react-navigation/native', () => ({ CommonActions: jest.requireActual('@react-navigation/native').CommonActions, useNavigation: () => ({ navigate: mockNavigate, dispatch: mockDispatch }) }));
 jest.mock('../../../contexts/AuthContext', () => ({
   useAuth: () => ({ user: { type: 'client', name: 'Paciente Prueba', avatar: 'https://example.invalid/avatar.png' }, logout: mockLogout }),
 }));
@@ -40,7 +41,7 @@ describe('patient toolbar', () => {
     expect(view.queryByLabelText('Abrir menú')).toBeNull();
     fireEvent.press(view.getByRole('button', { name: 'Buscar especialistas' }));
     fireEvent.press(view.getByRole('button', { name: 'Reservar sesión' }));
-    expect(mockNavigate.mock.calls).toEqual([['Specialists'], ['Specialists']]);
+    expect(mockDispatch.mock.calls.map(([action]) => action.payload)).toEqual([{ name: 'SpecialistsDirectory', pop: true }, { name: 'Specialists', pop: true }]);
   });
 
   it('keeps the title and navigation usable on mobile', () => {
@@ -52,7 +53,7 @@ describe('patient toolbar', () => {
     fireEvent.press(view.getByRole('button', { name: 'Abrir menú' }));
     expect(openSidebar).toHaveBeenCalledTimes(1);
     fireEvent.press(view.getByRole('button', { name: 'Reservar sesión' }));
-    expect(mockNavigate).toHaveBeenCalledWith('Specialists');
+    expect(mockDispatch).toHaveBeenCalledWith(expect.objectContaining({ payload: { name: 'Specialists', pop: true } }));
   });
 
   it('preserves the tablet sidebar breakpoint without crowding the toolbar', () => {
