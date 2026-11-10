@@ -17,7 +17,7 @@ export interface PricingPlan {
   support: string;
 }
 
-export const PRICING_AVAILABILITY = 'Conoce nuestras modalidades. La contratación de los planes de suscripción estará disponible próximamente.';
+export const PRICING_AVAILABILITY = 'Solicita tu plan con 1 mes gratuito desde la activación. HERA te contactará para confirmarla; si después deseas continuar, podrás pagar por transferencia bancaria.';
 export const PRICING_STORAGE_NOTE = 'El almacenamiento es el espacio total para tus archivos por especialista. No se suma entre modalidades ni se renueva cada mes.';
 export const PRICING_COMMISSION_NOTE = 'Las comisiones se aplican a los pacientes captados por HERA, también si tienes una suscripción. Tus pacientes propios no generan comisión de captación de HERA.';
 
@@ -89,6 +89,6 @@ export const PRICING_FAQS = [
   },
   {
     question: '¿Puedo contratar un plan desde esta página?',
-    answer: 'Todavía no. Esta página permite conocer el catálogo y consultar sus prestaciones. La contratación de los planes de suscripción estará disponible próximamente. Ver los detalles no activa un plan ni cambia las condiciones de tu cuenta.',
+    answer: 'Puedes solicitar la activación desde la tarjeta o el detalle de cualquier plan, sin crear una cuenta ni pagar ahora. HERA te contactará por email para confirmar el inicio de tu mes gratuito. Si después deseas continuar, te facilitaremos las instrucciones de transferencia bancaria. Ver los detalles o enviar una solicitud no activa un plan ni cambia las condiciones de tu cuenta.',
   },
 ] as const;

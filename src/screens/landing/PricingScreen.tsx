@@ -11,6 +11,7 @@ import { useTheme } from '../../contexts/ThemeContext';
 import { useWebPageMetadata } from '../../hooks/useWebPageMetadata';
 import { LandingHeader } from './components/LandingHeader';
 import { FooterSection } from './components/FooterSection';
+import { SubscriptionRequestModal } from './components/SubscriptionRequestModal';
 import type { LandingSectionAnchor } from './types';
 import {
   DIRECTORY_OFFER, PRICING_AVAILABILITY, PRICING_COMMISSION_NOTE, PRICING_FAQS,
@@ -43,7 +44,7 @@ function PricingAction({ children, label, onPress, selected, expanded, filled, q
       accessibilityRole="button"
       accessibilityLabel={label}
       accessibilityState={{ expanded, ...(Platform.OS !== 'web' ? { selected } : {}) }}
-      {...(Platform.OS === 'web' ? { 'aria-pressed': selected } : {})}
+      {...(Platform.OS === 'web' ? { 'aria-pressed': selected, 'aria-expanded': expanded } : {})}
       onPress={onPress}
       onFocus={() => setFocused(true)}
       onBlur={() => setFocused(false)}
@@ -73,9 +74,15 @@ export function PricingScreen(): React.ReactElement {
   const originPlan = useRef<PricingPlanId>('calma');
   const cardButtons = useRef<Partial<Record<PricingPlanId, View | null>>>({});
   const selectedButton = useRef<View>(null);
+  const activationButton = useRef<View>(null);
+  const reminderButton = useRef<View>(null);
+  const cardRequestButtons = useRef<Partial<Record<PricingPlanId, View | null>>>({});
+  const requestOrigin = useRef<View | null>(null);
+  const [requestPlanId, setRequestPlanId] = useState<PricingPlanId | null>(null);
   const [selectedId, setSelectedId] = useState<PricingPlanId | null>(null);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const selectedPlan = PRICING_PLANS.find(plan => plan.id === selectedId);
+  const requestPlan = PRICING_PLANS.find(plan => plan.id === requestPlanId);
   const body = { color: theme.textSecondary, fontFamily: theme.fontSans };
   const strong = { color: theme.textPrimary, fontFamily: theme.fontSansSemiBold };
   const display = { color: theme.textPrimary, fontFamily: theme.fontDisplay };
@@ -83,7 +90,7 @@ export function PricingScreen(): React.ReactElement {
 
   useWebPageMetadata({
     title: 'Hera | Planes para especialistas',
-    description: 'Conoce el directorio de HERA y compara los planes Calma, Crecimiento y Horizonte para gestionar tu consulta. Contratación de suscripciones próximamente.',
+    description: 'Compara los planes Calma, Crecimiento y Horizonte. Solicita la activación manual con 1 mes gratuito y continúa, si lo deseas, mediante transferencia bancaria.',
     canonicalPath: '/planes',
     indexable: true,
   });
@@ -128,6 +135,10 @@ export function PricingScreen(): React.ReactElement {
     revealPending.current = false;
     if (Platform.OS === 'web') requestAnimationFrame(() => cardButtons.current[originPlan.current]?.focus());
   };
+  const openRequest = (id: PricingPlanId, button: View | null | undefined) => {
+    requestOrigin.current = button ?? null;
+    setRequestPlanId(id);
+  };
 
   return (
     <View style={[styles.root, { backgroundColor: theme.landingCanvas }]}>
@@ -160,42 +171,15 @@ export function PricingScreen(): React.ReactElement {
             /> : null}
           </View>
 
-          <View style={[styles.directory, { backgroundColor: theme.surface, borderColor: theme.borderLight }]}>
-            <View style={[styles.directoryColumns, desktop && styles.horizontal]}>
-              <View style={[styles.directoryCopy, desktop && styles.directoryCopyDesktop]}>
-                <Text style={[styles.eyebrow, { color: theme.primary, fontFamily: theme.fontSansSemiBold }]}>01 / DIRECTORIO</Text>
-                <Text accessibilityRole="header" aria-level={2} style={[styles.directoryTitle, display]}>Conecta con nuevos pacientes.</Text>
-                <Text style={[styles.small, body]}>Recibe y atiende a pacientes que llegan desde HERA.</Text>
-                <Text style={[styles.small, strong]}>Sin cuota mensual fija. Comisión por sesión.</Text>
-              </View>
-              <View style={[styles.commissions, desktop && styles.flex]}>
-                <Text style={[styles.small, strong]}>Comisiones por sesión</Text>
-                <View style={styles.commissionScale}>{DIRECTORY_OFFER.commissions.map((item, index) => <View key={item.session} style={[styles.commissionStep, index > 0 && styles.commissionDivider, { borderColor: theme.borderLight }]}>
-                  <Text style={[styles.rate, strong]}>{item.rate}</Text>
-                  <Text style={[styles.caption, body]}>{item.session}</Text>
-                </View>)}</View>
-                <Text style={[styles.caption, body]}>La escala se cuenta para cada relación entre paciente y especialista.</Text>
-              </View>
-            </View>
-            <View style={[styles.directoryIncludes, tablet && styles.directoryIncludesRow, { backgroundColor: theme.landingProfessional }]}>
-              <View style={styles.directoryStorage}>
-                <Text style={styles.directoryStorageIcon} accessible={false} aria-hidden>📁</Text>
-                <Text style={[styles.small, strong, styles.directoryStorageLabel]}>{DIRECTORY_OFFER.storageLabel} de almacenamiento total</Text>
-              </View>
-              <Text style={[styles.caption, body, tablet && styles.flex]}>Agenda, historial, documentos, consentimientos, facturación, recordatorios, Google Meet y resumen de actividad.</Text>
-            </View>
-            <Text style={[styles.directoryScope, styles.caption, body]}>Herramientas para tus pacientes de HERA. La gestión de pacientes propios no está incluida.</Text>
-          </View>
-
           <View style={styles.subscriptionHeading}>
-            <Text style={[styles.eyebrow, { color: theme.primary, fontFamily: theme.fontSansSemiBold }]}>02 / SUSCRIPCIONES</Text>
+            <Text style={[styles.eyebrow, { color: theme.primary, fontFamily: theme.fontSansSemiBold }]}>01 / SUSCRIPCIONES</Text>
             <Text accessibilityRole="header" aria-level={2} style={[styles.sectionTitle, display]}>Tu consulta, con espacio para crecer.</Text>
             <Text style={[styles.body, body]}>Gestiona también tus pacientes propios y amplía las prestaciones de tu consulta.</Text>
           </View>
           <View style={[styles.cards, desktop && styles.horizontal]}>
             {PRICING_PLANS.map(plan => {
               const featured = plan.id === 'crecimiento';
-              return <View key={plan.id} style={[styles.card, desktop && styles.flex, {
+              return <View key={plan.id} testID={`pricing-plan-card-${plan.id}`} style={[styles.card, desktop && styles.flex, {
                 backgroundColor: featured ? theme.landingProfessional : theme.surface,
                 borderColor: featured ? theme.secondary : theme.borderLight,
               }]}>
@@ -206,6 +190,13 @@ export function PricingScreen(): React.ReactElement {
                     <Text style={[styles.price, inlinePrice && styles.priceCompact, strong]}>{plan.monthlyPrice} €</Text>
                     <Text style={[styles.caption, body]}>/ mes + IVA</Text>
                   </View>
+                </View>
+                <View style={styles.cardRequest}>
+                  <Text style={[styles.caption, strong]}>1 mes gratuito · Sin pago ahora</Text>
+                  <PricingAction label={`Solicitar prueba gratuita de ${plan.name}`} filled icon="arrow-forward"
+                    focusRef={node => { cardRequestButtons.current[plan.id] = node; }}
+                    onPress={() => openRequest(plan.id, cardRequestButtons.current[plan.id])}>Solicitar prueba gratuita</PricingAction>
+                  <Text style={[styles.caption, body]}>Después, la cuota indicada si decides continuar.</Text>
                 </View>
                 <Text style={[styles.small, body, styles.cardDescription, desktop && styles.cardDescriptionDesktop]}>{plan.description}</Text>
                 <View style={[styles.capacity, { borderColor: theme.borderStrong }]}>
@@ -231,9 +222,9 @@ export function PricingScreen(): React.ReactElement {
                     `Plantillas clínicas: ${plan.templates.toLowerCase()}`,
                   ].map(text => <View style={styles.checkRow} key={text}><Ionicons name="checkmark" size={17} color={theme.primary} accessible={false} /><Text style={[styles.small, body, styles.flex]}>{text}</Text></View>)}
                 </View>
-                <PricingAction label={`Ver detalles de ${plan.name}`} expanded={selectedId === plan.id} onPress={() => openDetails(plan.id)} filled={featured} icon="arrow-forward"
+                <PricingAction label={`Ver todas las prestaciones de ${plan.name}`} expanded={selectedId === plan.id} onPress={() => openDetails(plan.id)} quiet icon="arrow-forward" style={styles.detailsAction}
                   focusRef={node => { cardButtons.current[plan.id] = node; }}>
-                  Ver detalles
+                  Ver todas las prestaciones
                 </PricingAction>
               </View>;
             })}
@@ -258,9 +249,12 @@ export function PricingScreen(): React.ReactElement {
                   <Text accessibilityRole="header" aria-level={3} accessibilityLabel={`${selectedPlan.name} · ${selectedPlan.monthlyPrice} €/mes + IVA`} style={[styles.detailPlanName, display]}>{selectedPlan.name}</Text>
                   <Text style={[styles.body, body]}>{selectedPlan.description}</Text>
                 </View>
-                <View style={styles.detailPrice}>
+                <View style={[styles.detailPrice, !tablet && styles.fullWidth]}>
                   <Text style={[styles.price, strong]}>{selectedPlan.monthlyPrice} €</Text>
-                  <Text style={[styles.small, body]}>al mes + IVA · contratación próximamente</Text>
+                  <Text style={[styles.small, body]}>al mes + IVA · después de 1 mes gratuito</Text>
+                  <PricingAction label={`Solicitar prueba gratuita de ${selectedPlan.name}`} filled focusRef={activationButton}
+                    onPress={() => openRequest(selectedPlan.id, activationButton.current)} icon="arrow-forward">Solicitar prueba gratuita</PricingAction>
+                  <Text style={[styles.caption, body]}>Sin pago ahora. HERA confirmará la activación.</Text>
                 </View>
               </View>
             </View>
@@ -307,8 +301,43 @@ export function PricingScreen(): React.ReactElement {
                 </View>
               </View>
               <View style={[styles.detailNote, { backgroundColor: theme.surfaceMuted }]}><Ionicons name="shield-checkmark-outline" size={19} color={theme.primary} accessible={false} /><Text style={[styles.caption, body, styles.flex]}>Los consentimientos necesarios para atender a tus pacientes están incluidos en todas las modalidades. Consultar este detalle no activa el plan.</Text></View>
+              <View style={[styles.contract, { backgroundColor: theme.landingProfessional }, tablet && styles.horizontal]}>
+                <View style={[styles.contractCopy, tablet && styles.flex]}>
+                  <Text style={[styles.body, strong]}>Empieza con el plan {selectedPlan.name}</Text>
+                  <Text style={[styles.small, body]}>HERA confirmará tu prueba gratuita por email. Después, {selectedPlan.monthlyPrice} €/mes + IVA por transferencia, solo si deseas continuar.</Text>
+                </View>
+                <PricingAction label={`Solicitar prueba gratuita de ${selectedPlan.name}`} filled focusRef={reminderButton} style={!tablet && styles.fullWidth}
+                  onPress={() => openRequest(selectedPlan.id, reminderButton.current)} icon="arrow-forward">Solicitar prueba gratuita</PricingAction>
+              </View>
             </View>
           </View> : null}
+
+          <View style={[styles.directory, { backgroundColor: theme.surface, borderColor: theme.borderLight }]}>
+            <View style={[styles.directoryColumns, desktop && styles.horizontal]}>
+              <View style={[styles.directoryCopy, desktop && styles.directoryCopyDesktop]}>
+                <Text style={[styles.eyebrow, { color: theme.primary, fontFamily: theme.fontSansSemiBold }]}>02 / DIRECTORIO</Text>
+                <Text accessibilityRole="header" aria-level={2} style={[styles.directoryTitle, display]}>Conecta con nuevos pacientes.</Text>
+                <Text style={[styles.small, body]}>Recibe y atiende a pacientes que llegan desde HERA.</Text>
+                <Text style={[styles.small, strong]}>Sin cuota mensual fija. Comisión por sesión.</Text>
+              </View>
+              <View style={[styles.commissions, desktop && styles.flex]}>
+                <Text style={[styles.small, strong]}>Comisiones por sesión</Text>
+                <View style={styles.commissionScale}>{DIRECTORY_OFFER.commissions.map((item, index) => <View key={item.session} style={[styles.commissionStep, index > 0 && styles.commissionDivider, { borderColor: theme.borderLight }]}>
+                  <Text style={[styles.rate, strong]}>{item.rate}</Text>
+                  <Text style={[styles.caption, body]}>{item.session}</Text>
+                </View>)}</View>
+                <Text style={[styles.caption, body]}>La escala se cuenta para cada relación entre paciente y especialista.</Text>
+              </View>
+            </View>
+            <View style={[styles.directoryIncludes, tablet && styles.directoryIncludesRow, { backgroundColor: theme.landingProfessional }]}>
+              <View style={styles.directoryStorage}>
+                <Text style={styles.directoryStorageIcon} accessible={false} aria-hidden>📁</Text>
+                <Text style={[styles.small, strong, styles.directoryStorageLabel]}>{DIRECTORY_OFFER.storageLabel} de almacenamiento total</Text>
+              </View>
+              <Text style={[styles.caption, body, tablet && styles.flex]}>Agenda, historial, documentos, consentimientos, facturación, recordatorios, Google Meet y resumen de actividad.</Text>
+            </View>
+            <Text style={[styles.directoryScope, styles.caption, body]}>Herramientas para tus pacientes de HERA. La gestión de pacientes propios no está incluida.</Text>
+          </View>
 
           <View style={[styles.essentials, { backgroundColor: theme.landingProfessional }]}>
             <View style={styles.essentialsHeading}>
@@ -352,6 +381,10 @@ export function PricingScreen(): React.ReactElement {
           onViewPlans={() => scrollRef.current?.scrollTo({ y: 0, animated: false })}
         />
       </ScrollView>
+      {requestPlan ? <SubscriptionRequestModal plan={requestPlan} onClose={() => {
+        setRequestPlanId(null);
+        if (Platform.OS === 'web') requestAnimationFrame(() => requestOrigin.current?.focus());
+      }} /> : null}
     </View>
   );
 }
@@ -363,6 +396,7 @@ const styles = StyleSheet.create({
   contentMobile: { paddingHorizontal: 20 },
   horizontal: { flexDirection: 'row' },
   flex: { flex: 1, minWidth: 0 },
+  fullWidth: { width: '100%' },
   hero: { gap: 28, alignItems: 'center', paddingTop: 8, paddingBottom: 20 },
   heroCopy: { width: '100%', gap: 7 },
   eyebrow: { fontSize: 10, letterSpacing: 1.2, lineHeight: 16 },
@@ -375,7 +409,7 @@ const styles = StyleSheet.create({
   caption: { fontSize: 12, lineHeight: 19 },
   body: { fontSize: 15, lineHeight: 24 },
   sectionTitle: { fontSize: 27, lineHeight: 34 },
-  directory: { padding: 18, borderWidth: 1, borderRadius: 14 },
+  directory: { marginTop: 26, padding: 18, borderWidth: 1, borderRadius: 14 },
   directoryTitle: { fontSize: 24, lineHeight: 30 },
   directoryColumns: { gap: 20 },
   directoryCopy: { gap: 5 },
@@ -392,7 +426,7 @@ const styles = StyleSheet.create({
   directoryStorageLabel: { flexShrink: 1 },
   directoryScope: { marginTop: 6 },
   checkRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
-  subscriptionHeading: { paddingTop: 26, paddingBottom: 16, gap: 5 },
+  subscriptionHeading: { paddingTop: 6, paddingBottom: 16, gap: 5 },
   cards: { gap: 18 },
   card: { padding: 22, borderWidth: 1, borderRadius: 14, overflow: 'hidden', gap: 6 },
   cardAccent: { height: 4, position: 'absolute', top: 0, left: 0, right: 0 },
@@ -400,6 +434,8 @@ const styles = StyleSheet.create({
   planNameInline: { fontSize: 26, lineHeight: 34 },
   planHeading: { justifyContent: 'space-between', gap: 6 },
   cardDescription: { marginBottom: 8 },
+  cardRequest: { gap: 8, paddingTop: 6, paddingBottom: 10 },
+  detailsAction: { backgroundColor: 'transparent', paddingHorizontal: 0 },
   cardDescriptionDesktop: { minHeight: 42 },
   priceRow: { flexDirection: 'row', alignItems: 'baseline', flexWrap: 'wrap', columnGap: 8, paddingTop: 8, paddingBottom: 12 },
   priceInline: { flexDirection: 'column', alignItems: 'flex-end', paddingTop: 0, paddingBottom: 0, flexWrap: 'nowrap' },
@@ -423,7 +459,7 @@ const styles = StyleSheet.create({
   closeAction: { backgroundColor: 'transparent', paddingHorizontal: 8 },
   detailHeading: { gap: 16, alignItems: 'flex-start' },
   detailPlanName: { fontSize: 36, lineHeight: 45 },
-  detailPrice: { gap: 2 },
+  detailPrice: { gap: 8 },
   detailBody: { padding: 22 },
   detailMetrics: { gap: 18, paddingBottom: 22, borderBottomWidth: 1 },
   detailMetric: { flexDirection: 'row', gap: 12, alignItems: 'center' },
@@ -434,6 +470,8 @@ const styles = StyleSheet.create({
   detailTools: { gap: 8, paddingVertical: 6 },
   detailValue: { borderBottomWidth: 1, paddingBottom: 10, gap: 2 },
   detailNote: { flexDirection: 'row', gap: 10, padding: 13, borderRadius: 9 },
+  contract: { marginTop: 20, padding: 16, borderRadius: 12, gap: 16, alignItems: 'center' },
+  contractCopy: { gap: 4 },
   essentials: { marginTop: 26, borderRadius: 16, padding: 24, gap: 22 },
   essentialsHeading: { gap: 6 },
   essentialGroups: { gap: 24 },

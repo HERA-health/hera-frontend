@@ -89,7 +89,7 @@ interface InitializedAuthUser {
 
 let refreshPromise: Promise<InitializedAuthSession | null> | null = null;
 
-const publicApi = axios.create({
+export const publicApi = axios.create({
   baseURL: API_BASE_URL,
   timeout: 10000,
   withCredentials: IS_WEB_PLATFORM,

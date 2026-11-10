@@ -1,10 +1,12 @@
 import React from 'react';
 import { fireEvent, render, screen, within } from '@testing-library/react-native';
 import { PricingScreen } from '../PricingScreen';
-import { PRICING_AVAILABILITY } from '../pricingContent';
+import { PRICING_AVAILABILITY, PRICING_PLANS } from '../pricingContent';
+import { publicApi } from '../../../services/api';
 import { useWebPageMetadata } from '../../../hooks/useWebPageMetadata';
 
 const mockNavigate = jest.fn();
+jest.mock('../../../services/api', () => ({ publicApi: { get: jest.fn(), post: jest.fn() } }));
 let mockRouteNames = ['Landing', 'Pricing', 'PublicSpecialists', 'Welcome'];
 let mockAuth = {
   isAuthenticated: false,
@@ -32,8 +34,43 @@ jest.mock('../components/FooterSection', () => ({ FooterSection: () => null }));
 describe('public pricing catalogue', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.mocked(publicApi.get).mockResolvedValue({ data: {
+      title: 'Condiciones', version: 'fixture', contentHash: 'a'.repeat(64), paragraphs: ['Condiciones de la solicitud.'],
+      privacy: { title: 'Privacidad', version: 'fixture', contentHash: 'b'.repeat(64), publicPath: '/legal/privacidad/fixture' },
+    } });
     mockRouteNames = ['Landing', 'Pricing', 'PublicSpecialists', 'Welcome'];
     mockAuth = { isAuthenticated: false, user: null, legalStatusSnapshot: { requiresAcceptance: false }, verificationSubmitted: true };
+  });
+
+  it.each([false, true])('opens the selected trial directly from every card (authenticated: %s)', async authenticated => {
+    if (authenticated) mockAuth = { ...mockAuth, isAuthenticated: true, user: { type: 'professional' } };
+    render(<PricingScreen />);
+    for (const plan of PRICING_PLANS) {
+      fireEvent.press(screen.getByLabelText(`Solicitar prueba gratuita de ${plan.name}`));
+      await screen.findByRole('checkbox');
+      expect(screen.getByText(`Plan ${plan.name}`)).toBeTruthy();
+      expect(screen.queryByTestId('pricing-plan-details')).toBeNull();
+      fireEvent.press(screen.getByRole('button', { name: 'Volver' }));
+      expect(screen.queryByText('Solicita tu prueba gratuita')).toBeNull();
+    }
+    expect(mockNavigate).not.toHaveBeenCalled();
+  });
+
+  it('opens the currently selected plan from both detail actions', async () => {
+    render(<PricingScreen />);
+    fireEvent.press(screen.getByLabelText('Ver todas las prestaciones de Calma'));
+    fireEvent.press(screen.getByLabelText('Consultar Horizonte'));
+    const details = within(screen.getByTestId('pricing-plan-details'));
+    const actions = details.getAllByLabelText('Solicitar prueba gratuita de Horizonte');
+    expect(actions).toHaveLength(2);
+    for (const action of actions) {
+      fireEvent.press(action);
+      await screen.findByRole('checkbox');
+      expect(screen.getByText('Plan Horizonte')).toBeTruthy();
+      fireEvent.press(screen.getByRole('button', { name: 'Volver' }));
+    }
+    expect(details.getByText('2 TB por especialista')).toBeTruthy();
+    expect(mockNavigate).not.toHaveBeenCalled();
   });
 
   it('shows availability and essential conditions before any detail is opened', () => {
@@ -54,7 +91,7 @@ describe('public pricing catalogue', () => {
 
   it('opens and switches the complete plan details without starting registration or purchase', () => {
     render(<PricingScreen />);
-    fireEvent.press(screen.getByLabelText('Ver detalles de Calma'));
+    fireEvent.press(screen.getByLabelText('Ver todas las prestaciones de Calma'));
     let details = within(screen.getByTestId('pricing-plan-details'));
     expect(details.getByLabelText('Calma · 29,99 €/mes + IVA')).toBeTruthy();
     expect(details.getByText('20 GB por especialista')).toBeTruthy();
@@ -76,7 +113,7 @@ describe('public pricing catalogue', () => {
     expect(details.getByLabelText('Horizonte · 69,99 €/mes + IVA')).toBeTruthy();
     expect(details.getByText('2 TB por especialista')).toBeTruthy();
     expect(details.getByText('Destacado')).toBeTruthy();
-    expect(screen.getByLabelText('Ver detalles de Horizonte').props.accessibilityState.expanded).toBe(true);
+    expect(screen.getByLabelText('Ver todas las prestaciones de Horizonte').props.accessibilityState.expanded).toBe(true);
     fireEvent.press(screen.getByLabelText('Cerrar detalles del plan'));
     expect(screen.queryByTestId('pricing-plan-details')).toBeNull();
     expect(mockNavigate).not.toHaveBeenCalled();
@@ -86,10 +123,10 @@ describe('public pricing catalogue', () => {
     render(<PricingScreen />);
     const question = '¿Puedo contratar un plan desde esta página?';
     fireEvent.press(screen.getByLabelText(question));
-    expect(screen.getByText(/Ver los detalles no activa un plan ni cambia las condiciones/)).toBeTruthy();
+    expect(screen.getByText(/Ver los detalles o enviar una solicitud no activa un plan/)).toBeTruthy();
     expect(screen.getByLabelText(question).props.accessibilityState.expanded).toBe(true);
     fireEvent.press(screen.getByLabelText(question));
-    expect(screen.queryByText(/Ver los detalles no activa un plan ni cambia las condiciones/)).toBeNull();
+    expect(screen.queryByText(/Ver los detalles o enviar una solicitud no activa un plan/)).toBeNull();
     fireEvent.press(screen.getByLabelText('¿Qué significa el almacenamiento de cada modalidad?'));
     expect(screen.getByText(/Directorio incluye 5 GB; Calma, 20 GB; Crecimiento, 50 GB; Horizonte, 2 TB/)).toBeTruthy();
   });
