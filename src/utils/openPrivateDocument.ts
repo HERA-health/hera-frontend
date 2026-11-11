@@ -1,7 +1,14 @@
 import { Platform } from 'react-native';
 
+export const privateDocumentFileName = (name: string): string => {
+  const safeName = name.replace(/[\\/:*?"<>|\x00-\x1f]/g, '_');
+  const extension = safeName.match(/\.[a-zA-Z0-9]{1,10}$/)?.[0] ?? '';
+  if (safeName.length <= 160) return safeName;
+  return safeName.slice(0, 160 - extension.length) + extension;
+};
+
 export const openPrivateDocument = async (bytes: ArrayBuffer, id: string, name: string, mimeType: string) => {
-  const fileName = name.replace(/[\\/:*?"<>|\x00-\x1f]/g, '_').slice(0, 160);
+  const fileName = privateDocumentFileName(name);
   if (Platform.OS === 'web') {
     const url = URL.createObjectURL(new Blob([bytes], { type: mimeType }));
     const link = document.createElement('a'); link.href = url; link.download = fileName; link.click();

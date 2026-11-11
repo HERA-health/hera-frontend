@@ -1,5 +1,6 @@
 import { useQuestionnaireDraft, QuestionnaireSaveGate, takeQuestionnaireDestination } from '../contexts/QuestionnaireDraftContext';
 import { SESSION_PAYMENTS_VISIBLE } from '../config/sessionPayments';
+import { RESOURCES_VISIBLE } from '../config/resources';
 import { subscribeLegalUpdate } from '../services/legalEvents';
 import { hasPendingClinicalPinReset, subscribeClinicalPinReset } from '../services/clinicalPinResetIntent';
 import { getCalendarIntent } from '../services/googleCalendarIntent';
@@ -313,6 +314,10 @@ const ProfessionalHomeRoute: React.FC<StackRouteProps<'ProfessionalHome'>> = (pr
 const ProfessionalHelpRoute = createDeferredLayoutRoute<'ProfessionalHelp'>(
   () => Platform.OS === 'web' ? import('../screens/professional/ProfessionalHelpScreen') : require('../screens/professional/ProfessionalHelpScreen'),
   { displayName: 'ProfessionalHelpRoute', exportName: 'ProfessionalHelpScreen' }
+);
+const ResourceLibraryRoute = createDeferredLayoutRoute<'ResourceLibrary'>(
+  () => Platform.OS === 'web' ? import('../screens/professional/ResourceLibraryScreen') : require('../screens/professional/ResourceLibraryScreen'),
+  { displayName: 'ResourceLibraryRoute', exportName: 'ResourceLibraryScreen' }
 );
 const ProfessionalDashboardRoute = createDeferredLayoutRoute<'ProfessionalDashboard'>(
   () => Platform.OS === 'web' ? import('../screens/professional/DashboardScreen') : require('../screens/professional/DashboardScreen'),
@@ -1023,6 +1028,7 @@ export function RootNavigator() {
             options={{ headerTitle: 'Agenda' }}
           />
           <Stack.Screen name="ProfessionalTariffs" component={ProfessionalTariffsRoute} options={{ headerTitle: 'Servicios y bonos' }} />
+          {RESOURCES_VISIBLE && <Stack.Screen name="ResourceLibrary" component={ResourceLibraryRoute} options={{ headerTitle: 'Plantillas y recursos' }} />}
           {SESSION_PAYMENTS_VISIBLE && <><Stack.Screen name="SessionPayment" component={SessionPaymentRoute} /><Stack.Screen name="PackagePayment" component={PackagePaymentRoute} /></>}
           {SESSION_PAYMENTS_VISIBLE && <Stack.Screen name="ProfessionalPayments" component={ProfessionalPaymentsRoute} />}
           <Stack.Screen

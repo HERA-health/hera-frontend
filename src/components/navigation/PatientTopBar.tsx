@@ -69,7 +69,7 @@ export function PatientTopBar({ currentRoute, onOpenMobileSidebar }: PatientTopB
             <Ionicons name="menu-outline" size={22} color={theme.textSecondary} />
           </NavigationControl>
         ) : null}
-        <Text numberOfLines={1} style={[styles.title, { color: theme.textPrimary, fontFamily: theme.fontSansSemiBold }]}>
+        <Text numberOfLines={1} style={[styles.title, { color: theme.textPrimary, fontFamily: theme.fontDisplay, fontSize: isDesktop ? 20 : 18 }]}>
           {ROUTE_TITLES[currentRoute] ?? 'Tu espacio de bienestar'}
         </Text>
       </View>

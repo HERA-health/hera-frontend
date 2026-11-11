@@ -8,6 +8,7 @@
 import { lightTheme, type Theme } from '../../../constants/theme';
 import { NavigationSection, SidebarTheme } from './types';
 import { SESSION_PAYMENTS_VISIBLE } from '../../../config/sessionPayments';
+import { RESOURCES_VISIBLE } from '../../../config/resources';
 
 export const CLIENT_SECTIONS: NavigationSection[] = [
   {
@@ -120,6 +121,9 @@ export const PROFESSIONAL_SECTIONS: NavigationSection[] = [
     label: 'Gestión',
     roles: ['PROFESSIONAL'],
     items: [
+      ...((RESOURCES_VISIBLE ? [{
+          id: 'resources', label: 'Plantillas y recursos', icon: 'document-text-outline', iconActive: 'document-text', route: 'ResourceLibrary', roles: ['PROFESSIONAL'],
+      }] : []) satisfies NavigationSection['items']),
       {
         id: 'tariffs', label: 'Servicios y bonos', icon: 'pricetags-outline', iconActive: 'pricetags', route: 'ProfessionalTariffs', roles: ['PROFESSIONAL'],
       },

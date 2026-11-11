@@ -39,6 +39,7 @@ const ROUTE_TITLES: Record<string, { title: string; eyebrow?: string }> = {
   ProfessionalTariffs: { title: 'Servicios y bonos' },
   CreateInvoice: { title: 'Nueva factura', eyebrow: 'Facturación' },
   ProfessionalDashboard: { title: 'Estadísticas' },
+  ResourceLibrary: { title: 'Plantillas y recursos' },
   ProfessionalAvailability: { title: 'Disponibilidad' },
   ProfessionalProfile: { title: 'Perfil profesional' },
   GoogleCalendarIntegration: { title: 'Calendario y Meet', eyebrow: 'Ajustes' },
@@ -216,7 +217,7 @@ export function ProfessionalTopBar({
             style={[
               styles.title,
               isCompact ? styles.titleCompact : null,
-              { color: theme.textPrimary, fontFamily: theme.fontSansSemiBold },
+              { color: theme.textPrimary, fontFamily: theme.fontDisplay },
             ]}
             numberOfLines={1}
           >
@@ -494,12 +495,12 @@ function AllClear({ automation }: { automation: ProfessionalHomeData['automation
 const styles = StyleSheet.create({
   bar: { height: 76, paddingHorizontal: spacing.lg, flexDirection: 'row', alignItems: 'center', gap: spacing.lg, zIndex: 100 },
   barCompact: { height: 64, paddingHorizontal: spacing.sm, gap: spacing.sm },
-  left: { minWidth: 170, maxWidth: 230, flexDirection: 'row', alignItems: 'center', gap: 9 },
+  left: { minWidth: 170, maxWidth: 260, flexDirection: 'row', alignItems: 'center', gap: 9 },
   leftCompact: { minWidth: 0, maxWidth: '100%', flex: 1 },
   titleBlock: { flexShrink: 1 },
   eyebrow: { fontSize: 9, letterSpacing: 0.7, textTransform: 'uppercase', marginBottom: 1 },
-  title: { fontSize: 18, letterSpacing: -0.2 },
-  titleCompact: { fontSize: 17 },
+  title: { fontSize: 20, letterSpacing: -0.2 },
+  titleCompact: { fontSize: 18 },
   search: { flex: 1, alignItems: 'center', zIndex: 120 },
   actions: { flexDirection: 'row', alignItems: 'center', gap: 8, zIndex: 140 },
   menuAnchor: { position: 'relative' },

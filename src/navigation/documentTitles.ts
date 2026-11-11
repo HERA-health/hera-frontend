@@ -53,6 +53,7 @@ const ROUTE_TITLES: Record<keyof RootStackParamList, string> = {
   ProfessionalHome: 'Inicio',
   ProfessionalHelp: 'Ayuda y comentarios',
   ProfessionalDashboard: 'Estadísticas',
+  ResourceLibrary: 'Plantillas y recursos',
   ProfessionalClients: 'Mis pacientes',
   ProfessionalClinicPatientDetail: 'Paciente de clínica',
   ProfessionalClinicWorkspace: 'Mi clínica',

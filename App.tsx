@@ -1,6 +1,7 @@
 import { QuestionnaireDraftProvider } from './src/contexts/QuestionnaireDraftContext';
 import { ExternalCalendarResultNotice } from './src/components/scheduling/ExternalCalendarResultNotice';
 import { SESSION_PAYMENTS_VISIBLE } from './src/config/sessionPayments';
+import { RESOURCES_VISIBLE } from './src/config/resources';
 import { PrivacyControls } from './src/components/common/PrivacyControls';
 import { parseDashboardFilters, serializeDashboardFilters } from './src/utils/adminMetricsFilters';
 import { captureClinicalPinResetUrl } from './src/services/clinicalPinResetIntent';
@@ -77,6 +78,7 @@ export const linking: LinkingOptions<RootStackParamList> = {
       MatchingAdvice: 'orientacion',
       AdminMatchingAdvice: 'admin/orientacion',
       ProfessionalTariffs: 'profesional/tarifas',
+      ...(RESOURCES_VISIBLE ? { ResourceLibrary: 'profesional/recursos' } : {}),
       GoogleCalendarIntegration: 'integrations/google-calendar',
       GoogleCalendarSession: 'calendar/session/:sessionId',
       EmailVerification: {
@@ -150,6 +152,7 @@ export const linking: LinkingOptions<RootStackParamList> = {
           initialTab: (initialTab: string) => {
             if (
               initialTab === 'management'
+              || initialTab === 'resources'
               || initialTab === 'dashboard'
               || initialTab === 'verifications'
               || initialTab === 'commissions'

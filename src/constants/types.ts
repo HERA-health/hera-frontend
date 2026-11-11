@@ -180,6 +180,7 @@ export type RootStackParamList = {
     requestId?: string;
   } | undefined;
   ProfessionalDashboard: undefined;
+  ResourceLibrary: undefined;
   ProfessionalClients: { openCreatePatient?: boolean } | undefined;
   ProfessionalClinicPatientDetail: {
     clinicId: string;
@@ -225,7 +226,7 @@ export type RootStackParamList = {
     returnAfterBillingSave?: boolean;
   };
   AdminPanel: {
-    initialTab?: 'dashboard' | 'verifications' | 'management' | 'commissions' | 'help' | 'feedback';
+    initialTab?: 'dashboard' | 'verifications' | 'management' | 'commissions' | 'help' | 'feedback' | 'resources';
     dashboardSection?: import('../services/adminMetricsTypes').MetricsSection;
     dashboardFilters?: import('../services/adminMetricsTypes').MetricsFilters;
     commissionAccountId?: string;
