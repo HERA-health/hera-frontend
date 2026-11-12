@@ -51,6 +51,11 @@ test('aliases redirect to the canonical profile and preserve booking parameters'
   assert.equal(result.status, 308);
   assert.equal(result.headers.location, '/especialista/ana-ejemplo?intentToken=abc&optionId=option');
 });
+test('hosting rewrite captures do not leak into canonical profile redirects', async t => {
+  const result = await invoke(t, '/api/public-page?path=/e/test-id&profileRef=test-id&intentToken=abc&optionId=option', ok(profile));
+  assert.equal(result.status, 308);
+  assert.equal(result.headers.location, '/especialista/ana-ejemplo?intentToken=abc&optionId=option');
+});
 test('all topics request the psychology categories and have distinct readable content', async t => {
   for (const page of Object.values(psychologyPages)) {
     const result = await invoke(t, `/api/public-page?path=${page.path}`, ok({ items: [], page: 1, pageSize: 12, total: 0, hasMore: false }));

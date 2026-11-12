@@ -20,6 +20,10 @@ async function handler(req, res) {
   const url = new URL(req.url, origin);
   const route = url.searchParams.get('path') || url.pathname;
   url.searchParams.delete('path');
+  // Vercel includes named rewrite captures in the function query. They are
+  // routing details, not booking/return parameters to preserve in redirects.
+  url.searchParams.delete('profileRef');
+  url.searchParams.delete('topic');
   const send = (status, metadata, body, key, data) => {
     res.statusCode = status;
     // Error documents stay useful independently of app/API recovery.
