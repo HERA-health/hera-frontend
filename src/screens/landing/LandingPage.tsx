@@ -58,6 +58,7 @@ type ProfessionalCTASectionProps = {
 type FeaturedSpecialistsSectionProps = {
   onOpenSpecialist: (profileRef: string) => void;
   onViewAll: () => void;
+  onQuestionnaire: () => void;
 };
 type SpecializationsSectionProps = {
   onSpecializationPress: (specializationId: ProfessionalSpecialtyValue) => void;
@@ -470,6 +471,7 @@ export const LandingPage: React.FC = () => {
               <FeaturedSpecialistsSection
                 onOpenSpecialist={handleOpenPublicSpecialist}
                 onViewAll={handleViewAllSpecialists}
+                onQuestionnaire={() => navigation.navigate('Questionnaire')}
               />
             </View>
 

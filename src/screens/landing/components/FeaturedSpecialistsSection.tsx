@@ -1,5 +1,5 @@
 import { directoryEntryHref } from '../../../services/directoryBookingService';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   ScrollView,
@@ -11,6 +11,7 @@ import {
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { MotionView } from '../../../components/common/MotionView';
+import { AnimatedPressable } from '../../../components/common/AnimatedPressable';
 import { Button } from '../../../components/common/Button';
 import { getErrorMessage } from '../../../constants/errors';
 import { PublicSpecialistCard } from '../../../components/features/PublicSpecialistCard';
@@ -22,16 +23,20 @@ import {
 interface FeaturedSpecialistsSectionProps {
   onOpenSpecialist: (profileRef: string) => void;
   onViewAll: () => void;
+  onQuestionnaire: () => void;
 }
 
 export const FeaturedSpecialistsSection: React.FC<FeaturedSpecialistsSectionProps> = ({
   onOpenSpecialist,
   onViewAll,
+  onQuestionnaire,
 }) => {
   const { theme, isDark } = useTheme();
   const { width } = useWindowDimensions();
   const isDesktop = width >= 1024;
-  const isTablet = width >= 768 && width < 1024;
+  const carousel = useRef<ScrollView>(null);
+  const [carouselWidth, setCarouselWidth] = useState(0);
+  const [scrollX, setScrollX] = useState(0);
   const [specialists, setSpecialists] = useState<PublicSpecialistCardData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -52,11 +57,12 @@ export const FeaturedSpecialistsSection: React.FC<FeaturedSpecialistsSectionProp
     void loadSpecialists();
   }, [loadSpecialists]);
 
-  const cardStyle = useMemo(() => {
-    if (isDesktop) return styles.desktopCard;
-    if (isTablet) return styles.tabletCard;
-    return styles.mobileCard;
-  }, [isDesktop, isTablet]);
+  const cardWidth = isDesktop ? 232 : 220;
+  const cardStyle = { width: cardWidth };
+  const maxScroll = Math.max(0, specialists.length * (cardWidth + 16) - 16 + 4 - carouselWidth);
+  const scrollCards = (direction: -1 | 1) => {
+    carousel.current?.scrollTo({ x: Math.max(0, Math.min(maxScroll, scrollX + direction * (cardWidth + 16))), animated: true });
+  };
 
   const specialistCards = specialists.map((specialist, index) => (
     <MotionView
@@ -108,32 +114,63 @@ export const FeaturedSpecialistsSection: React.FC<FeaturedSpecialistsSectionProp
             <Ionicons name="people-outline" size={24} color={theme.textMuted} />
             <Text style={[styles.statusTitle, { color: theme.textPrimary, fontFamily: theme.fontSansSemiBold }]}>Estamos incorporando nuevos perfiles públicos</Text>
           </View>
-        ) : isDesktop ? (
-          // Desktop cards fit in one row; a vertical ScrollView can oscillate
-          // between showing a scrollbar and resizing these square cards.
-          <View style={[styles.cards, styles.cardsDesktop]}>{specialistCards}</View>
         ) : (
           <ScrollView
+            ref={carousel}
             horizontal
             showsHorizontalScrollIndicator={false}
             showsVerticalScrollIndicator={false}
-            contentContainerStyle={[styles.cards, styles.cardsMobile]}
+            onLayout={event => setCarouselWidth(event.nativeEvent.layout.width)}
+            onScroll={event => setScrollX(event.nativeEvent.contentOffset.x)}
+            scrollEventThrottle={100}
+            snapToInterval={cardWidth + 16}
+            decelerationRate="fast"
+            contentContainerStyle={styles.cards}
           >
             {specialistCards}
           </ScrollView>
         )}
 
-        <MotionView entering="fadeIn" delay={210} style={styles.ctaWrap}>
+        {!loading && !error && maxScroll > 1 && carouselWidth > 0 && (
+          <View style={styles.carouselControls}>
+            <Text style={{ color: theme.textSecondary, fontFamily: theme.fontSans, fontSize: 12 }}>Más perfiles</Text>
+            {([-1, 1] as const).map(direction => (
+              <AnimatedPressable
+                key={direction}
+                accessibilityLabel={direction === -1 ? 'Ver perfiles anteriores' : 'Ver perfiles siguientes'}
+                disabled={direction === -1 ? scrollX <= 1 : scrollX >= maxScroll - 1}
+                onPress={() => scrollCards(direction)}
+                style={[styles.carouselButton, { borderColor: theme.border, backgroundColor: theme.bgCard }]}
+              >
+                <Ionicons name={direction === -1 ? 'arrow-back' : 'arrow-forward'} size={18} color={theme.primary} />
+              </AnimatedPressable>
+            ))}
+          </View>
+        )}
+
+        <MotionView entering="fadeIn" delay={210} style={{ ...styles.ctaWrap, ...(width < 600 ? styles.ctaMobile : {}) }}>
           <Button
             variant="primary"
             size="large"
             style={styles.primaryAction}
             onPress={onViewAll}
+            fullWidth={width < 600}
             icon={<Ionicons name="arrow-forward" size={18} color={theme.actionPrimaryText} />}
             iconPosition="right"
           >
             Explorar el directorio
           </Button>
+          <AnimatedPressable
+            onPress={onQuestionnaire}
+            href="/cuestionario"
+            accessibilityRole="link"
+            accessibilityLabel="Hacer el cuestionario"
+            hoverLift={false}
+            style={[styles.questionnaireAction, { backgroundColor: theme.primaryMuted, borderColor: theme.primaryMuted }, width < 600 && styles.ctaMobile]}
+          >
+            <Text style={{ color: theme.textPrimary, fontFamily: theme.fontSansBold, fontSize: 16 }}>Hacer el cuestionario</Text>
+            <Ionicons name="arrow-forward" size={18} color={theme.primary} />
+          </AnimatedPressable>
         </MotionView>
       </View>
     </View>
@@ -142,7 +179,7 @@ export const FeaturedSpecialistsSection: React.FC<FeaturedSpecialistsSectionProp
 
 const styles = StyleSheet.create({
   profileCard: {
-    borderRadius: 12,
+    borderRadius: 16,
   },
   primaryAction: {
     minHeight: 52,
@@ -196,31 +233,14 @@ const styles = StyleSheet.create({
     marginTop: 14,
   },
   cards: {
-    gap: 14,
-    paddingHorizontal: 2,
-  },
-  cardsMobile: {
-    // Leave room for the hover/press spring without clipping the card edges.
-    paddingVertical: 4,
-  },
-  cardsDesktop: {
-    flexDirection: 'row',
-    alignItems: 'stretch',
-    justifyContent: 'center',
     gap: 16,
-  },
-  desktopCard: {
-    flexBasis: 0,
+    paddingHorizontal: 2,
+    paddingVertical: 4,
     flexGrow: 1,
-    flexShrink: 1,
-    maxWidth: 220,
+    justifyContent: 'center',
   },
-  tabletCard: {
-    width: 208,
-  },
-  mobileCard: {
-    width: 208,
-  },
+  carouselControls: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 10, marginTop: 12 },
+  carouselButton: { width: 44, height: 44, borderRadius: 22, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   skeletonRow: {
     flexDirection: 'row',
     gap: 14,
@@ -250,6 +270,22 @@ const styles = StyleSheet.create({
   ctaWrap: {
     alignSelf: 'center',
     marginTop: 36,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: 12,
+  },
+  ctaMobile: { width: '100%' },
+  questionnaireAction: {
+    minHeight: 52,
+    borderRadius: 8,
+    borderWidth: 1,
+    paddingHorizontal: 24,
+    paddingVertical: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
   },
 });
 
