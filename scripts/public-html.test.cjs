@@ -6,6 +6,24 @@ const handler = require('../api/public-page');
 const { publicProfileSchema } = require('../.seo-build/seo/publicData');
 const { profilePageMetadata, injectPublicHtml } = require('../.seo-build/seo/publicHtml');
 const { psychologyPages } = require('../.seo-build/seo/publicContent');
+const { landingInitialHtml, landingInitialCss } = require('../.seo-build/seo/landingInitialHtml');
+const { landingIcons } = require('../.seo-build/seo/landingIcons');
+
+test('landing first paint retains the actual hero, readable copy and working entry links', () => {
+  const body = landingInitialHtml({ photo: '/photo-1024.webp', photos: { small: '/photo-640.webp', large: '/photo-1536.webp' }, icons: landingIcons });
+  assert.equal((body.match(/<h1>/g) || []).length, 1);
+  assert.ok(body.includes('Encuentra al <span>psicólogo</span> ideal para ti.'));
+  for (const href of ['/especialistas', '/cuestionario', '/planes', '/register?userType=PROFESSIONAL', '/acceso']) {
+    assert.ok(body.includes(`href="${href}"`), href);
+  }
+  assert.match(body, /aria-label="HERA, inicio"/);
+  assert.match(body, /Perfil ficticio, sin relación con la persona de la foto/);
+  assert.match(body, /srcset="\/photo-640.webp 640w, \/photo-1024.webp 1024w, \/photo-1536.webp 1536w"/);
+  assert.doesNotMatch(body, /seo-home|seo-header|<script|stroke:#000/);
+  assert.match(landingInitialCss, /data-hera-theme=dark/);
+  assert.match(landingInitialCss, /prefers-color-scheme:dark/);
+  assert.ok(landingInitialHtml({ photo: '/photo" onerror="bad', icons: landingIcons }).includes('/photo&quot; onerror=&quot;bad'));
+});
 
 const profile = {
   id: 'test-id', publicSlug: 'ana-ejemplo', isPubliclyListed: true, user: { name: 'Ana Ejemplo' },

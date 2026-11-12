@@ -75,7 +75,7 @@ function staticPaths() {
   return [...routes.values()].flat().concat(['clinic-consent/:requestId', 'clinical-consent/guest/:requestId']);
 }
 function compilePublicHtml() {
-  for (const file of ['seo/publicContent', 'seo/publicData', 'seo/publicHtml', 'seo/psychologyPresentation', 'constants/theme', 'constants/publicHeaderLinks', 'constants/professionalMatchingCatalog']) {
+  for (const file of ['seo/publicContent', 'seo/publicData', 'seo/publicHtml', 'seo/landingInitialHtml', 'seo/landingIcons', 'seo/psychologyPresentation', 'constants/theme', 'constants/publicHeaderLinks', 'constants/professionalMatchingCatalog']) {
     const source = fs.readFileSync('src/' + file + '.ts', 'utf8');
     const result = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } });
     const destination = '.seo-build/' + file + '.js';
@@ -101,7 +101,12 @@ function prepare() {
   }).join('');
   const logo = fs.readdirSync('dist/assets/assets').find(name => name.startsWith('main-logo.') && name.endsWith('.png'));
   if (!logo) throw new Error('Missing HERA public logo');
-  const brandStyle = ':root{--hera-public-logo:url("/assets/assets/' + logo + '")}';
+  const brandAsset = (prefix) => {
+    const file = fs.readdirSync('dist/assets/assets').find(name => name.startsWith(prefix + '.') && name.endsWith('.png'));
+    if (!file) throw new Error('Missing public brand asset: ' + prefix);
+    return '/assets/assets/' + file;
+  };
+  const brandStyle = ':root{--hera-public-logo:url("/assets/assets/' + logo + '");--hera-public-logo-dark:url("' + brandAsset('Logo-Hera-beige-oscuro') + '");--hera-public-mark:url("' + brandAsset('Isotipo-Hera-Azul-oscuro-original') + '");--hera-public-mark-dark:url("' + brandAsset('Isotipo-Hera-beige-claro') + '")}';
   const shell = fs.readFileSync('dist/index.html', 'utf8').replace('</head>', '<style>' + fonts + brandStyle + '</style></head>');
   fs.writeFileSync('dist/app-shell.html', shell);
   for (const route of paths.filter(route => route && !route.includes(':') && !['especialistas', 'psicologos-online'].includes(route))) {
@@ -115,9 +120,22 @@ function prepare() {
     fs.mkdirSync(path.dirname(destination), { recursive: true });
     let page = renderMetadata(shell, metadata);
     if (metadata.canonicalPath === '/') {
-      const { injectPublicHtml, landingHtml } = require('../.seo-build/seo/publicHtml');
-      const photo = fs.readdirSync('dist/assets/assets/landing').find(name => name.startsWith('psychologist-landscape-1024.') && name.endsWith('.webp'));
-      page = injectPublicHtml(page, landingHtml('/assets/assets/landing/' + photo));
+      const { injectPublicHtml, publicFooter } = require('../.seo-build/seo/publicHtml');
+      const { landingInitialCss, landingInitialHtml } = require('../.seo-build/seo/landingInitialHtml');
+      const { landingIcons } = require('../.seo-build/seo/landingIcons');
+      const photo = (width) => {
+        const name = fs.readdirSync('dist/assets/assets/landing').find(name => name.startsWith('psychologist-landscape-' + width + '.') && name.endsWith('.webp'));
+        if (!name) throw new Error('Missing landing photograph: ' + width);
+        return '/assets/assets/landing/' + name;
+      };
+      const preloadFonts = ['Lustria-Regular', 'GlacialIndifference-Regular', 'GlacialIndifference-Bold'].map(prefix => {
+        const file = assets.find(name => name.startsWith(prefix + '.'));
+        return '<link rel="preload" as="font" href="/assets/assets/fonts/' + file + '" crossorigin>';
+      }).join('');
+      // Read only the existing public theme preference before first paint. This
+      // build-only presentation never adds code to the application bundle.
+      const themeBoot = "<script>try{var m=localStorage.getItem('hera_theme_mode');if(m==='dark'||m==='light')document.documentElement.setAttribute('data-hera-theme',m)}catch(e){}</script>";
+      page = injectPublicHtml(page.replace('</head>', preloadFonts + themeBoot + '<style>' + landingInitialCss + '</style></head>'), landingInitialHtml({ photo: photo(1024), photos: { small: photo(640), large: photo(1536) }, icons: landingIcons }) + publicFooter);
     }
     fs.writeFileSync(destination, page);
   }

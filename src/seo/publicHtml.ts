@@ -1,7 +1,7 @@
 import { PUBLIC_HEADER_LINKS } from '../constants/publicHeaderLinks';
 import { psychologyPageCss, publicArrowIcon, publicVerifiedIcon } from './psychologyPresentation';
 import { PROFESSIONAL_SPECIALTY_OPTIONS } from '../constants/professionalMatchingCatalog';
-import { directoryHref, directoryMetadata, landingEditorial, profileMetadata, psychologyPages, type PsychologyPage } from './publicContent';
+import { directoryHref, directoryMetadata, profileMetadata, psychologyPages, type PsychologyPage } from './publicContent';
 import type { DirectoryPage, PublicProfile } from './publicData';
 
 export const escapeHtml = (value: string): string => value.replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char] || char);
@@ -25,10 +25,6 @@ export const publicPageCss = `
 const header = `<header class="seo-header"><a class="seo-brand" href="/" aria-label="HERA, inicio">Hera</a><nav class="seo-nav" aria-label="Navegación principal"><a href="/especialistas">Psicólogos</a><a href="/cuestionario">Cuestionario</a><a href="/planes">Planes y precios</a></nav></header>`;
 export const publicFooter = `<footer class="seo-footer"><nav class="seo-nav" aria-label="Explora HERA">${Object.values(psychologyPages).map(page => `<a href="${page.path}">${page.path.endsWith('online') ? 'Psicólogos online' : page.path.endsWith('ansiedad') ? 'Psicólogos para la ansiedad' : 'Psicólogos para la autoestima'}</a>`).join('')}<a href="/especialistas">Directorio</a><a href="/">Inicio</a></nav></footer>`;
 export const pageFrame = (body: string): string => `<div class="seo-page">${header}<main class="seo-main">${body}</main>${publicFooter}</div>`;
-export function landingHtml(image: string): string {
-  const copy = landingEditorial;
-  return pageFrame(`<style>.seo-home{display:grid;grid-template-columns:1fr 1fr;gap:32px;align-items:center;min-height:650px}.seo-home h1{font-size:clamp(36px,3.4vw,58px)}.seo-home img{width:100%;border-radius:24px}.seo-doors{display:grid;grid-template-columns:1fr 1fr;gap:16px}.seo-door{background:#e8f0ec;border-radius:18px;padding:20px}.seo-door:nth-child(2){background:#e7f0f2}.seo-door h2{font-size:25px}.seo-door .seo-button{padding:14px;font-size:15px}.seo-doors p{font-size:16px}@media(max-width:760px){.seo-home{grid-template-columns:1fr;min-height:0}.seo-doors{grid-template-columns:1fr}.seo-home>img{display:none}}</style><section class="seo-home"><div><span class="seo-eyebrow">Psicología online y presencial</span><h1>${copy.headingStart}<span style="color:#006d83">${copy.headingEmphasis}</span>${copy.headingEnd}</h1><p>${copy.introduction}</p><div class="seo-doors"><article class="seo-door"><h2>Busco psicólogo</h2><p>Compara perfiles, modalidades y precios antes de reservar.</p>${link('/especialistas', 'Ver psicólogos')}${link('/cuestionario', 'Ayúdame a elegir', true)}<p>Perfiles verificados · Online y presencial</p></article><article class="seo-door"><h2>Soy psicólogo/a</h2><p>Gestiona tu consulta y da a conocer tu trabajo en HERA.</p>${link('/profesionales/recorrido', 'Conocer las herramientas')}${link('/planes', 'Ver planes y precios', true)}<p>Agenda, pacientes y facturación</p></article></div></div><img src="${escapeHtml(image)}" alt="Psicóloga trabajando en su consulta" width="1024" height="683" fetchpriority="high"></section><section class="seo-intro"><h2>${copy.profilesHeading}</h2><p>${copy.profilesIntroduction}</p><a href="/especialistas">Explorar el directorio</a></section>`);
-}
 export function cardsHtml(data: DirectoryPage, limit = 12, preferredSpecialty?: string): string {
   return `<div class="seo-cards">${data.items.slice(0, limit).map(item => {
     const from = item.publicOptions?.some(option => option.priceCents > Math.round(item.pricePerSession * 100));

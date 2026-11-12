@@ -56,6 +56,12 @@
         flex: 1;
       }
 
+      /* Reserve the landing's scrollbar before its deferred sections mount.
+         Otherwise the hero moves sideways during the initial HTML handoff. */
+      #landing-scroll-view {
+        scrollbar-gutter: stable;
+      }
+
       /* Calendar OAuth returns reload the web app. Keep context visible before React starts. */
       .calendar-boot {
         --boot-bg: #FAF8F3; --boot-card: #FFFDF8; --boot-text: #3E5C4F; --boot-border: #DCD5CA;
