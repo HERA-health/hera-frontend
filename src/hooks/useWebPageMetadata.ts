@@ -8,6 +8,7 @@ interface WebPageMetadata {
   description: string;
   canonicalPath: string;
   indexable?: boolean;
+  followLinks?: boolean;
   openGraphType?: 'website' | 'profile';
 }
 
@@ -61,6 +62,7 @@ export const useWebPageMetadata = ({
   description,
   canonicalPath,
   indexable = true,
+  followLinks = false,
   openGraphType = 'website',
 }: WebPageMetadata): void => {
   useFocusEffect(
@@ -71,7 +73,7 @@ export const useWebPageMetadata = ({
 
       const normalizedPath = canonicalPath.startsWith('/') ? canonicalPath : `/${canonicalPath}`;
       const canonicalUrl = `${getWebAppUrl()}${normalizedPath}`;
-      const robots = indexable ? 'index, follow' : 'noindex, nofollow';
+      const robots = indexable ? 'index, follow' : followLinks ? 'noindex, follow' : 'noindex, nofollow';
 
       document.title = title;
       setNamedMeta('description', description);
@@ -103,6 +105,6 @@ export const useWebPageMetadata = ({
         setPropertyMeta('og:url', getWebAppUrl());
         setPropertyMeta('og:type', 'website');
       };
-    }, [canonicalPath, description, indexable, openGraphType, title])
+    }, [canonicalPath, description, indexable, followLinks, openGraphType, title])
   );
 };

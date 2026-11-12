@@ -405,6 +405,10 @@ const PublicSpecialistProfileRoute = createDeferredRoute<'PublicSpecialistProfil
     exportName: 'PublicSpecialistProfileScreen',
   }
 );
+const PsychologyPageRoute = createDeferredRoute<'PsychologyTopic' | 'PsychologyOnline'>(
+  () => Platform.OS === 'web' ? import('../screens/psychology/PsychologyPageScreen') : require('../screens/psychology/PsychologyPageScreen'),
+  { displayName: 'PsychologyPageRoute', exportName: 'PsychologyPageScreen' }
+);
 const PublicSpecialistsRoute = createDeferredRoute<'PublicSpecialists'>(
   () => Platform.OS === 'web' ? import('../screens/specialists/PublicSpecialistsScreen') : require('../screens/specialists/PublicSpecialistsScreen'),
   {
@@ -678,8 +682,9 @@ export function RootNavigator() {
             component={ProfessionalShowcaseRoute}
           />
           <Stack.Screen name="Pricing" component={PricingRoute} />
-          <Stack.Screen
-            name="PublicSpecialists"
+          <Stack.Screen name="PsychologyOnline" component={PsychologyPageRoute} />
+          <Stack.Screen name="PsychologyTopic" component={PsychologyPageRoute} />
+          <Stack.Screen name="PublicSpecialists"
             component={PublicSpecialistsRoute}
             options={{ headerShown: false }}
           />
@@ -771,8 +776,9 @@ export function RootNavigator() {
             />}
           </Stack.Screen>
           <Stack.Screen name="Pricing" component={PricingRoute} />
-          <Stack.Screen
-            name="PublicSpecialists"
+          <Stack.Screen name="PsychologyOnline" component={PsychologyPageRoute} />
+          <Stack.Screen name="PsychologyTopic" component={PsychologyPageRoute} />
+          <Stack.Screen name="PublicSpecialists"
             component={PublicSpecialistsRoute}
             options={{ headerShown: false }}
           />
@@ -809,8 +815,9 @@ export function RootNavigator() {
             options={{ headerTitle: 'Panel de clínica' }}
           />
           <Stack.Screen name="Pricing" component={PricingRoute} />
-          <Stack.Screen
-            name="PublicSpecialists"
+          <Stack.Screen name="PsychologyOnline" component={PsychologyPageRoute} />
+          <Stack.Screen name="PsychologyTopic" component={PsychologyPageRoute} />
+          <Stack.Screen name="PublicSpecialists"
             component={PublicSpecialistsRoute}
             options={{ headerShown: false }}
           />
@@ -927,8 +934,9 @@ export function RootNavigator() {
             options={{ headerShown: false }}
           />
           <Stack.Screen name="Pricing" component={PricingRoute} />
-          <Stack.Screen
-            name="PublicSpecialists"
+          <Stack.Screen name="PsychologyOnline" component={PsychologyPageRoute} />
+          <Stack.Screen name="PsychologyTopic" component={PsychologyPageRoute} />
+          <Stack.Screen name="PublicSpecialists"
             component={PublicSpecialistsRoute}
             options={{ headerShown: false }}
           />
@@ -994,8 +1002,9 @@ export function RootNavigator() {
           {calendarIntent?.kind !== 'connect' ? <Stack.Screen name="GoogleCalendarIntegration" component={GoogleCalendarIntegrationRoute} /> : null}
           {calendarIntent?.kind !== 'session' ? <Stack.Screen name="GoogleCalendarSession" component={GoogleCalendarSessionRoute} /> : null}
           <Stack.Screen name="Pricing" component={PricingRoute} />
-          <Stack.Screen
-            name="PublicSpecialists"
+          <Stack.Screen name="PsychologyOnline" component={PsychologyPageRoute} />
+          <Stack.Screen name="PsychologyTopic" component={PsychologyPageRoute} />
+          <Stack.Screen name="PublicSpecialists"
             component={PublicSpecialistsRoute}
             options={{ headerShown: false }}
           />
@@ -1291,8 +1300,9 @@ export function RootNavigator() {
           options={{ headerShown: false }}
         />
         <Stack.Screen name="Pricing" component={PricingRoute} />
-        <Stack.Screen
-          name="PublicSpecialists"
+        <Stack.Screen name="PsychologyOnline" component={PsychologyPageRoute} />
+        <Stack.Screen name="PsychologyTopic" component={PsychologyPageRoute} />
+        <Stack.Screen name="PublicSpecialists"
           component={PublicSpecialistsRoute}
           options={{ headerShown: false }}
         />

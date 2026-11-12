@@ -194,11 +194,11 @@
     },
     {
       "source": "/especialista/:profileRef",
-      "destination": "/app-shell.html"
+      "destination": "/api/public-page?path=/especialista/:profileRef"
     },
     {
       "source": "/e/:profileRef",
-      "destination": "/app-shell.html"
+      "destination": "/api/public-page?path=/e/:profileRef"
     },
     {
       "source": "/reservar/:specialistId",
@@ -223,6 +223,24 @@
     {
       "source": "/mi-clinica/:clinicId/pacientes/:clinicPatientId",
       "destination": "/app-shell.html"
+    },
+    {
+      "source": "/especialistas",
+      "destination": "/api/public-page?path=/especialistas"
+    },
+    {
+      "source": "/psicologos-online",
+      "destination": "/api/public-page?path=/psicologos-online"
+    },
+    {
+      "source": "/psicologos/:topic",
+      "destination": "/api/public-page?path=/psicologos/:topic"
     }
-  ]
+  ],
+  "functions": {
+    "api/public-page.js": {
+      "includeFiles": "{dist/app-shell.html,.seo-build/**}",
+      "maxDuration": 15
+    }
+  }
 }

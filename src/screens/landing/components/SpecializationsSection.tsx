@@ -81,6 +81,7 @@ export const SpecializationsSection: React.FC<SpecializationsSectionProps> = ({
               style={isTablet ? styles.itemMotion : undefined}
             >
               <AnimatedPressable
+                href={specialization.id === 'anxiety' ? '/psicologos/ansiedad' : specialization.id === 'self-esteem' ? '/psicologos/autoestima' : `/especialistas?specialty=${specialization.id}`}
                 onPress={() => onSpecializationPress(specialization.id)}
                 pressScale={0.98}
                 hoverLift={false}

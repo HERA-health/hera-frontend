@@ -1,3 +1,5 @@
+import { buildPublicDirectoryQueryParams } from '../seo/publicContent';
+import { takePublicBootstrap, publicProfileSchema, directoryPageSchema } from '../seo/publicData';
 import {getSpecialistDiscoveryRevision, invalidateSpecialistDiscovery} from '../utils/specialistDiscoveryRevision';
 import { api } from './api';
 import { isAxiosError } from 'axios';
@@ -186,6 +188,7 @@ export interface PublicSpecialistDirectoryFilters {
   religion?: string;
   q?: string;
   professionalType?: ProfessionalType;
+  professionalTypes?: readonly ProfessionalType[];
   modality?: PublicSpecialistModality;
   specialties?: readonly ProfessionalSpecialtyValue[];
   approaches?: readonly ProfessionalTherapeuticApproachValue[];
@@ -297,28 +300,6 @@ const getPublicSpecialistsCacheKey = (filters?: SpecialistFilters): string => {
   return `public:${queryString}`;
 };
 
-const buildPublicDirectoryQueryParams = (
-  filters?: PublicSpecialistDirectoryFilters
-): URLSearchParams => {
-  const params = new URLSearchParams();
-  if (filters?.language) params.append('language', filters.language);
-  const query = filters?.q?.trim();
-
-  if (query && query.length >= 2) params.append('q', query);
-  if (filters?.professionalType) params.append('professionalType', filters.professionalType);
-  if (filters?.modality) params.append('modality', filters.modality);
-  filters?.specialties?.forEach((specialty) => params.append('specialty', specialty));
-  filters?.approaches?.forEach((approach) => params.append('approach', approach));
-  if (filters?.minRating !== undefined) params.append('minRating', filters.minRating.toString());
-  if (filters?.maxPrice !== undefined) params.append('maxPrice', filters.maxPrice.toString());
-  if (filters?.minExperienceYears !== undefined) params.append('minExperienceYears', String(filters.minExperienceYears));
-  if (filters?.minAge !== undefined) params.append('minAge', String(filters.minAge));
-  if (filters?.maxAge !== undefined) params.append('maxAge', String(filters.maxAge));
-  if (filters?.sort && filters.sort !== 'RECENT') params.append('sort', filters.sort);
-  if (filters?.page && filters.page > 1) params.append('page', filters.page.toString());
-
-  return params;
-};
 
 const getPublicDirectoryCacheKey = (filters?: PublicSpecialistDirectoryFilters): string =>
   `directory:${buildPublicDirectoryQueryParams(filters).toString()}`;
@@ -625,6 +606,8 @@ export const getPublicSpecialistDirectory = async (
 
   const queryString = buildPublicDirectoryQueryParams(filters).toString();
   const url = `/specialists/directory${queryString ? `?${queryString}` : ''}`;
+  const initial = !filters?.religion ? takePublicBootstrap(url, directoryPageSchema) : undefined;
+  if (initial) return initial;
   const { specialties, approaches, ...rest } = filters ?? {};
   const transport = filters?.religion
     ? api.post<{ success: boolean; data: PublicSpecialistDirectoryPage }>('/specialists/directory/search', { ...rest, specialty: specialties, approach: approaches })
@@ -680,6 +663,8 @@ export const getPublicSpecialistDetails = async (
   }
 
   const key = profileRef.trim();
+  const initial = takePublicBootstrap(`/specialists/public/${encodeURIComponent(key)}`, publicProfileSchema);
+  if (initial) return initial;
   const existing = publicProfileRequests.get(key);
   if (existing) return existing;
   const request = api.get<{ success: boolean; data: PublicSpecialistProfileData }>(

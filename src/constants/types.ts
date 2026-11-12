@@ -122,6 +122,8 @@ export type RootStackParamList = {
   GoogleCalendarSession: { sessionId: string };
   Landing: { section?: LandingSectionAnchor } | undefined;
   ProfessionalShowcase: undefined;
+  PsychologyOnline: undefined;
+  PsychologyTopic: { topic: 'ansiedad' | 'autoestima' };
   Pricing: undefined;
   Welcome: undefined;
   Login: { userType: 'CLIENT' | 'PROFESSIONAL' | 'CLINIC'; specialization?: string };
@@ -155,7 +157,7 @@ export type RootStackParamList = {
   Home: undefined;
   Specialists: undefined;
   SpecialistsDirectory: undefined;
-  PublicSpecialists: { specialty?: ProfessionalSpecialtyValue } | undefined;
+  PublicSpecialists: { specialty?: ProfessionalSpecialtyValue; topic?: 'online' | 'ansiedad' | 'autoestima'; page?: number; professionalTypes?: string; modality?: string } | undefined;
   Sessions: undefined;
   OnDutyPsychologist: undefined;
   Profile: undefined;

@@ -51,3 +51,6 @@ nul
 # Local browser QA artifacts
 /.playwright-cli/
 /output/playwright/
+
+# Public HTML modules compiled during web export
+.seo-build/

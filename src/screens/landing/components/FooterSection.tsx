@@ -86,6 +86,9 @@ export const FooterSection: React.FC<FooterSectionProps> = ({
       title: 'Pacientes',
       links: [
         { label: 'Buscar psicólogo', onPress: onFindSpecialist, href: '/especialistas' },
+        { label: 'Psicólogos online', href: '/psicologos-online' },
+        { label: 'Psicólogos para la ansiedad', href: '/psicologos/ansiedad' },
+        { label: 'Psicólogos para la autoestima', href: '/psicologos/autoestima' },
         { label: 'Cómo funciona', section: 'howItWorks' },
         { label: 'Especialidades', section: 'specializations' },
         { label: 'Preguntas frecuentes', section: 'faq' },

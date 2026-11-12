@@ -11,6 +11,8 @@ const ROUTE_TITLES: Record<keyof RootStackParamList, string> = {
   HeraCommissions: 'Comisiones HERA',
   Landing: 'Psicólogos online y gestión de consultas',
   ClinicalPinReset: 'Restablecer PIN clínico',
+  PsychologyOnline: 'Psicólogos online',
+  PsychologyTopic: 'Apoyo psicológico',
   ProfessionalShowcase: 'Software de gestión para psicólogos',
   Pricing: 'Planes y precios para psicólogos',
   Welcome: 'Bienvenida',

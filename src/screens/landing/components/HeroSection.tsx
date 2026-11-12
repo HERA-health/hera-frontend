@@ -1,3 +1,4 @@
+import { landingEditorial } from '../../../seo/publicContent';
 import React, { useId, useRef } from 'react';
 import { Platform, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -99,10 +100,10 @@ export function HeroSection({
             isMobile && styles.titleMobile, width < 380 && styles.titleSmall,
             { color: theme.textPrimary, fontFamily: theme.fontDisplay },
           ]}>
-            Encuentra al <Text style={{ color: theme.primary }}>psicólogo</Text> ideal para ti.
+            {landingEditorial.headingStart}<Text style={{ color: theme.primary }}>{landingEditorial.headingEmphasis}</Text>{landingEditorial.headingEnd}
           </Text>
           <Text style={[styles.subtitle, shortDesktop && styles.subtitleShort, isMobile && styles.subtitleMobile, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>
-            Encuentra terapia online o presencial. Compara perfiles verificados, especialidades y precios para elegir con quién empezar.
+            {landingEditorial.introduction}
           </Text>
           <View style={[styles.doors, isMobile && styles.doorsMobile]}>
             {doors.map((door, index) => (

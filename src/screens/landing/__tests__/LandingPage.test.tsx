@@ -530,12 +530,12 @@ describe('LandingPage', () => {
     expect(navigate).toHaveBeenCalledWith('Welcome');
   });
 
-  it('opens the directory with a canonical specialty preselected', () => {
+  it('opens the anxiety page from its specialty link', () => {
     render(<LandingPage />);
 
     fireEvent.press(screen.getByText('Ansiedad y estrés'));
 
-    expect(navigate).toHaveBeenCalledWith('PublicSpecialists', { specialty: 'anxiety' });
+    expect(navigate).toHaveBeenCalledWith('PsychologyTopic', { topic: 'ansiedad' });
   });
 
   it.each([

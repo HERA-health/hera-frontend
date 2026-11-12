@@ -1,9 +1,11 @@
+import { AnimatedPressable } from '../../../components/common/AnimatedPressable';
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Platform, StyleSheet, Text, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useTheme } from '../../../contexts/ThemeContext';
 
-export function DirectoryPagination({ page, totalPages, compact, busy, onChange }: {
+export function DirectoryPagination({ page, totalPages, compact, busy, onChange, hrefForPage }: {
+  hrefForPage?: (page: number) => string;
   page: number; totalPages: number; compact: boolean; busy: boolean; onChange: (page: number) => void;
 }) {
   const { theme } = useTheme();
@@ -11,13 +13,13 @@ export function DirectoryPagination({ page, totalPages, compact, busy, onChange 
   const pages = [...new Set([1, page - 1, page, page + 1, totalPages])].filter(value => value >= 1 && value <= totalPages).sort((a, b) => a - b);
   const text = { color: theme.textPrimary, fontFamily: theme.fontSansSemiBold, fontSize: 13 };
   const control = (next: number, label: string, icon: 'chevron-back' | 'chevron-forward', disabled: boolean) => (
-    <Pressable accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ disabled: disabled || busy }}
-      disabled={disabled || busy} onPress={() => onChange(next)}
+    <AnimatedPressable accessibilityRole={Platform.OS === "web" && hrefForPage ? "link" : "button"} accessibilityLabel={label} accessibilityState={{ disabled: disabled || busy }}
+      href={!disabled && !busy ? hrefForPage?.(next) : undefined} disabled={disabled || busy} onPress={() => { if (Platform.OS === 'web' && hrefForPage) window.location.assign(hrefForPage(next)); else onChange(next); }}
       style={[styles.control, { opacity: disabled || busy ? 0.45 : 1, borderColor: theme.border }]}>
       {icon === 'chevron-back' && <Ionicons name={icon} size={16} color={theme.textPrimary} />}
       <Text style={text}>{label}</Text>
       {icon === 'chevron-forward' && <Ionicons name={icon} size={16} color={theme.textPrimary} />}
-    </Pressable>
+    </AnimatedPressable>
   );
   return (
     <View style={styles.pagination} accessibilityLabel="Paginación del directorio">
@@ -26,12 +28,12 @@ export function DirectoryPagination({ page, totalPages, compact, busy, onChange 
         <View style={styles.numbers}>
           {pages.map((value, index) => <React.Fragment key={value}>
             {index > 0 && value - pages[index - 1] > 1 ? <Text style={[text, styles.ellipsis]}>…</Text> : null}
-            <Pressable accessibilityRole="button" accessibilityLabel={`Página ${value}`}
+            <AnimatedPressable accessibilityRole={Platform.OS === 'web' && hrefForPage ? 'link' : 'button'} accessibilityLabel={`Página ${value}`}
               accessibilityState={{ selected: value === page, disabled: busy }} disabled={busy}
-              onPress={() => { if (value !== page) onChange(value); }}
+              href={hrefForPage?.(value)} onPress={() => { if (value !== page) { if (Platform.OS === 'web' && hrefForPage) window.location.assign(hrefForPage(value)); else onChange(value); } }}
               style={[styles.number, { backgroundColor: value === page ? theme.actionPrimary : 'transparent' }]}>
               <Text style={[text, value === page && { color: theme.actionPrimaryText }]}>{value}</Text>
-            </Pressable>
+            </AnimatedPressable>
           </React.Fragment>)}
         </View>
       )}

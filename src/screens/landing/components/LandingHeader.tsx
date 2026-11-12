@@ -25,7 +25,7 @@ import { ThemeToggleButton } from '../../../components/common/ThemeToggleButton'
 import { useTheme } from '../../../contexts/ThemeContext';
 import type { LandingSectionAnchor } from '../types';
 
-export type LandingHeaderContext = 'landing' | 'directory' | 'access' | 'pricing' | 'questionnaire';
+export type LandingHeaderContext = 'landing' | 'directory' | 'access' | 'pricing' | 'questionnaire' | 'psychology';
 
 interface LandingHeaderProps {
   onLayout?: (event: LayoutChangeEvent) => void;
@@ -72,7 +72,7 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
   const scrollLanding = landing && width < 1280;
   const showBrandDescriptor = !landing && width >= BRAND_DESCRIPTOR_BREAKPOINT && (!onViewPlans || width >= 1600);
   const isDirectory = context === 'directory' || context === 'questionnaire';
-  const isAccess = context === 'access' || context === 'pricing';
+  const isAccess = context === 'access' || context === 'pricing' || context === 'psychology';
   const scrollProgress = useSharedValue(0);
 
   useEffect(() => {
@@ -87,7 +87,7 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
     if (context === 'questionnaire') {
       return { backgroundColor: 'transparent', borderBottomWidth: 0, borderBottomColor: 'transparent' };
     }
-    if (context === 'pricing') {
+    if (context === 'pricing' || context === 'psychology') {
       return {
         backgroundColor: theme.landingCanvas,
         borderBottomWidth: 0,
@@ -162,6 +162,7 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
           {onLogoPress ? (
             <AnimatedPressable
               onPress={onLogoPress}
+              href="/"
               hoverLift={false}
               pressScale={0.98}
               hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
@@ -299,10 +300,10 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
         styles.container,
         Platform.OS === 'web' && !isMobile && styles.containerWeb,
         containerAnimStyle,
-        context !== 'landing' && context !== 'pricing' && context !== 'questionnaire' && webGlassStyle,
+        context !== 'landing' && context !== 'pricing' && context !== 'psychology' && context !== 'questionnaire' && webGlassStyle,
       ]}
     >
-      {context !== 'landing' && context !== 'pricing' && context !== 'questionnaire' && Platform.OS !== 'web' && isScrolled ? (
+      {context !== 'landing' && context !== 'pricing' && context !== 'psychology' && context !== 'questionnaire' && Platform.OS !== 'web' && isScrolled ? (
         <BlurView
           intensity={55}
           tint={isDark ? 'dark' : 'light'}

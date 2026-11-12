@@ -1,3 +1,4 @@
+import { publicDocumentTitle } from './src/seo/publicDocumentTitle';
 import { QuestionnaireDraftProvider } from './src/contexts/QuestionnaireDraftContext';
 import { ExternalCalendarResultNotice } from './src/components/scheduling/ExternalCalendarResultNotice';
 import { SESSION_PAYMENTS_VISIBLE } from './src/config/sessionPayments';
@@ -178,7 +179,9 @@ export const linking: LinkingOptions<RootStackParamList> = {
         },
       },
       ProfessionalClinicPatientDetail: 'mi-clinica/:clinicId/pacientes/:clinicPatientId',
-      PublicSpecialists: 'especialistas',
+      PublicSpecialists: { path: 'especialistas', parse: { page: Number } },
+      PsychologyOnline: 'psicologos-online',
+      PsychologyTopic: 'psicologos/:topic',
       Specialists: { path: 'paciente/especialistas', alias: ['Specialists'] },
       SpecialistsDirectory: 'paciente/especialistas/directorio',
       ProfessionalShowcase: 'profesionales/recorrido',
@@ -307,7 +310,7 @@ function ThemedApp() {
                 linking={linking}
                 documentTitle={{
                   formatter: (_options, route) =>
-                    getDocumentTitleForRoute(route?.name, route?.params),
+                    publicDocumentTitle(route?.name) ?? getDocumentTitleForRoute(route?.name, route?.params),
                 }}
               >
                 <StatusBar style={isDark ? 'light' : 'dark'} />

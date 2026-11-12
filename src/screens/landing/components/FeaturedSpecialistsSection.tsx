@@ -1,3 +1,4 @@
+import { landingEditorial } from '../../../seo/publicContent';
 import { directoryEntryHref } from '../../../services/directoryBookingService';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
@@ -89,8 +90,8 @@ export const FeaturedSpecialistsSection: React.FC<FeaturedSpecialistsSectionProp
             <Ionicons name="heart-outline" size={13} color={theme.primary} />
             <Text style={[styles.eyebrow, { color: theme.primary, fontFamily: theme.fontSansSemiBold }]}>PARA QUIENES BUSCAN TERAPIA</Text>
           </View>
-          <Text accessibilityRole="header" aria-level={2} style={[styles.title, isDesktop && styles.titleDesktop, { color: theme.textPrimary, fontFamily: theme.fontDisplay }]}>Elige psicólogo con información clara</Text>
-          <Text style={[styles.subtitle, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>Conoce la experiencia y el enfoque de cada perfil. Consulta qué temas aborda en terapia, cómo son sus sesiones y cuánto cuestan antes de decidir.</Text>
+          <Text accessibilityRole="header" aria-level={2} style={[styles.title, isDesktop && styles.titleDesktop, { color: theme.textPrimary, fontFamily: theme.fontDisplay }]}>{landingEditorial.profilesHeading}</Text>
+          <Text style={[styles.subtitle, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>{landingEditorial.profilesIntroduction}</Text>
         </MotionView>
 
         {loading ? (

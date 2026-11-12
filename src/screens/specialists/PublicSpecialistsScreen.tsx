@@ -1,3 +1,6 @@
+import { usePublicHtmlReady } from '../../seo/usePublicHtmlReady';
+import { psychologyPages, directoryMetadata, buildPublicDirectoryQueryParams } from '../../seo/publicContent';
+import { professionalTypeSchema } from '../../seo/publicData';
 import { directoryEntryHref } from '../../services/directoryBookingService';
 import { SearchableProfileSelect } from '../../components/common/SearchableProfileSelect';
 import { renderLanguageIcon } from '../../components/common/LanguageIcon';
@@ -55,8 +58,8 @@ const MODALITY_OPTIONS: Array<{ label: string; value: specialistsService.PublicS
   { label: 'Terapia presencial', value: 'IN_PERSON' },
 ];
 
-type RatingFilter = 4 | 4.5;
-type PriceFilter = 50 | 60 | 80;
+type RatingFilter = number;
+type PriceFilter = number;
 const RATING_OPTIONS: ReadonlyArray<{ label: string; value: RatingFilter }> = [
   { label: '4,5 o más', value: 4.5 },
   { label: '4 o más', value: 4 },
@@ -84,6 +87,7 @@ type DirectoryFilters = {
   religion?: string;
   q: string;
   professionalType: ProfessionalType | null;
+  professionalTypes?: readonly ProfessionalType[];
   modality: specialistsService.PublicSpecialistModality | null;
   specialties: ProfessionalSpecialtyValue[];
   approaches: ProfessionalTherapeuticApproachValue[];
@@ -128,22 +132,48 @@ export const PublicSpecialistsScreen: React.FC = () => {
   const [gridWidth, setGridWidth] = useState(0);
   const gridColumns = gridWidth >= 740 ? 2 : 1;
   const compactCards = (gridWidth - (gridColumns - 1) * 20) / gridColumns >= 460;
-  const [queryInput, setQueryInput] = useState('');
+  const [queryInput, setQueryInput] = useState(() => typeof window !== 'undefined' && window.location ? new URLSearchParams(window.location.search).get('q') || '' : '');
   const [searchError, setSearchError] = useState<string | undefined>();
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [filters, setFilters] = useState<DirectoryFilters>(() =>
-    createInitialFilters(route.params?.specialty)
+    (() => {
+      const initial = createInitialFilters(route.params?.specialty);
+      const topic = route.params?.topic;
+      const preset = topic ? psychologyPages[topic].filters : undefined;
+      const params = typeof window !== 'undefined' && window.location ? new URLSearchParams(window.location.search) : new URLSearchParams();
+      const types = professionalTypeSchema.array().safeParse(params.get('professionalTypes')?.split(',') || preset?.professionalTypes);
+      const single = professionalTypeSchema.safeParse(params.get('professionalType'));
+      const modality = params.get('modality') || preset?.modality;
+      const specialties = (params.getAll('specialty').flatMap(value => value.split(','))).filter(isProfessionalSpecialtyValue);
+      const approaches = params.getAll('approach').flatMap(value => value.split(',')).flatMap(value => { const option = PROFESSIONAL_THERAPEUTIC_APPROACH_OPTIONS.find(option => option.value === value); return option ? [option.value] : []; });
+      const sort = SORT_OPTIONS.find(option => option.value === params.get('sort'))?.value || 'RECENT';
+      return { ...initial, q: params.get('q') || '', language: params.get('language') || undefined,
+        minRating: params.has('minRating') ? Number(params.get('minRating')) : null,
+        maxPrice: params.has('maxPrice') ? Number(params.get('maxPrice')) : null,
+        approaches, sort, professionalTypes: types.success ? types.data : undefined,
+        professionalType: single.success ? single.data : null,
+        modality: modality === 'ONLINE' || modality === 'IN_PERSON' || modality === 'PHONE_CALL' ? modality : null,
+        specialties: specialties.length ? specialties : preset?.specialties ? [...preset.specialties] : initial.specialties };
+    })()
   );
   const [headerScrolled, setHeaderScrolled] = useState(false);
   const headerScrolledRef = useRef(false);
   const requestFilters = useMemo<specialistsService.PublicSpecialistDirectoryFilters>(() => ({
     q: filters.q || undefined, language: filters.language, religion: filters.religion,
+    professionalTypes: filters.professionalType ? undefined : filters.professionalTypes,
     professionalType: filters.professionalType ?? undefined, modality: filters.modality ?? undefined,
     specialties: filters.specialties.length ? filters.specialties : undefined,
     approaches: filters.approaches.length ? filters.approaches : undefined,
     minRating: filters.minRating ?? undefined, maxPrice: filters.maxPrice ?? undefined, sort: filters.sort,
   }), [filters]);
-  const { data, loading, error, loadPage, retry } = usePublicDirectory(requestFilters);
+  const [initialPage] = useState(() => {
+    const value = route.params?.page ?? (typeof window !== 'undefined' && window.location ? Number(new URLSearchParams(window.location.search).get('page')) : 1);
+    return Number.isInteger(value) && value > 0 && value <= 10000 ? value : 1;
+  });
+  const firstFilters = useRef(requestFilters);
+  const pagedFilters = useMemo(() => ({ ...requestFilters, page: requestFilters === firstFilters.current ? initialPage : 1 }), [requestFilters, initialPage]);
+  const { data, loading, error, loadPage, retry } = usePublicDirectory(pagedFilters);
+  usePublicHtmlReady(!loading);
   const items = data?.items ?? [];
   const rows = Array.from({ length: Math.ceil(items.length / gridColumns) }, (_, index) =>
     items.slice(index * gridColumns, (index + 1) * gridColumns)
@@ -154,11 +184,14 @@ export const PublicSpecialistsScreen: React.FC = () => {
     if (data && previousPage.current !== data.page) scrollRef.current?.scrollTo({ y: Math.max(0, resultsTop.current - 88), animated: false });
     if (data) previousPage.current = data.page;
   }, [data]);
-  useWebPageMetadata({
-    title: 'Hera | Psicólogos y profesionales de salud mental',
-    description: 'Encuentra psicólogos y otros profesionales de salud mental. Compara perfiles verificados, precios y modalidades de consulta antes de reservar en HERA.',
-    canonicalPath: '/especialistas',
-  });
+  const queryParams = buildPublicDirectoryQueryParams({ ...requestFilters, page });
+  const isFiltered = [...queryParams.keys()].some(key => key !== 'page');
+  const directoryPageHref = (next: number) => {
+    const query = buildPublicDirectoryQueryParams({ ...requestFilters, page: next });
+    return '/especialistas' + (query.size ? '?' + query : '');
+  };
+  useWebPageMetadata({ ...directoryMetadata, canonicalPath: directoryPageHref(page), indexable: !isFiltered, followLinks: true });
+
 
   useEffect(() => {
     analyticsService.trackScreen('public_specialists_directory');
@@ -256,6 +289,7 @@ export const PublicSpecialistsScreen: React.FC = () => {
   if (filters.language) activeFilters.push({ key: 'language', label: optionLabel(profileOptions?.languages ?? [], filters.language), remove: () => setFilters(current => ({ ...current, language: undefined })) });
   if (filters.religion) activeFilters.push({ key: 'religion', label: optionLabel(profileOptions?.religions ?? [], filters.religion), remove: () => setFilters(current => ({ ...current, religion: undefined })) });
   if (filters.professionalType) activeFilters.push({ key: 'type', label: selectedProfessionalType.find(option => option.value === filters.professionalType)?.label ?? filters.professionalType, remove: () => setFilters(current => ({ ...current, professionalType: null })) });
+  if (filters.professionalTypes?.length && !filters.professionalType) activeFilters.push({ key: 'types', label: filters.professionalTypes.every(value => value === 'PSYCHOLOGIST_HEALTH' || value === 'PSYCHOLOGIST_CLINICAL') ? 'Psicología' : 'Categorías profesionales', remove: () => setFilters(current => ({ ...current, professionalTypes: undefined })) });
   if (filters.modality) activeFilters.push({ key: 'modality', label: MODALITY_OPTIONS.find(option => option.value === filters.modality)?.label ?? filters.modality, remove: () => setFilters(current => ({ ...current, modality: null })) });
   if (filters.minRating) activeFilters.push({ key: 'rating', label: `${filters.minRating} estrellas o más`, remove: () => setFilters(current => ({ ...current, minRating: null })) });
   if (filters.maxPrice) activeFilters.push({ key: 'price', label: `Hasta ${filters.maxPrice} €`, remove: () => setFilters(current => ({ ...current, maxPrice: null })) });
@@ -323,9 +357,9 @@ export const PublicSpecialistsScreen: React.FC = () => {
       </View>
       <View style={[styles.filterField, { zIndex: 4 }]}>
         <Text style={fieldLabel}>Tipo de profesional</Text>
-        <SimpleDropdown options={selectedProfessionalType} value={filters.professionalType} onSelect={professionalType => setFilters(current => ({ ...current, professionalType }))}
+        <SimpleDropdown options={selectedProfessionalType} value={filters.professionalType} onSelect={professionalType => setFilters(current => ({ ...current, professionalType, professionalTypes: undefined }))}
           placeholder="Perfil" accessibilityLabel="Perfil" compact presentation="portal" keyboardNavigation selectionIndicator="checkbox" optionsMinWidth={260}
-          onClear={() => setFilters(current => ({ ...current, professionalType: null }))} />
+          onClear={() => setFilters(current => ({ ...current, professionalType: null, professionalTypes: undefined }))} />
       </View>
       <View style={[styles.filterField, { zIndex: 3 }]}>
         <Text style={fieldLabel}>Valoraciones</Text>
@@ -464,7 +498,7 @@ export const PublicSpecialistsScreen: React.FC = () => {
                   </View>
                 )}
               </View>
-              {data ? <DirectoryPagination page={page} totalPages={totalPages} compact={isMobile} busy={loading} onChange={next => void loadPage(next)} /> : null}
+              {data ? <DirectoryPagination page={page} totalPages={totalPages} compact={isMobile} busy={loading} hrefForPage={directoryPageHref} onChange={next => void loadPage(next)} /> : null}
             </View>
           </View>
         </View>

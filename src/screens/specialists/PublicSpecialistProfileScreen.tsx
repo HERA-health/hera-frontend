@@ -1,3 +1,5 @@
+import { profileMetadata } from '../../seo/publicContent';
+import { usePublicHtmlReady } from '../../seo/usePublicHtmlReady';
 import { useDiscoveryRevalidation } from '../../hooks/useDiscoveryRevalidation';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
@@ -61,15 +63,17 @@ export const PublicSpecialistProfileScreen: React.FC = () => {
   const shouldIndexProfilePage = loading || hasIndexableProfile;
   const canonicalProfileRef = specialist?.publicSlug ?? profileRef;
 
+  usePublicHtmlReady(!loading);
   useWebPageMetadata({
-    title: specialist ? `${specialist.name} | Especialista en HERA` : 'Hera | Perfil público',
+    title: specialist ? profileMetadata(specialist).title : 'Hera | Perfil público',
     description: specialist
-      ? `Consulta el perfil profesional de ${specialist.name}, sus áreas de acompañamiento y modalidades de sesión en HERA.`
+      ? profileMetadata(specialist).description
       : 'Consulta perfiles públicos de especialistas verificados en HERA.',
     canonicalPath: canonicalProfileRef
       ? `/especialista/${encodeURIComponent(canonicalProfileRef)}`
       : '/especialista',
     indexable: shouldIndexProfilePage,
+    followLinks: true,
     openGraphType: 'profile',
   });
 

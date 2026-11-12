@@ -74,28 +74,53 @@ function staticPaths() {
   // Guest consent screens are selected before React Navigation in App.tsx.
   return [...routes.values()].flat().concat(['clinic-consent/:requestId', 'clinical-consent/guest/:requestId']);
 }
+function compilePublicHtml() {
+  for (const file of ['seo/publicContent', 'seo/publicData', 'seo/publicHtml', 'seo/psychologyPresentation', 'constants/theme', 'constants/publicHeaderLinks', 'constants/professionalMatchingCatalog']) {
+    const source = fs.readFileSync('src/' + file + '.ts', 'utf8');
+    const result = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } });
+    const destination = '.seo-build/' + file + '.js';
+    fs.mkdirSync(path.dirname(destination), { recursive: true });
+    fs.writeFileSync(destination, result.outputText);
+  }
+}
 function prepare() {
+  compilePublicHtml();
   const rewrites = JSON.parse(fs.readFileSync('vercel.json', 'utf8')).rewrites;
   const paths = staticPaths();
   if (paths.length < 30) throw new Error('Unable to read navigation routes');
   for (const route of paths.filter(route => route.includes(':') && !route.startsWith('legal/'))) {
-    if (!rewrites.some(rule => rule.source === `/${route}` && rule.destination === '/app-shell.html')) {
+    if (!rewrites.some(rule => rule.source === `/${route}` && (rule.destination === '/app-shell.html' || rule.destination.startsWith('/api/public-page?')))) {
       throw new Error(`Missing web rewrite for ${route}`);
     }
   }
-  const shell = fs.readFileSync('dist/index.html', 'utf8');
+  const assets = fs.readdirSync('dist/assets/assets/fonts');
+  const fonts = [['HeraDisplay', 'Lustria-Regular'], ['HeraSans', 'GlacialIndifference-Regular'], ['HeraSans-Bold', 'GlacialIndifference-Bold']].map(([family, prefix]) => {
+    const file = assets.find(name => name.startsWith(prefix + '.'));
+    if (!file) throw new Error('Missing public font: ' + family);
+    return '@font-face{font-family:"' + family + '";src:url("/assets/assets/fonts/' + file + '");font-display:swap}';
+  }).join('');
+  const logo = fs.readdirSync('dist/assets/assets').find(name => name.startsWith('main-logo.') && name.endsWith('.png'));
+  if (!logo) throw new Error('Missing HERA public logo');
+  const brandStyle = ':root{--hera-public-logo:url("/assets/assets/' + logo + '")}';
+  const shell = fs.readFileSync('dist/index.html', 'utf8').replace('</head>', '<style>' + fonts + brandStyle + '</style></head>');
   fs.writeFileSync('dist/app-shell.html', shell);
-  for (const route of paths.filter(route => route && !route.includes(':'))) {
+  for (const route of paths.filter(route => route && !route.includes(':') && !['especialistas', 'psicologos-online'].includes(route))) {
     const destination = path.join('dist', route, 'index.html');
     fs.mkdirSync(path.dirname(destination), { recursive: true });
     fs.writeFileSync(destination, shell);
   }
-  for (const file of ['landing/LandingPage.tsx', 'landing/PricingScreen.tsx', 'landing/ProfessionalShowcaseScreen.tsx', 'specialists/PublicSpecialistsScreen.tsx']) {
+  for (const file of ['landing/LandingPage.tsx', 'landing/PricingScreen.tsx', 'landing/ProfessionalShowcaseScreen.tsx']) {
     const metadata = pageMetadata(`src/screens/${file}`);
     const destination = path.join('dist', metadata.canonicalPath, 'index.html');
     fs.mkdirSync(path.dirname(destination), { recursive: true });
-    fs.writeFileSync(destination, renderMetadata(shell, metadata));
+    let page = renderMetadata(shell, metadata);
+    if (metadata.canonicalPath === '/') {
+      const { injectPublicHtml, landingHtml } = require('../.seo-build/seo/publicHtml');
+      const photo = fs.readdirSync('dist/assets/assets/landing').find(name => name.startsWith('psychologist-landscape-1024.') && name.endsWith('.webp'));
+      page = injectPublicHtml(page, landingHtml('/assets/assets/landing/' + photo));
+    }
+    fs.writeFileSync(destination, page);
   }
 }
 if (require.main === module) prepare();
-module.exports = { staticPaths, pageMetadata, renderMetadata };
+module.exports = { staticPaths, pageMetadata, renderMetadata, compilePublicHtml };

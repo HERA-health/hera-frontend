@@ -59,7 +59,7 @@ export function usePublicDirectory(filters: PublicSpecialistDirectoryFilters) {
     mounted.current = true;
     return () => { mounted.current = false; sequence.current += 1; activeRequest.current = null; };
   }, []);
-  useEffect(() => { void loadPage(1); }, [loadPage]);
+  useEffect(() => { void loadPage(filters.page ?? 1); }, [loadPage]);
 
   return { data, loading, error, loadPage, retry: () => loadPage(retryPage.current) };
 }

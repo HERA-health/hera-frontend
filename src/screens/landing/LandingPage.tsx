@@ -1,3 +1,4 @@
+import { usePublicHtmlReady } from '../../seo/usePublicHtmlReady';
 /**
  * LandingPage - HERA Mental Health Platform
  *
@@ -180,6 +181,7 @@ export const LandingPage: React.FC = () => {
     Platform.OS !== 'web' || requestedLandingSection !== undefined
   );
 
+  usePublicHtmlReady();
   useWebPageMetadata({
     title: 'Hera | Psicólogos online y gestión de consultas',
     description: 'Encuentra psicólogos online y presenciales, compara perfiles y precios. Si eres psicólogo, organiza tu consulta con agenda, pacientes y facturación en HERA.',
@@ -399,7 +401,8 @@ export const LandingPage: React.FC = () => {
 
   const handleSpecializationPress = useCallback(
     (specializationId: ProfessionalSpecialtyValue) => {
-      navigation.navigate('PublicSpecialists', { specialty: specializationId });
+      if (specializationId === 'anxiety' || specializationId === 'self-esteem') navigation.navigate('PsychologyTopic', { topic: specializationId === 'anxiety' ? 'ansiedad' : 'autoestima' });
+      else navigation.navigate('PublicSpecialists', { specialty: specializationId });
     },
     [navigation]
   );

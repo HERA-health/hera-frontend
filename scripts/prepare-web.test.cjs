@@ -13,7 +13,7 @@ test('preserves explicit, optional, alias, conditional and implicit deep links',
 });
 test('initial metadata matches each public screen, without loading React', () => {
   const shell = fs.readFileSync('public/index.html', 'utf8');
-  for (const file of ['landing/LandingPage.tsx', 'landing/PricingScreen.tsx', 'landing/ProfessionalShowcaseScreen.tsx', 'specialists/PublicSpecialistsScreen.tsx']) {
+  for (const file of ['landing/LandingPage.tsx', 'landing/PricingScreen.tsx', 'landing/ProfessionalShowcaseScreen.tsx']) {
     const meta = pageMetadata(`src/screens/${file}`);
     const html = renderMetadata(shell, meta);
     assert.ok(html.includes(`<title>${meta.title}</title>`));
