@@ -85,7 +85,7 @@ export const FooterSection: React.FC<FooterSectionProps> = ({
     {
       title: 'Pacientes',
       links: [
-        { label: 'Explorar profesionales', onPress: onFindSpecialist },
+        { label: 'Buscar psicólogo', onPress: onFindSpecialist, href: '/especialistas' },
         { label: 'Cómo funciona', section: 'howItWorks' },
         { label: 'Especialidades', section: 'specializations' },
         { label: 'Preguntas frecuentes', section: 'faq' },
@@ -96,7 +96,7 @@ export const FooterSection: React.FC<FooterSectionProps> = ({
       links: [
         { label: professionalActionLabel, onPress: onProfessionalAction },
         { label: 'Iniciar sesión', onPress: onProfessionalLogin },
-        ...(onViewPlans ? [{ label: 'Planes para especialistas', onPress: onViewPlans, href: '/planes' }] : []),
+        ...(onViewPlans ? [{ label: 'Planes para psicólogos', onPress: onViewPlans, href: '/planes' }] : []),
         { label: 'Visibilidad y gestión', section: 'forSpecialists' },
         { label: 'Especialistas destacados', section: 'featuredSpecialists' },
       ],
@@ -154,7 +154,7 @@ export const FooterSection: React.FC<FooterSectionProps> = ({
       <AnimatedPressable
         key={link.label}
         onPress={() => handleLinkPress(link)}
-        href={link.href}
+        href={link.href ?? (link.section ? `/?section=${link.section}` : undefined)}
         hoverLift={false}
         pressScale={0.98}
         accessibilityRole="link"
@@ -183,7 +183,7 @@ export const FooterSection: React.FC<FooterSectionProps> = ({
                 { color: theme.textPrimary, fontFamily: theme.fontDisplay },
               ]}
             >
-              Salud mental, con más claridad.
+              Psicología y consulta, en un mismo lugar.
             </Text>
             <Text
               style={[
@@ -191,8 +191,8 @@ export const FooterSection: React.FC<FooterSectionProps> = ({
                 { color: theme.textSecondary, fontFamily: theme.fontSans },
               ]}
             >
-              Un mismo lugar para encontrar al profesional adecuado y para gestionar
-              una consulta con calma, privacidad y contexto.
+              Encuentra un psicólogo o gestiona tu consulta con agenda, pacientes
+              y facturación. Elige cómo empezar con HERA.
             </Text>
             <View style={styles.socialLinks}>
               {socialLinks.map((socialLink) => (

@@ -83,8 +83,8 @@ export const FeaturedSpecialistsSection: React.FC<FeaturedSpecialistsSectionProp
             <Ionicons name="heart-outline" size={13} color={theme.primary} />
             <Text style={[styles.eyebrow, { color: theme.primary, fontFamily: theme.fontSansSemiBold }]}>PARA QUIENES BUSCAN TERAPIA</Text>
           </View>
-          <Text style={[styles.title, isDesktop && styles.titleDesktop, { color: theme.textPrimary, fontFamily: theme.fontDisplay }]}>Encuentra al profesional ideal para ti</Text>
-          <Text style={[styles.subtitle, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>Explora perfiles verificados, compara especialidades, modalidad online o presencial y precios, y encuentra el apoyo adecuado para tu salud mental.</Text>
+          <Text accessibilityRole="header" aria-level={2} style={[styles.title, isDesktop && styles.titleDesktop, { color: theme.textPrimary, fontFamily: theme.fontDisplay }]}>Elige psicólogo con información clara</Text>
+          <Text style={[styles.subtitle, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>Conoce la experiencia y el enfoque de cada perfil. Consulta qué temas aborda en terapia, cómo son sus sesiones y cuánto cuestan antes de decidir.</Text>
         </MotionView>
 
         {loading ? (
@@ -132,7 +132,7 @@ export const FeaturedSpecialistsSection: React.FC<FeaturedSpecialistsSectionProp
             icon={<Ionicons name="arrow-forward" size={18} color={theme.actionPrimaryText} />}
             iconPosition="right"
           >
-            Ver todos los especialistas
+            Explorar el directorio
           </Button>
         </MotionView>
       </View>

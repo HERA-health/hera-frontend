@@ -40,9 +40,9 @@ export function ProfessionalShowcaseScreen(): React.ReactElement {
   const isLastStep = activeIndex === PROFESSIONAL_SHOWCASE_STEPS.length - 1;
 
   useWebPageMetadata({
-    title: 'Hera | Software para psicólogos y especialistas',
+    title: 'Hera | Software de gestión para psicólogos',
     description:
-      'Descubre cómo HERA ayuda a psicólogos y especialistas a gestionar pacientes, agenda, disponibilidad, facturación y estadísticas en un solo espacio.',
+      'Conoce el software de HERA para gestionar tu consulta de psicología: pacientes, agenda, facturación y estadísticas. Explora el recorrido sin crear una cuenta.',
     canonicalPath: '/profesionales/recorrido',
     indexable: true,
   });
@@ -198,7 +198,7 @@ export function ProfessionalShowcaseScreen(): React.ReactElement {
                     { color: theme.textPrimary, fontFamily: theme.fontDisplay },
                   ]}
                 >
-                  Tu consulta, conectada de principio a fin.
+                  Tu consulta de psicología, en un solo lugar.
                 </Text>
                 <Text
                   style={[

@@ -18,7 +18,7 @@ const SPECIALIZATIONS: ReadonlyArray<{
   { id: 'anxiety', label: 'Ansiedad y estrés', icon: 'pulse-outline' },
   { id: 'depression', label: 'Depresión', icon: 'rainy-outline' },
   { id: 'couples', label: 'Terapia de pareja', icon: 'people-outline' },
-  { id: 'trauma', label: 'Trauma (EMDR)', icon: 'shield-outline' },
+  { id: 'trauma', label: 'Trauma', icon: 'shield-outline' },
   { id: 'self-esteem', label: 'Autoestima', icon: 'heart-outline' },
   { id: 'grief', label: 'Duelo', icon: 'leaf-outline' },
   { id: 'sleep', label: 'Problemas de sueño', icon: 'moon-outline' },
@@ -53,13 +53,14 @@ export const SpecializationsSection: React.FC<SpecializationsSectionProps> = ({
           </Text>
           <Text
             accessibilityRole="header"
+            aria-level={2}
             style={[
               styles.title,
               isDesktop && styles.titleDesktop,
               { color: theme.textPrimary, fontFamily: theme.fontDisplay },
             ]}
           >
-            Empieza por aquello que quieres cuidar
+            ¿Qué te gustaría trabajar en terapia?
           </Text>
           <Text
             style={[
@@ -67,8 +68,7 @@ export const SpecializationsSection: React.FC<SpecializationsSectionProps> = ({
               { color: theme.textSecondary, fontFamily: theme.fontSans },
             ]}
           >
-            Elige un área para abrir el directorio con ese filtro ya aplicado.
-            Después podrás ajustar modalidad, precio y enfoque.
+            Explora áreas como ansiedad, autoestima o terapia de pareja para encontrar perfiles que trabajen con lo que necesitas. Después podrás comparar modalidad y precio.
           </Text>
         </MotionView>
 

@@ -63,13 +63,14 @@ export const TrustIndicatorsSection: React.FC = () => {
             </Text>
             <Text
               accessibilityRole="header"
+              aria-level={2}
               style={[
                 styles.title,
                 isDesktop && styles.titleDesktop,
                 { color: theme.textPrimary, fontFamily: theme.fontDisplay },
               ]}
             >
-              Seriedad para un contexto sensible
+              Confianza para elegir. Privacidad para cuidar.
             </Text>
             <Text
               style={[
@@ -77,8 +78,8 @@ export const TrustIndicatorsSection: React.FC = () => {
                 { color: theme.textSecondary, fontFamily: theme.fontSans },
               ]}
             >
-              Pruebas concretas para que pacientes y profesionales sepan qué pueden
-              esperar de HERA.
+              Conoce cómo HERA aborda la verificación profesional, la privacidad
+              y el acceso a la documentación.
             </Text>
           </MotionView>
 

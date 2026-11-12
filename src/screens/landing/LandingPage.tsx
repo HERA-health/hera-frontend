@@ -180,8 +180,8 @@ export const LandingPage: React.FC = () => {
   );
 
   useWebPageMetadata({
-    title: 'Hera | Inicio',
-    description: 'HERA conecta a pacientes con especialistas verificados y ofrece herramientas de gestión para profesionales de salud mental.',
+    title: 'Hera | Psicólogos online y gestión de consultas',
+    description: 'Encuentra psicólogos online y presenciales, compara perfiles y precios. Si eres psicólogo, organiza tu consulta con agenda, pacientes y facturación en HERA.',
     canonicalPath: '/',
   });
   const revealDeferredSections = useCallback(() => {

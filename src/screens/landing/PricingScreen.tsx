@@ -89,7 +89,7 @@ export function PricingScreen(): React.ReactElement {
   const canVisitLanding = navigation.getState().routeNames.includes('Landing');
 
   useWebPageMetadata({
-    title: 'Hera | Planes para especialistas',
+    title: 'Hera | Planes y precios para psicólogos',
     description: 'Compara los planes Calma, Crecimiento y Horizonte. Solicita la activación manual con 1 mes gratuito y continúa, si lo deseas, mediante transferencia bancaria.',
     canonicalPath: '/planes',
     indexable: true,
@@ -157,8 +157,8 @@ export function PricingScreen(): React.ReactElement {
         <View style={[styles.content, !tablet && styles.contentMobile]}>
           <View style={[styles.hero, desktop && styles.horizontal]}>
             <View style={[styles.heroCopy, desktop && styles.flex]}>
-              <Text style={[styles.eyebrow, { color: theme.primary, fontFamily: theme.fontSansSemiBold }]}>PARA ESPECIALISTAS</Text>
-              <Text accessibilityRole="header" aria-level={1} style={[styles.title, !tablet && styles.titleMobile, display]}>Planes pensados para tu forma de trabajar.</Text>
+              <Text style={[styles.eyebrow, { color: theme.primary, fontFamily: theme.fontSansSemiBold }]}>PARA PSICÓLOGOS</Text>
+              <Text accessibilityRole="header" aria-level={1} style={[styles.title, !tablet && styles.titleMobile, display]}>Planes para tu consulta de psicología.</Text>
               <Text style={[styles.intro, body]}>Recibe pacientes desde HERA o reúne toda tu consulta en un mismo espacio.</Text>
             </View>
             {desktop ? <Image

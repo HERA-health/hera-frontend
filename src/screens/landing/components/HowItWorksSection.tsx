@@ -15,9 +15,9 @@ const STEPS = [
   {
     number: '02',
     icon: 'reader-outline' as const,
-    title: 'Conoce cómo trabaja cada profesional',
+    title: 'Conoce su forma de hacer terapia',
     description:
-      'Revisa su enfoque, experiencia, formatos de sesión y disponibilidad antes de decidir.',
+      'Lee su experiencia y enfoque terapéutico. Comprueba si ofrece sesiones online o presenciales y cuándo puede atenderte.',
   },
   {
     number: '03',
@@ -54,13 +54,14 @@ export const HowItWorksSection: React.FC = () => {
           </Text>
           <Text
             accessibilityRole="header"
+            aria-level={2}
             style={[
               styles.title,
               isDesktop && styles.titleDesktop,
               { color: theme.textPrimary, fontFamily: theme.fontDisplay },
             ]}
           >
-            Decide con información, sin prisas
+            Cómo empezar tu terapia en HERA
           </Text>
           <Text
             style={[
@@ -68,8 +69,8 @@ export const HowItWorksSection: React.FC = () => {
               { color: theme.textSecondary, fontFamily: theme.fontSans },
             ]}
           >
-            Puedes explorar el directorio y conocer a cada especialista antes de
-            iniciar cualquier proceso de reserva.
+            Compara perfiles sin crear una cuenta. Conoce cómo trabaja cada
+            profesional y elige cuándo dar el siguiente paso.
           </Text>
         </MotionView>
 

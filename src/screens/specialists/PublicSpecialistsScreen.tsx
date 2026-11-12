@@ -155,8 +155,8 @@ export const PublicSpecialistsScreen: React.FC = () => {
     if (data) previousPage.current = data.page;
   }, [data]);
   useWebPageMetadata({
-    title: 'Hera | Especialistas',
-    description: 'Explora especialistas de salud mental verificados, compara sus modalidades y consulta sus perfiles públicos antes de reservar.',
+    title: 'Hera | Psicólogos y profesionales de salud mental',
+    description: 'Encuentra psicólogos y otros profesionales de salud mental. Compara perfiles verificados, precios y modalidades de consulta antes de reservar en HERA.',
     canonicalPath: '/especialistas',
   });
 
@@ -370,8 +370,8 @@ export const PublicSpecialistsScreen: React.FC = () => {
                 <Text style={[styles.eyebrow, { color: theme.primary, fontFamily: theme.fontSansSemiBold }]}>DIRECTORIO DE ESPECIALISTAS</Text>
                 <View style={[styles.eyebrowRule, { backgroundColor: theme.secondary }]} />
               </View>
-              <Text accessibilityRole="header" aria-level={1} style={[styles.title, isMobile && styles.titleMobile, isDesktop && styles.titleDesktop, { color: theme.textPrimary, fontFamily: theme.fontDisplay }]}>Encuentra un especialista a tu ritmo</Text>
-              <Text style={[styles.subtitle, isMobile && styles.subtitleMobile, textStyle]}>Compara perfiles verificados y encuentra el apoyo que necesitas.</Text>
+              <Text accessibilityRole="header" aria-level={1} style={[styles.title, isMobile && styles.titleMobile, isDesktop && styles.titleDesktop, { color: theme.textPrimary, fontFamily: theme.fontDisplay }]}>Encuentra un psicólogo a tu ritmo</Text>
+              <Text style={[styles.subtitle, isMobile && styles.subtitleMobile, textStyle]}>Explora psicólogos y otros profesionales verificados. Compara especialidades, modalidades y precios antes de elegir.</Text>
             </View>
             <View style={[styles.searchArea, isDesktop && styles.searchAreaDesktop]}>
               <View style={styles.searchRow}>

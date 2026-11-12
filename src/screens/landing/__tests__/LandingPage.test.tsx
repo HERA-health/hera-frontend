@@ -215,12 +215,12 @@ describe('LandingPage', () => {
   it('presents the two journeys and only concrete trust claims', () => {
     render(<LandingPage />);
 
-    expect(screen.getByText('PERSONAS, PROFESIONALES Y CLÍNICAS')).toBeTruthy();
-    expect(screen.getByText('Tu espacio de confianza para cuidar la salud mental.')).toBeTruthy();
-    expect(screen.getByText('Soy paciente')).toBeTruthy();
-    expect(screen.getByText('Soy profesional')).toBeTruthy();
+    expect(screen.getByText('PSICOLOGÍA ONLINE Y PRESENCIAL')).toBeTruthy();
+    expect(screen.getByText('Encuentra al psicólogo ideal para ti.')).toBeTruthy();
+    expect(screen.getByText('Busco psicólogo')).toBeTruthy();
+    expect(screen.getByText('Soy psicólogo/a')).toBeTruthy();
     expect(screen.queryByText('Salud mental')).toBeNull();
-    expect(screen.getAllByText('Explorar profesionales').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Buscar psicólogo').length).toBeGreaterThan(0);
     expect(screen.getByText('Conocer las herramientas')).toBeTruthy();
     expect(screen.queryByText('Encuentra tu profesional')).toBeNull();
     expect(screen.queryByText('Tu consulta, organizada')).toBeNull();
@@ -228,9 +228,9 @@ describe('LandingPage', () => {
       screen.getByLabelText('Una mujer trabajando con su portátil en un espacio luminoso con plantas')
     ).toBeTruthy();
     expect(screen.getByText('Explora perfiles verificados')).toBeTruthy();
-    expect(screen.getByText('Conoce cómo trabaja cada profesional')).toBeTruthy();
+    expect(screen.getByText('Conoce su forma de hacer terapia')).toBeTruthy();
     expect(screen.getByText('Reserva cuando lo tengas claro')).toBeTruthy();
-    expect(screen.getByText('Hazte visible. Gestiona tu consulta.')).toBeTruthy();
+    expect(screen.getByText('Tu consulta de psicología, organizada.')).toBeTruthy();
     expect(screen.getByText('VISIBILIDAD')).toBeTruthy();
     expect(screen.getByText('GESTIÓN')).toBeTruthy();
     expect(screen.getByText('Ver HERA por dentro')).toBeTruthy();
@@ -238,18 +238,18 @@ describe('LandingPage', () => {
     expect(screen.getByText('Consentimientos y documentación')).toBeTruthy();
     expect(screen.getByText('Marco RGPD y LOPDGDD')).toBeTruthy();
     expect(screen.queryByText('Flujos reales que HERA ayuda a ordenar')).toBeNull();
-    expect(screen.getByText('Empieza por lo que necesitas hoy')).toBeTruthy();
+    expect(screen.getByText('Da el siguiente paso con HERA')).toBeTruthy();
   });
 
   it('expands FAQ answers on press', () => {
     render(<LandingPage />);
 
     expect(
-      screen.queryByText(/Desde su espacio profesional puede organizar disponibilidad/)
+      screen.queryByText(/Puedes organizar tu agenda, sesiones, pacientes/)
     ).toBeNull();
-    fireEvent.press(screen.getByText('¿Qué puede gestionar un profesional dentro de HERA?'));
+    fireEvent.press(screen.getByText('¿Cómo ayuda HERA a gestionar una consulta de psicología?'));
     expect(
-      screen.getByText(/Desde su espacio profesional puede organizar disponibilidad/)
+      screen.getByText(/Puedes organizar tu agenda, sesiones, pacientes/)
     ).toBeTruthy();
   });
 
@@ -271,9 +271,9 @@ describe('LandingPage', () => {
     render(<LandingPage />);
     fireEvent.press(screen.getByRole('link', { name: 'Hacer cuestionario' }));
     expect(navigate).toHaveBeenLastCalledWith('Questionnaire');
-    fireEvent.press(screen.getByRole('link', { name: 'Hacer el cuestionario' }));
+    fireEvent.press(screen.getByRole('link', { name: 'Ayúdame a elegir: hacer el cuestionario' }));
     expect(navigate).toHaveBeenLastCalledWith('Questionnaire');
-    fireEvent.press(screen.getByRole('link', { name: 'Ver especialistas' }));
+    fireEvent.press(screen.getByRole('link', { name: 'Ver psicólogos' }));
     expect(navigate).toHaveBeenLastCalledWith('PublicSpecialists');
     expect(analyticsService.track).toHaveBeenCalledWith('landing_patient_cta_clicked', { placement: 'hero', audience: 'patient' });
   });
@@ -306,12 +306,12 @@ describe('LandingPage', () => {
     );
 
     const targets = [
-      ['Especialistas', 'featuredSpecialists'],
+      ['Psicólogos', 'featuredSpecialists'],
       ['Cómo funciona', 'howItWorks'],
-      ['Para profesionales', 'forSpecialists'],
+      ['Para psicólogos', 'forSpecialists'],
       ['Especialidades', 'specializations'],
       ['Quiénes somos', 'about'],
-      ['FAQ', 'faq'],
+      ['Dudas', 'faq'],
     ] as const;
 
     targets.forEach(([label]) => fireEvent.press(screen.getByText(label)));
@@ -325,7 +325,7 @@ describe('LandingPage', () => {
     render(<LandingHeader context="landing" isScrolled={false} onAccess={jest.fn()}
       onScrollToSection={jest.fn()} onViewPlans={onViewPlans} />);
     const labels = screen.getAllByRole('link').map(link => link.props.accessibilityLabel);
-    expect(labels[labels.indexOf('Ir a Para profesionales') + 1]).toBe('Ver planes para especialistas');
+    expect(labels[labels.indexOf('Ir a Para psicólogos') + 1]).toBe('Ver planes para psicólogos');
     fireEvent.press(screen.getByText('Planes y precios'));
     expect(onViewPlans).toHaveBeenCalledTimes(1);
   });
@@ -343,7 +343,7 @@ describe('LandingPage', () => {
     mockWindowDimensions = { ...mockWindowDimensions, width: 1024 };
     render(<LandingHeader context="directory" isScrolled={false} onAccess={jest.fn()} onViewPlans={jest.fn()} />);
     expect(screen.getByText('Planes y precios')).toBeTruthy();
-    expect(screen.queryByText('Para profesionales')).toBeNull();
+    expect(screen.queryByText('Para psicólogos')).toBeNull();
   });
 
   it('keeps every section link in the compact header', () => {
@@ -361,8 +361,8 @@ describe('LandingPage', () => {
     );
 
     expect(screen.getByText('Cómo funciona')).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'Explorar profesionales' })).toBeTruthy();
-    expect(screen.getByText('Para profesionales')).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Buscar psicólogo' })).toBeTruthy();
+    expect(screen.getByText('Para psicólogos')).toBeTruthy();
     expect(screen.getByText('Acceder')).toBeTruthy();
     expect(screen.queryByText('Salud mental')).toBeNull();
     expect(screen.queryByText('Clínicas')).toBeNull();
@@ -378,10 +378,10 @@ describe('LandingPage', () => {
     expect(screen.getByText('toggle-theme')).toBeTruthy();
     expect(screen.queryByLabelText('Abrir menú de navegación')).toBeNull();
     expect(screen.getByRole('link', { name: 'Ir a Cómo funciona' })).toBeTruthy();
-    expect(screen.getAllByText('Explorar profesionales').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Buscar psicólogo').length).toBeGreaterThan(0);
     expect(screen.getByText('Conocer las herramientas')).toBeTruthy();
-    expect(screen.getByText('Soy paciente')).toBeTruthy();
-    expect(screen.getByText('Soy profesional')).toBeTruthy();
+    expect(screen.getByText('Busco psicólogo')).toBeTruthy();
+    expect(screen.getByText('Soy psicólogo/a')).toBeTruthy();
     expect(screen.queryByText('Encuentra tu profesional')).toBeNull();
     expect(screen.queryByText('Tu consulta, organizada')).toBeNull();
     expect(screen.queryByTestId('hero-specialist-preview')).toBeNull();
@@ -392,7 +392,7 @@ describe('LandingPage', () => {
   it('opens the public directory for an unauthenticated patient without login', () => {
     render(<LandingPage />);
 
-    fireEvent.press(screen.getAllByText('Explorar profesionales')[0]);
+    fireEvent.press(screen.getAllByText('Buscar psicólogo')[0]);
 
     expect(navigate).toHaveBeenCalledWith('PublicSpecialists');
     expect(navigate).not.toHaveBeenCalledWith('Login', expect.anything());
@@ -616,11 +616,11 @@ describe('LandingPage', () => {
       render(<LandingPage />);
       expect(mockScrollTo).toHaveBeenLastCalledWith({ y: 1990, animated: true });
       expect(setParams).toHaveBeenCalledWith({ section: undefined });
-      fireEvent.press(screen.getByLabelText('Ir a FAQ'));
+      fireEvent.press(screen.getByLabelText('Ir a Dudas'));
       expect(mockScrollTo).toHaveBeenLastCalledWith({ y: 4490, animated: true });
       // A later layout shift must be measured from the live section too.
       professionalRect.mockReturnValue(rect(1850, 600));
-      fireEvent.press(screen.getByLabelText('Ir a Para profesionales'));
+      fireEvent.press(screen.getByLabelText('Ir a Para psicólogos'));
       expect(mockScrollTo).toHaveBeenLastCalledWith({ y: 2140, animated: true });
       expect(mockScrollTo).toHaveBeenCalledTimes(3);
     } finally {
@@ -679,8 +679,8 @@ describe('LandingPage', () => {
       { nativeEvent: { layout: { x: 0, y: 900, width: 1000, height: 500 } } }
     );
 
-    fireEvent.press(screen.getByText('Especialistas'));
-    fireEvent.press(screen.getByText('Especialistas'));
+    fireEvent.press(screen.getByText('Psicólogos'));
+    fireEvent.press(screen.getByText('Psicólogos'));
 
     expect(mockScrollTo).toHaveBeenCalledTimes(2);
     expect(mockScrollTo).toHaveBeenNthCalledWith(1, { y: 890, animated: true });

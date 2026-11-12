@@ -20,17 +20,17 @@ const PILLARS = [
   {
     eyebrow: 'VISIBILIDAD',
     icon: 'eye-outline' as const,
-    title: 'Una presencia pública que explica cómo trabajas',
+    title: 'Un perfil para que nuevos pacientes te conozcan',
     description:
-      'Presenta tu perfil, modalidades, tarifas y disponibilidad para que cada persona pueda decidir con más contexto.',
+      'Explica tu experiencia, tu enfoque terapéutico y las áreas en las que trabajas. Muestra tus tarifas y horarios para facilitar la elección.',
     features: ['Perfil profesional verificado', 'Modalidades y tarifas claras', 'Disponibilidad y reservas'],
   },
   {
     eyebrow: 'GESTIÓN',
     icon: 'layers-outline' as const,
-    title: 'La operativa de tu consulta, conectada',
+    title: 'Agenda, pacientes y facturación en un solo lugar',
     description:
-      'Organiza el trabajo cotidiano desde un espacio privado, calmado y diseñado para profesionales de salud mental.',
+      'Organiza tu consulta de psicología con las herramientas de gestión conectadas en un mismo espacio.',
     features: ['Agenda, pacientes y sesiones', 'Documentos y consentimientos', 'Facturación y seguimiento'],
   },
 ];
@@ -86,17 +86,18 @@ export const ForSpecialistsSection: React.FC<ForSpecialistsSectionProps> = ({
                 { color: theme.primary, fontFamily: theme.fontSansSemiBold },
               ]}
             >
-              HERA PARA PROFESIONALES
+              HERA PARA PSICÓLOGOS
             </Text>
             <Text
               accessibilityRole="header"
+              aria-level={2}
               style={[
                 styles.title,
                 isDesktop && styles.titleDesktop,
                 { color: theme.textPrimary, fontFamily: theme.fontDisplay },
               ]}
             >
-              Hazte visible. Gestiona tu consulta.
+              Tu consulta de psicología, organizada.
             </Text>
             <Text
               style={[
@@ -104,8 +105,8 @@ export const ForSpecialistsSection: React.FC<ForSpecialistsSectionProps> = ({
                 { color: theme.textSecondary, fontFamily: theme.fontSans },
               ]}
             >
-              Dos partes de un mismo recorrido: ayudar a nuevas personas a conocerte
-              y darte un espacio fiable para cuidar el trabajo que viene después.
+              Da a conocer tu trabajo con un perfil público y gestiona agenda,
+              pacientes y facturación desde HERA. Elige la modalidad que encaje con tu consulta.
             </Text>
           </View>
         </MotionView>

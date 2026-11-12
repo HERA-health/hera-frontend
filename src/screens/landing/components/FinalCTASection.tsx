@@ -48,13 +48,14 @@ export const FinalCTASection: React.FC<FinalCTASectionProps> = ({
           </Text>
           <Text
             accessibilityRole="header"
+            aria-level={2}
             style={[
               styles.title,
               isDesktop && styles.titleDesktop,
               { color: theme.landingCtaText, fontFamily: theme.fontDisplay },
             ]}
           >
-            Empieza por lo que necesitas hoy
+            Da el siguiente paso con HERA
           </Text>
           <Text
             style={[
@@ -62,16 +63,17 @@ export const FinalCTASection: React.FC<FinalCTASectionProps> = ({
               { color: theme.landingCtaMutedText, fontFamily: theme.fontSans },
             ]}
           >
-            Explora apoyo profesional o construye un espacio más claro para tu consulta.
+            Encuentra un psicólogo o empieza a organizar tu consulta con HERA.
           </Text>
 
           <View style={[styles.doors, isDesktop && styles.doorsDesktop]}>
             <AnimatedPressable
               onPress={onFindSpecialist}
+              href="/especialistas"
               pressScale={0.98}
               hoverLift={false}
               accessibilityRole="link"
-              accessibilityLabel="Explorar profesionales"
+              accessibilityLabel="Buscar psicólogo"
               style={[
                 styles.door,
                 {
@@ -90,7 +92,7 @@ export const FinalCTASection: React.FC<FinalCTASectionProps> = ({
                     { color: theme.textSecondary, fontFamily: theme.fontSansSemiBold },
                   ]}
                 >
-                  BUSCO APOYO
+                  BUSCO PSICÓLOGO
                 </Text>
                 <Text
                   style={[
@@ -98,7 +100,7 @@ export const FinalCTASection: React.FC<FinalCTASectionProps> = ({
                     { color: theme.textPrimary, fontFamily: theme.fontSansBold },
                   ]}
                 >
-                  Explorar profesionales
+                  Buscar psicólogo
                 </Text>
               </View>
               <Ionicons name="arrow-forward" size={21} color={theme.primary} />
@@ -128,7 +130,7 @@ export const FinalCTASection: React.FC<FinalCTASectionProps> = ({
                     { color: theme.textSecondary, fontFamily: theme.fontSansSemiBold },
                   ]}
                 >
-                  SOY PROFESIONAL
+                  SOY PSICÓLOGO/A
                 </Text>
                 <Text
                   style={[

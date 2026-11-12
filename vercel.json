@@ -1,5 +1,5 @@
 {
-  "buildCommand": "expo export --platform web",
+  "buildCommand": "npm run build:web",
   "outputDirectory": "dist",
   "installCommand": "npm install",
   "headers": [
@@ -161,8 +161,68 @@
       "destination": "https://api.health-hera.com/sitemap.xml"
     },
     {
-      "source": "/(.*)",
-      "destination": "/index.html"
+      "source": "/clinic-consent/:requestId",
+      "destination": "/app-shell.html"
+    },
+    {
+      "source": "/clinical-consent/guest/:requestId",
+      "destination": "/app-shell.html"
+    },
+    {
+      "source": "/pagos/reserva/:bookingId",
+      "destination": "/app-shell.html"
+    },
+    {
+      "source": "/pagos/bono/:patientPackageId",
+      "destination": "/app-shell.html"
+    },
+    {
+      "source": "/calendar/session/:sessionId",
+      "destination": "/app-shell.html"
+    },
+    {
+      "source": "/clinical-consent/:requestId/:token",
+      "destination": "/app-shell.html"
+    },
+    {
+      "source": "/clinic-consent/:requestId/:token",
+      "destination": "/app-shell.html"
+    },
+    {
+      "source": "/review/:token",
+      "destination": "/app-shell.html"
+    },
+    {
+      "source": "/especialista/:profileRef",
+      "destination": "/app-shell.html"
+    },
+    {
+      "source": "/e/:profileRef",
+      "destination": "/app-shell.html"
+    },
+    {
+      "source": "/reservar/:specialistId",
+      "destination": "/app-shell.html"
+    },
+    {
+      "source": "/derivaciones/:id?",
+      "destination": "/app-shell.html"
+    },
+    {
+      "source": "/colaboradores/:id?",
+      "destination": "/app-shell.html"
+    },
+    {
+      "source": "/comisiones-hera/:accountId?",
+      "destination": "/app-shell.html"
+    },
+    {
+      "source": "/mi-clinica/:clinicId?/:section?",
+      "destination": "/app-shell.html"
+    },
+    {
+      "source": "/mi-clinica/:clinicId/pacientes/:clinicPatientId",
+      "destination": "/app-shell.html"
     }
   ]
 }

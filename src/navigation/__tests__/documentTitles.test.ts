@@ -2,12 +2,12 @@ import { getDocumentTitleForRoute } from '../documentTitles';
 
 describe('documentTitles', () => {
   it('formats public route titles with Hera first', () => {
-    expect(getDocumentTitleForRoute('Landing')).toBe('Hera | Inicio');
+    expect(getDocumentTitleForRoute('Landing')).toBe('Hera | Psicólogos online y gestión de consultas');
     expect(getDocumentTitleForRoute('Login')).toBe('Hera | Iniciar sesión');
     expect(getDocumentTitleForRoute('Register')).toBe('Hera | Crear cuenta');
-    expect(getDocumentTitleForRoute('PublicSpecialists')).toBe('Hera | Especialistas');
+    expect(getDocumentTitleForRoute('PublicSpecialists')).toBe('Hera | Psicólogos y profesionales de salud mental');
     expect(getDocumentTitleForRoute('ProfessionalShowcase')).toBe(
-      'Hera | Software para psicólogos y especialistas'
+      'Hera | Software de gestión para psicólogos'
     );
   });
 

@@ -123,7 +123,7 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
       hoverLift={false}
       pressScale={1}
       accessibilityRole="link"
-      accessibilityLabel="Ver planes para especialistas"
+      accessibilityLabel="Ver planes para psicólogos"
       accessibilityState={Platform.OS === 'web' ? undefined : { selected: context === 'pricing' }}
       ariaCurrent={context === 'pricing' ? 'page' : undefined}
       style={[styles.navLink, { minHeight: 44, justifyContent: 'center' }]}
@@ -191,7 +191,7 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
                   },
                 ]}
               >
-                Salud mental
+                Psicología y consulta
               </Text>
             </View>
           ) : null}
@@ -209,10 +209,11 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
           {(landing || !isMobile) && !isDirectory && onFindSpecialist ? (
             <AnimatedPressable
               onPress={onFindSpecialist}
+              href="/especialistas"
               hoverLift={false}
               pressScale={0.96}
               accessibilityRole="link"
-              accessibilityLabel="Explorar profesionales"
+              accessibilityLabel="Buscar psicólogo"
               style={[
                 styles.secondaryAction,
                 context === 'landing' && styles.landingAction,
@@ -229,7 +230,7 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
                   },
                 ]}
               >
-                {compactLanding ? 'Explorar' : 'Explorar profesionales'}
+                {compactLanding ? 'Psicólogos' : 'Buscar psicólogo'}
               </Text> : null}
               <Ionicons
                 name="search-outline"
@@ -246,7 +247,7 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
               hoverLift={false}
               pressScale={0.96}
               accessibilityRole="link"
-              accessibilityLabel="Ir a HERA para profesionales"
+              accessibilityLabel="Ir a HERA para psicólogos"
               style={[
                 styles.secondaryAction,
                 { backgroundColor: theme.primaryAlpha12, borderColor: theme.border },
@@ -258,7 +259,7 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
                   { color: theme.primary, fontFamily: theme.fontSansSemiBold },
                 ]}
               >
-                Para profesionales
+                Para psicólogos
               </Text>
             </AnimatedPressable>
           ) : null}

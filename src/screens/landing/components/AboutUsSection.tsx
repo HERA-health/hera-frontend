@@ -25,15 +25,15 @@ const PRINCIPLES: Principle[] = [
   },
   {
     icon: 'briefcase-outline',
-    title: 'Menos fricción diaria',
+    title: 'Más orden en tu consulta',
     description:
-      'Agenda, pacientes, sesiones y facturación deben sentirse conectados para que la consulta no se fragmente en tareas sueltas.',
+      'Reunimos agenda, pacientes, sesiones y facturación para facilitar el trabajo diario de tu consulta.',
   },
   {
     icon: 'heart-outline',
     title: 'Tecnología con criterio humano',
     description:
-      'Interfaces sobrias, lenguaje claro y decisiones pensadas para cuidar la confianza de profesionales y pacientes.',
+      'Diseñamos herramientas fáciles de entender para que pacientes y psicólogos puedan centrarse en la terapia.',
   },
 ];
 
@@ -95,13 +95,15 @@ export const AboutUsSection: React.FC = () => {
             QUIÉNES SOMOS
           </Text>
           <Text
+            accessibilityRole="header"
+            aria-level={2}
             style={[
               styles.title,
               isDesktop && styles.titleDesktop,
               { color: theme.textPrimary, fontFamily: theme.fontDisplay },
             ]}
           >
-            Construimos una forma más clara de trabajar en salud mental
+            Conectamos a quienes buscan terapia con quienes la ofrecen
           </Text>
           <Text
             style={[
@@ -109,9 +111,7 @@ export const AboutUsSection: React.FC = () => {
               { color: theme.textSecondary, fontFamily: theme.fontSans },
             ]}
           >
-            HERA nace para unir dos necesidades que suelen vivir separadas: una
-            experiencia profesional ordenada para especialistas y un acceso más
-            comprensible para las personas que buscan ayuda.
+            HERA nace para facilitar la búsqueda de psicólogo y ayudar a los psicólogos a organizar su consulta. Reunimos información para elegir terapia y herramientas para gestionar el trabajo de cada día.
           </Text>
           <Text
             style={[

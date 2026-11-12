@@ -24,21 +24,21 @@ const FAQ_ITEMS: FAQItem[] = [
     audience: 'Producto',
     question: '¿Qué es HERA?',
     answer:
-      'HERA es una plataforma para profesionales de salud mental que centraliza la gestión de la consulta y mantiene una entrada clara para pacientes que buscan terapia. Reúne agenda, pacientes, sesiones, perfil público, documentación y parte administrativa en un entorno pensado para trabajar con calma y orden.',
+      'HERA te ayuda a encontrar un psicólogo y ofrece herramientas para gestionar una consulta de psicología. Puedes explorar perfiles verificados, comparar precios y modalidades y solicitar una reserva. Los profesionales reúnen agenda, pacientes, documentación y facturación en el mismo espacio.',
   },
   {
     id: 'professional-tools',
     audience: 'Profesionales',
-    question: '¿Qué puede gestionar un profesional dentro de HERA?',
+    question: '¿Cómo ayuda HERA a gestionar una consulta de psicología?',
     answer:
-      'Desde su espacio profesional puede organizar disponibilidad, sesiones, pacientes, tarifas, facturas, perfil público y documentación vinculada a su actividad. También hay áreas específicas para consentimientos, verificación profesional y acceso protegido a información más sensible.',
+      'Puedes organizar tu agenda, sesiones, pacientes, tarifas y facturas. También puedes actualizar tu perfil público y gestionar documentación y consentimientos con acceso protegido.',
   },
   {
     id: 'patient-booking',
     audience: 'Pacientes',
     question: '¿Cómo reservan sesión los pacientes?',
     answer:
-      'El paciente puede revisar perfiles profesionales, especialidades, modalidad de sesión y horarios disponibles. A partir de ahí avanza hacia la reserva con la información que cada especialista haya publicado y configurado en su agenda.',
+      'Explora el directorio, consulta el perfil que te interese y revisa sus sesiones, precios y horarios. Después puedes solicitar una reserva entre las opciones disponibles.',
   },
   {
     id: 'privacy',
@@ -57,9 +57,9 @@ const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'modalities',
     audience: 'Pacientes',
-    question: '¿Hay sesiones online y presenciales?',
+    question: '¿Puedo hacer terapia online o presencial?',
     answer:
-      'Sí, siempre que el profesional las haya activado. Cada perfil puede ofrecer sesiones online, presenciales o ambas, y el paciente solo verá opciones que estén disponibles según la configuración real del especialista.',
+      'Sí. En cada perfil puedes consultar si ofrece terapia online, presencial o ambas. Las modalidades y los horarios disponibles dependen de cada profesional.',
   },
   {
     id: 'verification',
@@ -114,9 +114,11 @@ export const FAQSection: React.FC = () => {
               { color: theme.primary, fontFamily: theme.fontSansSemiBold },
             ]}
           >
-            FAQ
+            TUS DUDAS, RESUELTAS
           </Text>
           <Text
+            accessibilityRole="header"
+            aria-level={2}
             style={[
               styles.title,
               isDesktop && styles.titleDesktop,
@@ -233,16 +235,15 @@ function FAQCard({ item, expanded, onToggle, theme, isDark }: FAQCardProps) {
         </View>
       </TouchableOpacity>
 
-      {expanded && (
-        <Text
-          style={[
-            styles.answer,
-            { color: theme.textSecondary, fontFamily: theme.fontSans },
-          ]}
-        >
-          {item.answer}
-        </Text>
-      )}
+      <Text
+        style={[
+          styles.answer,
+          { color: theme.textSecondary, fontFamily: theme.fontSans },
+          !expanded && { display: 'none' },
+        ]}
+      >
+        {item.answer}
+      </Text>
     </View>
   );
 }

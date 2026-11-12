@@ -59,7 +59,7 @@ describe('ProfessionalShowcaseScreen', () => {
   it('starts with a clear overview of the professional home', () => {
     render(<ProfessionalShowcaseScreen />);
 
-    expect(screen.getByText('Tu consulta, conectada de principio a fin.')).toBeTruthy();
+    expect(screen.getByText('Tu consulta de psicología, en un solo lugar.')).toBeTruthy();
     expect(screen.getByText('Empieza el día con una visión clara')).toBeTruthy();
     expect(screen.getByText('Próxima cita y accesos directos')).toBeTruthy();
     expect(mockedTrack).toHaveBeenCalledWith({

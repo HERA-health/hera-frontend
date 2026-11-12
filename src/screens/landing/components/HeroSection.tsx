@@ -39,16 +39,16 @@ export function HeroSection({
   const shortDesktop = isDesktop && height < 900;
   const doors = [
     {
-      title: 'Soy paciente', icon: 'person-outline' as const,
-      description: 'Encuentra un profesional para ti y elige cómo empezar.',
+      title: 'Busco psicólogo', icon: 'person-outline' as const,
+      description: 'Compara perfiles, modalidades y precios antes de reservar.',
       benefits: ['Perfiles verificados', 'Sesiones online y presenciales', 'Modalidades y tarifas visibles'],
       compactBenefits: 'Perfiles verificados · Online y presencial',
-      label: onQuestionnaire ? 'Hacer el cuestionario' : 'Explorar profesionales', onPress: onQuestionnaire ?? onFindSpecialist,
+      label: 'Ver psicólogos', onPress: onFindSpecialist,
       background: theme.secondaryMuted, accent: theme.actionPrimary,
     },
     {
-      title: 'Soy profesional', icon: 'briefcase-outline' as const,
-      description: 'Organiza tu consulta y presenta tu trabajo en HERA.',
+      title: 'Soy psicólogo/a', icon: 'briefcase-outline' as const,
+      description: 'Gestiona tu consulta y da a conocer tu trabajo en HERA.',
       benefits: ['Agenda y sesiones', 'Gestión de pacientes', 'Facturación'],
       compactBenefits: 'Agenda · Pacientes · Facturación',
       label: professionalActionLabel, onPress: onProfessionalAction,
@@ -91,7 +91,7 @@ export function HeroSection({
       <View style={[styles.content, isDesktop && styles.contentDesktop, shortDesktop && styles.contentShort]}>
         <View style={[styles.copy, isDesktop && styles.copyDesktop]}>
           <View style={[styles.eyebrowRow, (shortDesktop || isMobile) && styles.eyebrowRowShort]}>
-            <Text style={[styles.eyebrow, { color: theme.primary, fontFamily: theme.fontSansBold }]}>PERSONAS, PROFESIONALES Y CLÍNICAS</Text>
+            <Text style={[styles.eyebrow, { color: theme.primary, fontFamily: theme.fontSansBold }]}>PSICOLOGÍA ONLINE Y PRESENCIAL</Text>
             {!isMobile && <View style={[styles.eyebrowRule, { backgroundColor: theme.secondary }]} />}
           </View>
           <Text accessibilityRole="header" aria-level={1} style={[
@@ -99,10 +99,10 @@ export function HeroSection({
             isMobile && styles.titleMobile, width < 380 && styles.titleSmall,
             { color: theme.textPrimary, fontFamily: theme.fontDisplay },
           ]}>
-            Tu espacio de confianza para cuidar la salud mental.
+            Encuentra al <Text style={{ color: theme.primary }}>psicólogo</Text> ideal para ti.
           </Text>
           <Text style={[styles.subtitle, shortDesktop && styles.subtitleShort, isMobile && styles.subtitleMobile, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>
-            Encuentra profesionales verificados para cuidar tu salud mental o gestiona tu consulta con agenda, pacientes y facturación. Todo en HERA.
+            Encuentra terapia online o presencial. Compara perfiles verificados, especialidades y precios para elegir con quién empezar.
           </Text>
           <View style={[styles.doors, isMobile && styles.doorsMobile]}>
             {doors.map((door, index) => (
@@ -114,13 +114,13 @@ export function HeroSection({
                   <Text accessibilityRole="header" aria-level={2} style={[styles.doorTitle, shortDesktop && styles.doorTitleShort, { color: theme.textPrimary, fontFamily: theme.fontDisplay }]}>{door.title}</Text>
                 </View>
                 <Text style={[styles.doorDescription, shortDesktop && styles.doorDescriptionShort, isDesktop && width < 1200 && styles.doorDescriptionNarrow, { color: theme.textPrimary, fontFamily: theme.fontSans }]}>{door.description}</Text>
-                <AnimatedPressable onPress={door.onPress} href={Platform.OS === 'web' && index === 0 ? onQuestionnaire ? '/cuestionario' : '/especialistas' : undefined} accessibilityRole={index === 0 ? 'link' : 'button'} accessibilityLabel={door.label} hoverLift={false} pressScale={1} style={[styles.action, compactDesktop && styles.actionCompactDesktop, shortDesktop && styles.actionShort, { backgroundColor: door.accent }]}>
+                <AnimatedPressable onPress={door.onPress} href={Platform.OS === 'web' && index === 0 ? '/especialistas' : undefined} accessibilityRole={index === 0 ? 'link' : 'button'} accessibilityLabel={door.label} hoverLift={false} pressScale={1} style={[styles.action, compactDesktop && styles.actionCompactDesktop, shortDesktop && styles.actionShort, { backgroundColor: door.accent }]}>
                   <Text style={[styles.actionText, shortDesktop && styles.actionTextShort, { color: theme.actionPrimaryText, fontFamily: theme.fontSansBold }]}>{door.label}</Text>
                   <Ionicons name="arrow-forward" size={18} color={theme.actionPrimaryText} />
                 </AnimatedPressable>
                 {index === 0 && onQuestionnaire ? (
-                  <AnimatedPressable onPress={onFindSpecialist} href="/especialistas" accessibilityRole="link" accessibilityLabel="Ver especialistas" hoverLift={false} pressScale={1} style={[styles.action, { minHeight: 44, marginTop: 6, paddingVertical: 8, borderWidth: 1, borderColor: theme.borderStrong }]}>
-                    <Text style={[styles.actionText, { color: theme.textPrimary, fontFamily: theme.fontSansSemiBold }]}>Ver especialistas</Text>
+                  <AnimatedPressable onPress={onQuestionnaire} href="/cuestionario" accessibilityRole="link" accessibilityLabel="Ayúdame a elegir: hacer el cuestionario" hoverLift={false} pressScale={1} style={[styles.action, { minHeight: 44, marginTop: 6, paddingVertical: 8, borderWidth: 1, borderColor: theme.borderStrong }]}>
+                    <Text style={[styles.actionText, { color: theme.textPrimary, fontFamily: theme.fontSansSemiBold }]}>Ayúdame a elegir</Text>
                     <Ionicons name="search-outline" size={17} color={theme.textPrimary} />
                   </AnimatedPressable>
                 ) : null}
