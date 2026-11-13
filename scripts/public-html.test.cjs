@@ -12,7 +12,7 @@ const { landingIcons } = require('../.seo-build/seo/landingIcons');
 test('landing first paint retains the actual hero, readable copy and working entry links', () => {
   const body = landingInitialHtml({ photo: '/photo-1024.webp', photos: { small: '/photo-640.webp', large: '/photo-1536.webp' }, icons: landingIcons });
   assert.equal((body.match(/<h1>/g) || []).length, 1);
-  assert.ok(body.includes('Encuentra al <span>psicólogo</span> ideal para ti.'));
+  assert.ok(body.includes('Encuentra a tu <span>psicólogo/a</span> ideal para ti.'));
   for (const href of ['/especialistas', '/cuestionario', '/planes', '/register?userType=PROFESSIONAL', '/acceso']) {
     assert.ok(body.includes(`href="${href}"`), href);
   }
@@ -98,7 +98,7 @@ test('Barcelona uses the city and in-person API filters, original design and unr
   assert.equal(params.get('city'), 'barcelona');
   assert.equal(params.get('modality'), 'IN_PERSON');
   assert.equal(params.get('professionalTypes'), 'PSYCHOLOGIST_HEALTH,PSYCHOLOGIST_CLINICAL');
-  assert.match(result.html, /<title>Psicólogos en Barcelona · HERA<\/title>/);
+  assert.match(result.html, /<title>Psicólogos y psicólogas en Barcelona · HERA<\/title>/);
   assert.match(result.html, /rel="canonical" href="https:\/\/www.health-hera.com\/psicologos\/barcelona"/);
   assert.match(result.html, /class="psychology-hero"/);
   assert.match(result.html, /Presencial · Barcelona/);
@@ -138,19 +138,19 @@ test('Catalonia uses the regional filter, shows each municipality and links Barc
   assert.equal(params.get('city'), null);
   assert.equal(params.get('modality'), 'IN_PERSON');
   assert.equal(params.get('professionalTypes'), 'PSYCHOLOGIST_HEALTH,PSYCHOLOGIST_CLINICAL');
-  assert.match(result.html, /<title>Psicólogos en Cataluña · HERA<\/title>/);
+  assert.match(result.html, /<title>Psicólogos y psicólogas en Cataluña · HERA<\/title>/);
   assert.match(result.html, /rel="canonical" href="https:\/\/www.health-hera.com\/psicologos\/cataluna"/);
   assert.equal((result.html.match(/class="psychology-card"/g) || []).length, 5);
   for (const item of items) assert.ok(result.html.includes(`Presencial · ${item.officeCity}`));
   assert.match(result.html, /href="\/especialistas">Ver todos los especialistas/);
   assert.match(result.html, /href="\/cuestionario">Hacer el cuestionario/);
-  assert.match(result.html, /href="\/psicologos\/barcelona">Psicólogos en Barcelona/);
+  assert.match(result.html, /href="\/psicologos\/barcelona">Psicólogos\/as en Barcelona/);
   const empty = { items: [], total: 0, page: 1, pageSize: 12, hasMore: false };
   const body = psychologyBodyHtml(psychologyPages.cataluna, empty);
   assert.match(body, /Ahora mismo no hay perfiles/);
   assert.match(body, /href="\/especialistas">Ver todos los especialistas/);
   assert.doesNotMatch(body, /class="psychology-card"/);
-  assert.ok(psychologyBodyHtml(psychologyPages.barcelona, empty).includes('href="/psicologos/cataluna">Psicólogos en Cataluña'));
+  assert.ok(psychologyBodyHtml(psychologyPages.barcelona, empty).includes('href="/psicologos/cataluna">Psicólogos/as en Cataluña'));
 });
 test('pagination is self canonical and filtered directory is noindex', async t => {
   const card = { ...profile, user: undefined, name: profile.user.name, yearsInPractice: null, gradientId: null, officeCity: null, descriptionExcerpt: null, collegiateNumber: null, specialties: ['anxiety'] };

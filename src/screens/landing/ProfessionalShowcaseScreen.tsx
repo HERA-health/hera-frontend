@@ -40,7 +40,7 @@ export function ProfessionalShowcaseScreen(): React.ReactElement {
   const isLastStep = activeIndex === PROFESSIONAL_SHOWCASE_STEPS.length - 1;
 
   useWebPageMetadata({
-    title: 'Hera | Software de gestión para psicólogos',
+    title: 'Hera | Software de gestión para psicólogos/as',
     description:
       'Conoce el software de HERA para gestionar tu consulta de psicología: pacientes, agenda, facturación y estadísticas. Explora el recorrido sin crear una cuenta.',
     canonicalPath: '/profesionales/recorrido',

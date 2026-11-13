@@ -59,7 +59,7 @@ describe('FeaturedSpecialistsSection', () => {
     render(<FeaturedSpecialistsSection onOpenSpecialist={onOpenSpecialist} onViewAll={onViewAll} onQuestionnaire={onQuestionnaire} />);
 
     await waitFor(() => expect(screen.getByText('Dra. Elena Martín')).toBeTruthy());
-    expect(screen.getByText('Elige psicólogo con información clara')).toBeTruthy();
+    expect(screen.getByText('Elige psicólogo/a con información clara')).toBeTruthy();
     expect(
       screen.getByText(/Conoce la experiencia y el enfoque de cada perfil/)
     ).toBeTruthy();

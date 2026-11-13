@@ -85,12 +85,12 @@ export const FooterSection: React.FC<FooterSectionProps> = ({
     {
       title: 'Pacientes',
       links: [
-        { label: 'Buscar psicólogo', onPress: onFindSpecialist, href: '/especialistas' },
-        { label: 'Psicólogos online', href: '/psicologos-online' },
-        { label: 'Psicólogos para la ansiedad', href: '/psicologos/ansiedad' },
-        { label: 'Psicólogos para la autoestima', href: '/psicologos/autoestima' },
-        { label: 'Psicólogos en Barcelona', href: '/psicologos/barcelona' },
-        { label: 'Psicólogos en Cataluña', href: '/psicologos/cataluna' },
+        { label: 'Buscar psicólogo/a', onPress: onFindSpecialist, href: '/especialistas' },
+        { label: 'Psicólogos/as online', href: '/psicologos-online' },
+        { label: 'Psicólogos/as para la ansiedad', href: '/psicologos/ansiedad' },
+        { label: 'Psicólogos/as para la autoestima', href: '/psicologos/autoestima' },
+        { label: 'Psicólogos/as en Barcelona', href: '/psicologos/barcelona' },
+        { label: 'Psicólogos/as en Cataluña', href: '/psicologos/cataluna' },
         { label: 'Cómo funciona', section: 'howItWorks' },
         { label: 'Especialidades', section: 'specializations' },
         { label: 'Preguntas frecuentes', section: 'faq' },
@@ -101,7 +101,7 @@ export const FooterSection: React.FC<FooterSectionProps> = ({
       links: [
         { label: professionalActionLabel, onPress: onProfessionalAction },
         { label: 'Iniciar sesión', onPress: onProfessionalLogin },
-        ...(onViewPlans ? [{ label: 'Planes para psicólogos', onPress: onViewPlans, href: '/planes' }] : []),
+        ...(onViewPlans ? [{ label: 'Planes para psicólogos/as', onPress: onViewPlans, href: '/planes' }] : []),
         { label: 'Visibilidad y gestión', section: 'forSpecialists' },
         { label: 'Especialistas destacados', section: 'featuredSpecialists' },
       ],
@@ -196,7 +196,7 @@ export const FooterSection: React.FC<FooterSectionProps> = ({
                 { color: theme.textSecondary, fontFamily: theme.fontSans },
               ]}
             >
-              Encuentra un psicólogo o gestiona tu consulta con agenda, pacientes
+              Encuentra un/a psicólogo/a o gestiona tu consulta con agenda, pacientes
               y facturación. Elige cómo empezar con HERA.
             </Text>
             <View style={styles.socialLinks}>

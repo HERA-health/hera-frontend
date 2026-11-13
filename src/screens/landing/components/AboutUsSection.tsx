@@ -33,7 +33,7 @@ const PRINCIPLES: Principle[] = [
     icon: 'heart-outline',
     title: 'Tecnología con criterio humano',
     description:
-      'Diseñamos herramientas fáciles de entender para que pacientes y psicólogos puedan centrarse en la terapia.',
+      'Diseñamos herramientas fáciles de entender para que pacientes y psicólogos/as puedan centrarse en la terapia.',
   },
 ];
 
@@ -111,7 +111,7 @@ export const AboutUsSection: React.FC = () => {
               { color: theme.textSecondary, fontFamily: theme.fontSans },
             ]}
           >
-            HERA nace para facilitar la búsqueda de psicólogo y ayudar a los psicólogos a organizar su consulta. Reunimos información para elegir terapia y herramientas para gestionar el trabajo de cada día.
+            HERA nace para facilitar la búsqueda de psicólogo/a y ayudar a los psicólogos/as a organizar su consulta. Reunimos información para elegir terapia y herramientas para gestionar el trabajo de cada día.
           </Text>
           <Text
             style={[

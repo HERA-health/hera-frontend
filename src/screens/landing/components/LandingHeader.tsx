@@ -123,7 +123,7 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
       hoverLift={false}
       pressScale={1}
       accessibilityRole="link"
-      accessibilityLabel="Ver planes para psicólogos"
+      accessibilityLabel="Ver planes para psicólogos/as"
       accessibilityState={Platform.OS === 'web' ? undefined : { selected: context === 'pricing' }}
       ariaCurrent={context === 'pricing' ? 'page' : undefined}
       style={[styles.navLink, { minHeight: 44, justifyContent: 'center' }]}
@@ -214,7 +214,7 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
               hoverLift={false}
               pressScale={0.96}
               accessibilityRole="link"
-              accessibilityLabel="Buscar psicólogo"
+              accessibilityLabel="Buscar psicólogo/a"
               style={[
                 styles.secondaryAction,
                 context === 'landing' && styles.landingAction,
@@ -231,7 +231,7 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
                   },
                 ]}
               >
-                {compactLanding ? 'Psicólogos' : 'Buscar psicólogo'}
+                {compactLanding ? 'Psicólogos/as' : 'Buscar psicólogo/a'}
               </Text> : null}
               <Ionicons
                 name="search-outline"
@@ -248,7 +248,7 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
               hoverLift={false}
               pressScale={0.96}
               accessibilityRole="link"
-              accessibilityLabel="Ir a HERA para psicólogos"
+              accessibilityLabel="Ir a HERA para psicólogos/as"
               style={[
                 styles.secondaryAction,
                 { backgroundColor: theme.primaryAlpha12, borderColor: theme.border },
@@ -260,7 +260,7 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
                   { color: theme.primary, fontFamily: theme.fontSansSemiBold },
                 ]}
               >
-                Para psicólogos
+                Para psicólogos/as
               </Text>
             </AnimatedPressable>
           ) : null}

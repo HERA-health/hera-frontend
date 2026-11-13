@@ -404,8 +404,8 @@ export const PublicSpecialistsScreen: React.FC = () => {
                 <Text style={[styles.eyebrow, { color: theme.primary, fontFamily: theme.fontSansSemiBold }]}>DIRECTORIO DE ESPECIALISTAS</Text>
                 <View style={[styles.eyebrowRule, { backgroundColor: theme.secondary }]} />
               </View>
-              <Text accessibilityRole="header" aria-level={1} style={[styles.title, isMobile && styles.titleMobile, isDesktop && styles.titleDesktop, { color: theme.textPrimary, fontFamily: theme.fontDisplay }]}>Encuentra un psicólogo a tu ritmo</Text>
-              <Text style={[styles.subtitle, isMobile && styles.subtitleMobile, textStyle]}>Explora psicólogos y otros profesionales verificados. Compara especialidades, modalidades y precios antes de elegir.</Text>
+              <Text accessibilityRole="header" aria-level={1} style={[styles.title, isMobile && styles.titleMobile, isDesktop && styles.titleDesktop, { color: theme.textPrimary, fontFamily: theme.fontDisplay }]}>Encuentra psicólogo/a a tu ritmo</Text>
+              <Text style={[styles.subtitle, isMobile && styles.subtitleMobile, textStyle]}>Explora psicólogos, psicólogas y otros profesionales con perfiles verificados. Compara especialidades, modalidades y precios antes de elegir.</Text>
             </View>
             <View style={[styles.searchArea, isDesktop && styles.searchAreaDesktop]}>
               <View style={styles.searchRow}>

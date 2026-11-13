@@ -86,7 +86,7 @@ export const ForSpecialistsSection: React.FC<ForSpecialistsSectionProps> = ({
                 { color: theme.primary, fontFamily: theme.fontSansSemiBold },
               ]}
             >
-              HERA PARA PSICÓLOGOS
+              HERA PARA PSICÓLOGOS/AS
             </Text>
             <Text
               accessibilityRole="header"

@@ -40,11 +40,11 @@ export function HeroSection({
   const shortDesktop = isDesktop && height < 900;
   const doors = [
     {
-      title: 'Busco psicólogo', icon: 'person-outline' as const,
+      title: 'Busco psicólogo/a', icon: 'person-outline' as const,
       description: 'Compara perfiles, modalidades y precios antes de reservar.',
       benefits: ['Perfiles verificados', 'Sesiones online y presenciales', 'Modalidades y tarifas visibles'],
       compactBenefits: 'Perfiles verificados · Online y presencial',
-      label: 'Ver psicólogos', onPress: onFindSpecialist,
+      label: 'Ver psicólogos/as', onPress: onFindSpecialist,
       background: theme.secondaryMuted, accent: theme.actionPrimary,
     },
     {

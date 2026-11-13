@@ -1,9 +1,9 @@
 import type { LandingSectionAnchor } from './landingNavigation';
 
 export const PUBLIC_HEADER_LINKS: ReadonlyArray<{ id: LandingSectionAnchor; label: string }> = [
-  { id: 'featuredSpecialists', label: 'Psicólogos' },
+  { id: 'featuredSpecialists', label: 'Psicólogos/as' },
   { id: 'howItWorks', label: 'Cómo funciona' },
-  { id: 'forSpecialists', label: 'Para psicólogos' },
+  { id: 'forSpecialists', label: 'Para psicólogos/as' },
   { id: 'specializations', label: 'Especialidades' },
   { id: 'about', label: 'Quiénes somos' },
   { id: 'faq', label: 'Dudas' },

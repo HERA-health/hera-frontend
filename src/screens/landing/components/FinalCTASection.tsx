@@ -63,7 +63,7 @@ export const FinalCTASection: React.FC<FinalCTASectionProps> = ({
               { color: theme.landingCtaMutedText, fontFamily: theme.fontSans },
             ]}
           >
-            Encuentra un psicólogo o empieza a organizar tu consulta con HERA.
+            Encuentra un/a psicólogo/a o empieza a organizar tu consulta con HERA.
           </Text>
 
           <View style={[styles.doors, isDesktop && styles.doorsDesktop]}>
@@ -73,7 +73,7 @@ export const FinalCTASection: React.FC<FinalCTASectionProps> = ({
               pressScale={0.98}
               hoverLift={false}
               accessibilityRole="link"
-              accessibilityLabel="Buscar psicólogo"
+              accessibilityLabel="Buscar psicólogo/a"
               style={[
                 styles.door,
                 {
@@ -92,7 +92,7 @@ export const FinalCTASection: React.FC<FinalCTASectionProps> = ({
                     { color: theme.textSecondary, fontFamily: theme.fontSansSemiBold },
                   ]}
                 >
-                  BUSCO PSICÓLOGO
+                  BUSCO PSICÓLOGO/A
                 </Text>
                 <Text
                   style={[
@@ -100,7 +100,7 @@ export const FinalCTASection: React.FC<FinalCTASectionProps> = ({
                     { color: theme.textPrimary, fontFamily: theme.fontSansBold },
                   ]}
                 >
-                  Buscar psicólogo
+                  Buscar psicólogo/a
                 </Text>
               </View>
               <Ionicons name="arrow-forward" size={21} color={theme.primary} />

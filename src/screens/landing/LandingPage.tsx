@@ -183,8 +183,8 @@ export const LandingPage: React.FC = () => {
 
   usePublicHtmlReady();
   useWebPageMetadata({
-    title: 'Hera | Psicólogos online y gestión de consultas',
-    description: 'Encuentra psicólogos online y presenciales, compara perfiles y precios. Si eres psicólogo, organiza tu consulta con agenda, pacientes y facturación en HERA.',
+    title: 'Hera | Psicólogos y psicólogas online y gestión de consultas',
+    description: 'Encuentra psicólogos y psicólogas online y presenciales, compara perfiles y precios. Si eres psicólogo/a, organiza tu consulta con agenda, pacientes y facturación en HERA.',
     canonicalPath: '/',
   });
   const revealDeferredSections = useCallback(() => {

@@ -24,7 +24,7 @@ const FAQ_ITEMS: FAQItem[] = [
     audience: 'Producto',
     question: '¿Qué es HERA?',
     answer:
-      'HERA te ayuda a encontrar un psicólogo y ofrece herramientas para gestionar una consulta de psicología. Puedes explorar perfiles verificados, comparar precios y modalidades y solicitar una reserva. Los profesionales reúnen agenda, pacientes, documentación y facturación en el mismo espacio.',
+      'HERA te ayuda a encontrar un/a psicólogo/a y ofrece herramientas para gestionar una consulta de psicología. Puedes explorar perfiles verificados, comparar precios y modalidades y solicitar una reserva. Los profesionales reúnen agenda, pacientes, documentación y facturación en el mismo espacio.',
   },
   {
     id: 'professional-tools',
