@@ -4,7 +4,7 @@ const fs = require('node:fs');
 require('./prepare-web.cjs').compilePublicHtml();
 const handler = require('../api/public-page');
 const { publicProfileSchema } = require('../.seo-build/seo/publicData');
-const { profilePageMetadata, injectPublicHtml } = require('../.seo-build/seo/publicHtml');
+const { profilePageMetadata, injectPublicHtml, psychologyBodyHtml } = require('../.seo-build/seo/publicHtml');
 const { psychologyPages } = require('../.seo-build/seo/publicContent');
 const { landingInitialHtml, landingInitialCss } = require('../.seo-build/seo/landingInitialHtml');
 const { landingIcons } = require('../.seo-build/seo/landingIcons');
@@ -83,6 +83,74 @@ test('all topics request the psychology categories and have distinct readable co
     assert.ok(result.html.includes(page.questions[0].answer));
     assert.match(result.html, /Ahora mismo no hay perfiles/);
   }
+});
+
+test('Barcelona uses the city and in-person API filters, original design and unrestricted directory CTA', async t => {
+  const card = { ...profile, name: profile.user.name, offersInPerson: true, pricePerSession: 65,
+    yearsInPractice: null, gradientId: null, officeCity: 'Barcelona', descriptionExcerpt: null,
+    collegiateNumber: null, specialties: ['anxiety'], publicOptions: [
+      { specialistId: profile.id, optionId: 'office', modality: 'IN_PERSON', priceCents: 6500, durationMinutes: 60 },
+      { specialistId: profile.id, optionId: 'online', modality: 'VIDEO_CALL', priceCents: 9000, durationMinutes: 60 },
+    ] };
+  const result = await invoke(t, '/api/public-page?path=/psicologos/barcelona', ok({ items: [card], page: 1, pageSize: 12, total: 1, hasMore: false }));
+  assert.equal(result.status, 200);
+  const params = new URL(result.requested.target).searchParams;
+  assert.equal(params.get('city'), 'barcelona');
+  assert.equal(params.get('modality'), 'IN_PERSON');
+  assert.equal(params.get('professionalTypes'), 'PSYCHOLOGIST_HEALTH,PSYCHOLOGIST_CLINICAL');
+  assert.match(result.html, /<title>Psicólogos en Barcelona · HERA<\/title>/);
+  assert.match(result.html, /rel="canonical" href="https:\/\/www.health-hera.com\/psicologos\/barcelona"/);
+  assert.match(result.html, /class="psychology-hero"/);
+  assert.match(result.html, /Presencial · Barcelona/);
+  assert.match(result.html, /<strong>65 € /);
+  assert.doesNotMatch(result.html, /<strong>Desde /);
+  assert.match(result.html, /href="\/especialistas">Ver todos los especialistas/);
+  assert.match(result.html, /href="\/cuestionario">Hacer el cuestionario/);
+  assert.equal((result.html.match(/class="psychology-card"/g) || []).length, 1);
+  assert.doesNotMatch(result.html, /<button[^>]*data-carousel-step|\/psicologos\/madrid/);
+  assert.match(result.html, /href="\/psicologos-online"/);
+});
+
+test('Barcelona retains directory and questionnaire actions for empty, loading and failed states', async t => {
+  const empty = { items: [], page: 1, pageSize: 12, total: 0, hasMore: false };
+  for (const html of [psychologyBodyHtml(psychologyPages.barcelona, empty), psychologyBodyHtml(psychologyPages.barcelona, undefined, true), psychologyBodyHtml(psychologyPages.barcelona)]) {
+    assert.match(html, /href="\/especialistas">Ver todos los especialistas/);
+    assert.match(html, /href="\/cuestionario">Hacer el cuestionario/);
+    assert.doesNotMatch(html, /class="psychology-card"/);
+  }
+  assert.match(psychologyBodyHtml(psychologyPages.barcelona), /data-retry/);
+  const result = await invoke(t, '/api/public-page?path=/psicologos/barcelona', new Error('timeout'));
+  assert.equal(result.status, 503);
+  assert.match(result.headers['x-robots-tag'], /noindex/);
+  assert.equal((await invoke(t, '/api/public-page?path=/psicologos/madrid', ok(empty))).status, 404);
+});
+
+test('Catalonia uses the regional filter, shows each municipality and links Barcelona and the full directory', async t => {
+  const items = ['Barcelona', 'Mataró', "Móra d’Ebre", 'Tortosa', 'Lleida'].map((city, index) => ({
+    ...profile, id: `local-${index}`, publicSlug: `local-${index}`, name: `Perfil ${index}`,
+    offersInPerson: true, pricePerSession: 65, yearsInPractice: null, gradientId: null,
+    officeCity: city, descriptionExcerpt: null, collegiateNumber: null, specialties: ['anxiety'],
+  }));
+  const result = await invoke(t, '/api/public-page?path=/psicologos/cataluna', ok({ items, page: 1, pageSize: 12, total: 5, hasMore: false }));
+  assert.equal(result.status, 200);
+  const params = new URL(result.requested.target).searchParams;
+  assert.equal(params.get('region'), 'cataluna');
+  assert.equal(params.get('city'), null);
+  assert.equal(params.get('modality'), 'IN_PERSON');
+  assert.equal(params.get('professionalTypes'), 'PSYCHOLOGIST_HEALTH,PSYCHOLOGIST_CLINICAL');
+  assert.match(result.html, /<title>Psicólogos en Cataluña · HERA<\/title>/);
+  assert.match(result.html, /rel="canonical" href="https:\/\/www.health-hera.com\/psicologos\/cataluna"/);
+  assert.equal((result.html.match(/class="psychology-card"/g) || []).length, 5);
+  for (const item of items) assert.ok(result.html.includes(`Presencial · ${item.officeCity}`));
+  assert.match(result.html, /href="\/especialistas">Ver todos los especialistas/);
+  assert.match(result.html, /href="\/cuestionario">Hacer el cuestionario/);
+  assert.match(result.html, /href="\/psicologos\/barcelona">Psicólogos en Barcelona/);
+  const empty = { items: [], total: 0, page: 1, pageSize: 12, hasMore: false };
+  const body = psychologyBodyHtml(psychologyPages.cataluna, empty);
+  assert.match(body, /Ahora mismo no hay perfiles/);
+  assert.match(body, /href="\/especialistas">Ver todos los especialistas/);
+  assert.doesNotMatch(body, /class="psychology-card"/);
+  assert.ok(psychologyBodyHtml(psychologyPages.barcelona, empty).includes('href="/psicologos/cataluna">Psicólogos en Cataluña'));
 });
 test('pagination is self canonical and filtered directory is noindex', async t => {
   const card = { ...profile, user: undefined, name: profile.user.name, yearsInPractice: null, gradientId: null, officeCity: null, descriptionExcerpt: null, collegiateNumber: null, specialties: ['anxiety'] };

@@ -181,6 +181,8 @@ export interface PublicSpecialistDirectoryCard extends PublicSpecialistCard {
 }
 
 export interface PublicSpecialistDirectoryFilters {
+  city?: 'barcelona';
+  region?: 'cataluna';
   minExperienceYears?: number;
   minAge?: number;
   maxAge?: number;

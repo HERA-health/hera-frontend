@@ -13,7 +13,7 @@ export function PsychologyPageScreen() {
   const route = useRoute<AppRouteProp<'PsychologyTopic' | 'PsychologyOnline'>>();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const topic = route.name === 'PsychologyOnline' ? 'online' : route.params?.topic;
-  const page = psychologyPages[topic === 'ansiedad' || topic === 'autoestima' ? topic : 'online'];
+  const page = psychologyPages[topic === 'ansiedad' || topic === 'autoestima' || topic === 'barcelona' || topic === 'cataluna' ? topic : 'online'];
   const { theme } = useTheme();
   const { data, loading, error, retry } = usePublicDirectory(page.filters);
   const text = { color: theme.textPrimary, fontFamily: theme.fontSans, fontSize: 17, lineHeight: 26 };
@@ -25,7 +25,7 @@ export function PsychologyPageScreen() {
     {error && <Button onPress={retry}>Volver a intentar</Button>}
     {data?.items.slice(0, 6).map(item => <PublicSpecialistCard key={item.id} specialist={item} variant="directory" onPress={() => navigation.navigate('PublicSpecialistProfile', { profileRef: item.publicSlug || item.id })} />)}
     {data && !data.items.length && <Text style={text}>Ahora mismo no hay perfiles disponibles con estas características.</Text>}
-    <Button onPress={() => navigation.navigate('PublicSpecialists', { topic: topic || 'online' })}>Explorar el directorio</Button>
+    <Button onPress={() => navigation.navigate('PublicSpecialists', topic === 'barcelona' || topic === 'cataluna' ? undefined : { topic: topic || 'online' })}>Explorar el directorio</Button>
     <Button onPress={() => navigation.navigate('Questionnaire')}>Hacer el cuestionario</Button>
     {page.guidance.map(item => <View key={item.title}><Text accessibilityRole="header" style={[text, styles.heading]}>{item.title}</Text><Text style={text}>{item.text}</Text></View>)}
     {page.questions.map(item => <View key={item.question}><Text accessibilityRole="header" style={[text, styles.heading]}>{item.question}</Text><Text style={text}>{item.answer}</Text></View>)}

@@ -123,7 +123,7 @@ export type RootStackParamList = {
   Landing: { section?: LandingSectionAnchor } | undefined;
   ProfessionalShowcase: undefined;
   PsychologyOnline: undefined;
-  PsychologyTopic: { topic: 'ansiedad' | 'autoestima' };
+  PsychologyTopic: { topic: 'ansiedad' | 'autoestima' | 'barcelona' | 'cataluna' };
   Pricing: undefined;
   Welcome: undefined;
   Login: { userType: 'CLIENT' | 'PROFESSIONAL' | 'CLINIC'; specialization?: string };

@@ -21,7 +21,7 @@ export function PsychologyPageScreen() {
   const { isAuthenticated, user, verificationSubmitted } = useAuth();
   const bodyRef = useRef<HTMLDivElement>(null);
   const topic = route.name === 'PsychologyOnline' ? 'online' : route.params?.topic;
-  const page = psychologyPages[topic === 'ansiedad' || topic === 'autoestima' ? topic : 'online'];
+  const page = psychologyPages[topic === 'ansiedad' || topic === 'autoestima' || topic === 'barcelona' || topic === 'cataluna' ? topic : 'online'];
   const { data, loading, error, retry } = usePublicDirectory(page.filters);
   const html = useMemo(() => psychologyBodyHtml(page, data ?? undefined, loading), [page, data, loading]);
   // Keep the DOM (open FAQs, scroll position and carousel controls) across theme

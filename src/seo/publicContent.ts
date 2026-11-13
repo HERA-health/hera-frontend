@@ -2,8 +2,9 @@ import { PROFESSIONAL_SPECIALTY_OPTIONS } from '../constants/professionalMatchin
 import type { PublicSpecialistDirectoryFilters } from '../services/specialistsService';
 
 export const psychologyTypes = ['PSYCHOLOGIST_HEALTH', 'PSYCHOLOGIST_CLINICAL'] as const;
-export type PsychologyTopic = 'online' | 'ansiedad' | 'autoestima';
+export type PsychologyTopic = 'online' | 'ansiedad' | 'autoestima' | 'barcelona' | 'cataluna';
 export interface PsychologyPage {
+  label: string; linkLabel: string;
   path: string; title: string; heading: string; description: string; introduction: string;
   guidance: { title: string; text: string }[];
   questions: { question: string; answer: string }[];
@@ -11,6 +12,7 @@ export interface PsychologyPage {
 }
 export const psychologyPages: Record<PsychologyTopic, PsychologyPage> = {
   online: {
+    label: 'Terapia online', linkLabel: 'Psicólogos online',
     path: '/psicologos-online', title: 'Psicólogos online y terapia online · HERA',
     heading: 'Encuentra un psicólogo online con quien dar el primer paso',
     description: 'Conoce psicólogos que ofrecen terapia online. Consulta su experiencia, áreas de trabajo y precios para elegir con información clara en HERA.',
@@ -27,6 +29,7 @@ export const psychologyPages: Record<PsychologyTopic, PsychologyPage> = {
     ],
   },
   ansiedad: {
+    label: 'Ansiedad', linkLabel: 'Psicólogos para la ansiedad',
     path: '/psicologos/ansiedad', title: 'Psicólogos para la ansiedad · HERA',
     heading: 'Encuentra apoyo psicológico para afrontar la ansiedad',
     description: 'Encuentra psicólogos que trabajan la ansiedad. Conoce su enfoque, las modalidades de terapia y sus precios antes de elegir en HERA.',
@@ -43,6 +46,7 @@ export const psychologyPages: Record<PsychologyTopic, PsychologyPage> = {
     ],
   },
   autoestima: {
+    label: 'Autoestima', linkLabel: 'Psicólogos para la autoestima',
     path: '/psicologos/autoestima', title: 'Psicólogos para trabajar la autoestima · HERA',
     heading: 'Trabaja tu autoestima con apoyo psicológico',
     description: 'Conoce psicólogos que trabajan la autoestima. Consulta su experiencia, enfoque y precios para encontrar apoyo psicológico en HERA.',
@@ -56,6 +60,40 @@ export const psychologyPages: Record<PsychologyTopic, PsychologyPage> = {
       { question: '¿Qué puedo trabajar sobre mi autoestima en terapia?', answer: 'Puedes explorar cómo te valoras, las expectativas que tienes sobre ti y cómo te relacionas con otras personas. Los objetivos se acuerdan a partir de tu situación.' },
       { question: '¿Y si no sé por dónde empezar?', answer: 'Puedes empezar contando una situación reciente o algo que te gustaría cambiar. No necesitas llevar un discurso preparado.' },
       { question: '¿Cómo elijo un psicólogo para trabajar la autoestima?', answer: 'Consulta las áreas que trabaja, su formación y su enfoque. Revisa también modalidad y precio, y plantea las dudas que necesites antes de decidir.' },
+    ],
+  },
+  barcelona: {
+    label: 'Barcelona', linkLabel: 'Psicólogos en Barcelona',
+    path: '/psicologos/barcelona', title: 'Psicólogos en Barcelona · HERA',
+    heading: 'Encuentra psicólogos en Barcelona para empezar con calma',
+    description: 'Encuentra psicólogos con consulta presencial en Barcelona. Conoce su enfoque, consulta sus precios y elige con quién dar el primer paso en HERA.',
+    introduction: 'Si buscas terapia presencial en Barcelona, aquí puedes conocer psicólogos con consulta en la ciudad. Revisa su forma de trabajar, su ubicación y sus precios antes de elegir con quién empezar.',
+    filters: { professionalTypes: [...psychologyTypes], modality: 'IN_PERSON', city: 'barcelona' },
+    guidance: [
+      { title: 'Encuentra una consulta que encaje contigo', text: 'Consulta la dirección del perfil y valora cómo llegar desde casa o el trabajo. Elegir una ubicación en Barcelona a la que puedas acudir con comodidad puede ayudarte a organizar las sesiones.' },
+      { title: 'Conoce al psicólogo antes de empezar', text: 'Revisa su formación, las áreas que trabaja y sus tarifas de atención presencial. Puedes plantearle tus dudas sobre la primera sesión y la frecuencia de las visitas antes de reservar.' },
+    ],
+    questions: [
+      { question: '¿Estos psicólogos atienden presencialmente en Barcelona?', answer: 'Los perfiles de esta página tienen atención presencial publicada y una dirección de consulta en Barcelona ciudad. Puedes consultar la ubicación en cada perfil y confirmar los detalles antes de acudir.' },
+      { question: '¿Cuánto cuesta una sesión presencial en Barcelona?', answer: 'Cada profesional establece sus tarifas. Las tarjetas de esta página muestran el precio de sus opciones presenciales publicadas; en el perfil puedes consultar los servicios y la duración de cada sesión.' },
+      { question: '¿Puedo ver otros especialistas o elegir terapia online?', answer: 'Sí. Puedes entrar en el directorio completo para explorar otros especialistas y modalidades, o visitar nuestra página de psicólogos online. Si necesitas orientación para empezar, también puedes hacer el cuestionario de HERA.' },
+    ],
+  },
+  cataluna: {
+    label: 'Cataluña', linkLabel: 'Psicólogos en Cataluña',
+    path: '/psicologos/cataluna', title: 'Psicólogos en Cataluña · HERA',
+    heading: 'Encuentra psicólogos con consulta presencial en Cataluña',
+    description: 'Conoce psicólogos con consulta presencial en Cataluña. Consulta su municipio, enfoque y precios para elegir con quién empezar en HERA.',
+    introduction: 'Explora psicólogos con consulta presencial en distintos municipios de Cataluña. En cada perfil puedes comprobar dónde atienden, conocer su forma de trabajar y consultar sus precios.',
+    filters: { professionalTypes: [...psychologyTypes], modality: 'IN_PERSON', region: 'cataluna' },
+    guidance: [
+      { title: 'Elige también por la ubicación', text: 'Cataluña abarca municipios y distancias muy diferentes. Mira la ciudad de cada tarjeta y la dirección del perfil para valorar si puedes desplazarte con comodidad y mantener la frecuencia de las sesiones.' },
+      { title: 'Encuentra una forma de trabajar que encaje contigo', text: 'Además de la ubicación, revisa las áreas que trabaja cada psicólogo, su enfoque y las tarifas presenciales. Si el desplazamiento no encaja contigo, puedes explorar la terapia online desde el directorio.' },
+    ],
+    questions: [
+      { question: '¿Dónde están las consultas de estos psicólogos?', answer: 'Los perfiles de esta página tienen atención presencial publicada en municipios de Cataluña. La ciudad aparece en cada tarjeta y puedes consultar la dirección en el perfil. No todos los profesionales estarán cerca de tu ubicación.' },
+      { question: '¿Puedo buscar solo en Barcelona ciudad?', answer: 'Sí. La página de psicólogos en Barcelona reúne las consultas de ese municipio. Esta selección es más amplia e incluye profesionales de otros municipios de Cataluña.' },
+      { question: '¿Puedo ver otros especialistas o hacer el cuestionario?', answer: 'Sí. El directorio completo permite explorar otros especialistas y modalidades. También puedes hacer el cuestionario de HERA si necesitas orientación para empezar.' },
     ],
   },
 };
@@ -89,6 +127,8 @@ export const buildPublicDirectoryQueryParams = (
   filters?: PublicSpecialistDirectoryFilters
 ): URLSearchParams => {
   const params = new URLSearchParams();
+  if (filters?.city) params.append('city', filters.city);
+  if (filters?.region) params.append('region', filters.region);
   if (filters?.language) params.append('language', filters.language);
   const query = filters?.q?.trim();
 
