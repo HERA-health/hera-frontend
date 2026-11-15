@@ -2,8 +2,10 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { psychologyPages, topicForPath, directoryHref, directoryMetadata } = require('../.seo-build/seo/publicContent');
 const { publicProfileSchema, directoryPageSchema } = require('../.seo-build/seo/publicData');
-const { injectPublicHtml, psychologyHtml, directoryHtml, profileHtml, profilePageMetadata, pageFrame, escapeHtml } = require('../.seo-build/seo/publicHtml');
+const { injectPublicHtml, psychologyHtml, profileHtml, profilePageMetadata, pageFrame, escapeHtml } = require('../.seo-build/seo/publicHtml');
 const { renderPublicMetadata: renderMetadata } = require('../.seo-build/seo/publicHtml');
+
+const { directoryInitialHtml, directoryInitialCss } = require('../.seo-build/seo/directoryInitialHtml');
 
 let shell;
 const getShell = () => shell || (shell = fs.readFileSync(path.join(process.cwd(), 'dist/app-shell.html'), 'utf8'));
@@ -24,11 +26,15 @@ async function handler(req, res) {
   // routing details, not booking/return parameters to preserve in redirects.
   url.searchParams.delete('profileRef');
   url.searchParams.delete('topic');
-  const send = (status, metadata, body, key, data) => {
+  const send = (status, metadata, body, key, data, initialCss) => {
     res.statusCode = status;
     // Error documents stay useful independently of app/API recovery.
     const template = status >= 400 ? getShell().replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '') : getShell();
     let html = renderMetadata(template, metadata);
+    if (initialCss) {
+      const themeBoot = "<script>try{var m=localStorage.getItem('hera_theme_mode');if(m==='dark'||m==='light')document.documentElement.setAttribute('data-hera-theme',m)}catch(e){}</script>";
+      html = html.replace('</head>', themeBoot + '<style>' + initialCss + '</style></head>');
+    }
     if (metadata.indexable === false) html = html.replace(/(<meta name="robots" content=")[^"]*/, '$1noindex, follow');
     return res.end(req.method === 'HEAD' ? undefined : injectPublicHtml(html, body, key, data));
   };
@@ -80,7 +86,7 @@ async function handler(req, res) {
     const filtered = [...params.keys()].some(key => key !== 'page');
     const canonicalPath = `/especialistas${data.page > 1 ? `?page=${data.page}` : ''}`;
     if (filtered) res.setHeader('X-Robots-Tag', 'noindex, follow');
-    return send(200, { ...directoryMetadata, canonicalPath: filtered ? `/especialistas?${params}` : canonicalPath, indexable: !filtered }, directoryHtml(data, params), apiPath, data);
+    return send(200, { ...directoryMetadata, canonicalPath: filtered ? `/especialistas?${params}` : canonicalPath, indexable: !filtered }, directoryInitialHtml(data, params), apiPath, data, directoryInitialCss);
   } catch {
     res.setHeader('Retry-After', '60');
     return failure(503);

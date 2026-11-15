@@ -75,7 +75,7 @@ function staticPaths() {
   return [...routes.values()].flat().concat(['clinic-consent/:requestId', 'clinical-consent/guest/:requestId']);
 }
 function compilePublicHtml() {
-  for (const file of ['seo/publicContent', 'seo/publicData', 'seo/publicHtml', 'seo/landingInitialHtml', 'seo/landingIcons', 'seo/psychologyPresentation', 'constants/theme', 'constants/publicHeaderLinks', 'constants/professionalMatchingCatalog']) {
+  for (const file of ['seo/publicContent', 'seo/publicData', 'seo/publicHtml', 'seo/landingInitialHtml', 'seo/directoryInitialHtml', 'seo/directoryIcons', 'screens/specialist-profile/profilePresentation', 'constants/professionalMatchingOptions', 'seo/landingIcons', 'seo/psychologyPresentation', 'constants/theme', 'constants/publicHeaderLinks', 'constants/professionalMatchingCatalog']) {
     const source = fs.readFileSync('src/' + file + '.ts', 'utf8');
     const result = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } });
     const destination = '.seo-build/' + file + '.js';

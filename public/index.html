@@ -56,9 +56,10 @@
         flex: 1;
       }
 
-      /* Reserve the landing's scrollbar before its deferred sections mount.
-         Otherwise the hero moves sideways during the initial HTML handoff. */
-      #landing-scroll-view {
+      /* Reserve public screens' scrollbars before their content mounts.
+         Otherwise content moves sideways during the initial HTML handoff. */
+      #landing-scroll-view,
+      #public-directory-scroll {
         scrollbar-gutter: stable;
       }
 

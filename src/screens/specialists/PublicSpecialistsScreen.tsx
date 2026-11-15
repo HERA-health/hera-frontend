@@ -1,5 +1,5 @@
 import { usePublicHtmlReady } from '../../seo/usePublicHtmlReady';
-import { psychologyPages, directoryMetadata, buildPublicDirectoryQueryParams } from '../../seo/publicContent';
+import { psychologyPages, directoryMetadata, directoryPresentationCopy, buildPublicDirectoryQueryParams } from '../../seo/publicContent';
 import { professionalTypeSchema } from '../../seo/publicData';
 import { directoryEntryHref } from '../../services/directoryBookingService';
 import { SearchableProfileSelect } from '../../components/common/SearchableProfileSelect';
@@ -128,7 +128,7 @@ export const PublicSpecialistsScreen: React.FC = () => {
   const [moreFiltersOpen, setMoreFiltersOpen] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
   const resultsTop = useRef(0);
-  const previousPage = useRef(1);
+  const previousPage = useRef<number | null>(null);
   const [gridWidth, setGridWidth] = useState(0);
   const gridColumns = gridWidth >= 740 ? 2 : 1;
   const compactCards = (gridWidth - (gridColumns - 1) * 20) / gridColumns >= 460;
@@ -173,7 +173,8 @@ export const PublicSpecialistsScreen: React.FC = () => {
   const firstFilters = useRef(requestFilters);
   const pagedFilters = useMemo(() => ({ ...requestFilters, page: requestFilters === firstFilters.current ? initialPage : 1 }), [requestFilters, initialPage]);
   const { data, loading, error, loadPage, retry } = usePublicDirectory(pagedFilters);
-  usePublicHtmlReady(!loading);
+  // Keep the first response visible until the measured grid has its final columns.
+  usePublicHtmlReady(!loading && gridWidth > 0);
   const items = data?.items ?? [];
   const rows = Array.from({ length: Math.ceil(items.length / gridColumns) }, (_, index) =>
     items.slice(index * gridColumns, (index + 1) * gridColumns)
@@ -181,7 +182,8 @@ export const PublicSpecialistsScreen: React.FC = () => {
   const page = data?.page ?? 1;
   const totalPages = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1;
   useEffect(() => {
-    if (data && previousPage.current !== data.page) scrollRef.current?.scrollTo({ y: Math.max(0, resultsTop.current - 88), animated: false });
+    // A direct visit to page 2 is still an initial load, not a pagination action.
+    if (data && previousPage.current !== null && previousPage.current !== data.page) scrollRef.current?.scrollTo({ y: Math.max(0, resultsTop.current - 88), animated: false });
     if (data) previousPage.current = data.page;
   }, [data]);
   const queryParams = buildPublicDirectoryQueryParams({ ...requestFilters, page });
@@ -396,7 +398,7 @@ export const PublicSpecialistsScreen: React.FC = () => {
         onAccess={handleAccess}
         onScrollToSection={canVisitLanding ? navigateToLandingSection : undefined}
       />
-      <ScrollView ref={scrollRef} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator onScroll={handleScroll} scrollEventThrottle={24} keyboardShouldPersistTaps="handled">
+      <ScrollView nativeID="public-directory-scroll" ref={scrollRef} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator onScroll={handleScroll} scrollEventThrottle={24} keyboardShouldPersistTaps="handled">
         <View style={[styles.heroBand, isMobile && styles.heroBandMobile, isDesktop && styles.desktopPadding, isDesktop && styles.heroBandDesktop]}>
           <View style={[styles.hero, isMobile && styles.heroMobile, isDesktop && styles.heroDesktop]}>
             <View style={styles.heroCopy}>
@@ -404,8 +406,8 @@ export const PublicSpecialistsScreen: React.FC = () => {
                 <Text style={[styles.eyebrow, { color: theme.primary, fontFamily: theme.fontSansSemiBold }]}>DIRECTORIO DE ESPECIALISTAS</Text>
                 <View style={[styles.eyebrowRule, { backgroundColor: theme.secondary }]} />
               </View>
-              <Text accessibilityRole="header" aria-level={1} style={[styles.title, isMobile && styles.titleMobile, isDesktop && styles.titleDesktop, { color: theme.textPrimary, fontFamily: theme.fontDisplay }]}>Encuentra psicólogo/a a tu ritmo</Text>
-              <Text style={[styles.subtitle, isMobile && styles.subtitleMobile, textStyle]}>Explora psicólogos, psicólogas y otros profesionales con perfiles verificados. Compara especialidades, modalidades y precios antes de elegir.</Text>
+              <Text accessibilityRole="header" aria-level={1} style={[styles.title, isMobile && styles.titleMobile, isDesktop && styles.titleDesktop, { color: theme.textPrimary, fontFamily: theme.fontDisplay }]}>{directoryPresentationCopy.heading}</Text>
+              <Text style={[styles.subtitle, isMobile && styles.subtitleMobile, textStyle]}>{directoryPresentationCopy.introduction}</Text>
             </View>
             <View style={[styles.searchArea, isDesktop && styles.searchAreaDesktop]}>
               <View style={styles.searchRow}>

@@ -8,6 +8,7 @@ const { profilePageMetadata, injectPublicHtml, psychologyBodyHtml } = require('.
 const { psychologyPages } = require('../.seo-build/seo/publicContent');
 const { landingInitialHtml, landingInitialCss } = require('../.seo-build/seo/landingInitialHtml');
 const { landingIcons } = require('../.seo-build/seo/landingIcons');
+const { directoryPresentationCopy } = require('../.seo-build/seo/publicContent');
 
 test('landing first paint retains the actual hero, readable copy and working entry links', () => {
   const body = landingInitialHtml({ photo: '/photo-1024.webp', photos: { small: '/photo-640.webp', large: '/photo-1536.webp' }, icons: landingIcons });
@@ -160,6 +161,42 @@ test('pagination is self canonical and filtered directory is noindex', async t =
   assert.match(result.html, /href="\/especialistas\?page=3"/);
   const filtered = await invoke(t, '/api/public-page?path=/especialistas&specialty=anxiety', ok({ ...data, page: 1 }));
   assert.match(filtered.headers['x-robots-tag'], /noindex/);
+});
+
+test('directory first response matches the actual screen with compact portraits and safe public content', async t => {
+  const card = { ...profile, name: 'Ana <Ejemplo>', yearsInPractice: 5, gradientId: null, officeCity: null,
+    descriptionExcerpt: '<script>alert(1)</script>', collegiateNumber: 'M-12345', specialties: ['anxiety'],
+    languages: ['spanish'], avatar: 'https://res.cloudinary.com/hera/image/upload/v1/profile.jpg' };
+  const result = await invoke(t, '/especialistas', ok({ items: [card], page: 1, pageSize: 12, total: 1, hasMore: false }));
+  assert.equal(result.status, 200);
+  assert.ok(result.html.includes(`<h1>${directoryPresentationCopy.heading}</h1>`));
+  assert.ok(result.html.includes(directoryPresentationCopy.introduction));
+  assert.match(result.html, /class="di-logo" href="\/" aria-label="HERA, inicio"/);
+  assert.match(result.html, /class="di-card" href="\/especialista\/ana-ejemplo"/);
+  assert.match(result.html, /width="112" height="128"/);
+  assert.match(result.html, /c_fill,g_auto:faces,w_336,h_384,q_auto:good,f_auto/);
+  assert.match(result.html, /Ana &lt;Ejemplo&gt;/);
+  assert.match(result.html, /&lt;script&gt;alert\(1\)&lt;\/script&gt;/);
+  assert.doesNotMatch(result.html, /<script>alert|class="seo-header"|class="seo-card"/);
+  assert.match(result.html, /data-hera-theme=dark/);
+  assert.match(result.html, /prefers-color-scheme:dark/);
+  assert.match(result.html, /data-key="\/specialists\/directory"/);
+  assert.match(result.headers['cache-control'], /no-store/);
+});
+
+test('initial filtered directory retains crawlable pagination and individual filter removal', async t => {
+  const card = { ...profile, name: profile.user.name, yearsInPractice: null, gradientId: null, officeCity: null,
+    descriptionExcerpt: null, collegiateNumber: null, specialties: ['anxiety'] };
+  const result = await invoke(t, '/especialistas?specialty=anxiety,self-esteem&modality=ONLINE&page=2',
+    ok({ items: [card], page: 2, pageSize: 12, total: 30, hasMore: true }));
+  assert.match(result.html, /href="\/especialistas\?specialty=anxiety%2Cself-esteem&amp;modality=ONLINE&amp;page=3"/);
+  assert.match(result.html, /href="\/especialistas\?modality=ONLINE&amp;specialty=self-esteem" aria-label="Quitar filtro: Ansiedad"/);
+  assert.match(result.headers['x-robots-tag'], /noindex/);
+  const empty = await invoke(t, '/especialistas?q=Sincoincidencias', ok({ items: [], page: 1, pageSize: 12, total: 0, hasMore: false }));
+  assert.equal(empty.status, 200);
+  assert.match(empty.html, /No hemos encontrado perfiles con estos criterios/);
+  assert.match(empty.html, /href="\/especialistas">Limpiar filtros/);
+  assert.doesNotMatch(empty.html, /class="di-card"/);
 });
 test('HTML and JSON escape hostile public strings; unknown routes never become online pages', async t => {
   const result = await invoke(t, '/api/public-page?path=/especialista/ana-ejemplo', ok({ ...profile, description: '</script><script>alert(1)</script>' }));

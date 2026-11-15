@@ -499,6 +499,22 @@ describe('PublicSpecialistsScreen', () => {
     } finally { act(() => ReactNative.Dimensions.set({ window: previousWindow })); }
   });
 
+  it('does not scroll a direct page-two visit, but scrolls when the visitor changes pages', async () => {
+    mockedUseRoute.mockReturnValue({ params: { page: 2 } } as ReturnType<typeof useRoute>);
+    mockedDirectory.mockImplementation(async filters => ({
+      items: [specialist], page: filters?.page ?? 1, pageSize: 12, total: 13, hasMore: filters?.page !== 2,
+    }));
+    const scroll = jest.spyOn(ReactNative.ScrollView.prototype, 'scrollTo');
+    try {
+      render(<PublicSpecialistsScreen />);
+      await screen.findByText(specialist.name);
+      expect(mockedDirectory).toHaveBeenLastCalledWith(expect.objectContaining({ page: 2 }));
+      expect(scroll).not.toHaveBeenCalled();
+      fireEvent.press(screen.getByText('Anterior'));
+      await waitFor(() => expect(scroll).toHaveBeenCalledWith({ y: 0, animated: false }));
+    } finally { scroll.mockRestore(); }
+  });
+
   it('replaces pages and revalidates only the visible page, preserving it after a recoverable failure', async () => {
     const second = { ...specialist, id: 'specialist-2', name: 'Dra. Segunda' };
     mockedDirectory.mockImplementation(async filters => ({

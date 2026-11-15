@@ -1,7 +1,7 @@
 import { PUBLIC_HEADER_LINKS } from '../constants/publicHeaderLinks';
 import { psychologyPageCss, publicArrowIcon, publicVerifiedIcon } from './psychologyPresentation';
 import { PROFESSIONAL_SPECIALTY_OPTIONS } from '../constants/professionalMatchingCatalog';
-import { directoryHref, directoryMetadata, profileMetadata, psychologyPages, type PsychologyPage } from './publicContent';
+import { directoryHref, profileMetadata, psychologyPages, type PsychologyPage } from './publicContent';
 import type { DirectoryPage, PublicProfile } from './publicData';
 
 export const escapeHtml = (value: string): string => value.replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char] || char);
@@ -60,10 +60,6 @@ export function psychologyBodyHtml(page: PsychologyPage, data?: DirectoryPage, l
 }
 export function psychologyHtml(page: PsychologyPage, data: DirectoryPage): string {
   return `<div class="psychology-page">${psychologyHeader}${psychologyBodyHtml(page, data)}${psychologyFooter}</div>`;
-}
-export function directoryHtml(data: DirectoryPage, params: URLSearchParams): string {
-  const pageHref = (page: number) => { const next = new URLSearchParams(params); next.delete('page'); if (page > 1) next.set('page', String(page)); return `/especialistas${next.size ? `?${next}` : ''}`; };
-  return pageFrame(`<h1>Encuentra tu psicólogo/a</h1><p>${directoryMetadata.description}</p>${data.items.length ? cardsHtml(data) : '<p>No hay perfiles que coincidan con esta búsqueda.</p>'}<nav class="seo-pagination" aria-label="Paginación">${data.page > 1 ? `<a href="${escapeHtml(pageHref(data.page - 1))}">Anterior</a>` : ''}<span>Página ${data.page}</span>${data.hasMore ? `<a href="${escapeHtml(pageHref(data.page + 1))}">Siguiente</a>` : ''}</nav>${link('/cuestionario', 'Hacer el cuestionario', true)}`);
 }
 export function profileHtml(data: PublicProfile): string {
   const areas = [...data.matchingProfile.specialties || [], ...data.matchingProfile.customSpecialties || []];

@@ -155,3 +155,9 @@ export const landingEditorial = {
   profilesHeading: 'Elige psicólogo/a con información clara',
   profilesIntroduction: 'Conoce la experiencia y el enfoque de cada perfil. Consulta qué temas aborda en terapia, cómo son sus sesiones y cuánto cuestan antes de decidir.',
 };
+
+// Shared by the directory screen and its first HTTP response.
+export const directoryPresentationCopy = {
+  heading: 'Encuentra psicólogo/a a tu ritmo',
+  introduction: 'Explora psicólogos, psicólogas y otros profesionales con perfiles verificados. Compara especialidades, modalidades y precios antes de elegir.',
+};
