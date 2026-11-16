@@ -44,7 +44,7 @@ async function fillPayment() {
 }
 async function reviewPayment() {
   await fillPayment();
-  fireEvent.press(screen.getByRole('button', { name: 'Revisar consecuencias' }));
+  fireEvent.press(screen.getByRole('button', { name: 'Continuar' }));
   await screen.findByRole('button', { name: 'Confirmar operación' });
 }
 it('opens a pending request with its plan and resolves it through the same confirmation', async () => {
@@ -57,11 +57,12 @@ it('opens a pending request with its plan and resolves it through the same confi
   expect(screen.queryByLabelText('Importe en euros')).toBeNull();
   fireEvent.changeText(screen.getByLabelText('Referencia del pago externo'), 'payment-request');
   fireEvent.changeText(screen.getByLabelText('Motivo de la operación'), 'Pago de Crecimiento verificado');
-  fireEvent.press(screen.getByRole('button', { name: 'Revisar consecuencias' }));
-  await screen.findByRole('button', { name: 'Confirmar operación' });
+  fireEvent.press(screen.getByRole('button', { name: 'Continuar' }));
+  await screen.findByRole('button', { name: 'Aceptar solicitud' });
   expect(service.previewSubscriptionCommand).toHaveBeenCalledWith('specialist', expect.objectContaining({ requestId: 'pending-request', kind: 'PAY', plan: 'CRECIMIENTO', payment: expect.objectContaining({ amountCents: 6049 }) }));
   expect(screen.getByText('La solicitud quedará resuelta al confirmar esta operación.')).toBeTruthy();
-  fireEvent.press(screen.getByRole('button', { name: 'Confirmar operación' }));
+  expect(service.executeSubscriptionCommand).not.toHaveBeenCalled();
+  fireEvent.press(screen.getByRole('button', { name: 'Aceptar solicitud' }));
   await screen.findByText('Solicitud atendida. La suscripción y su estado se han actualizado.');
   expect(service.resolveSubscriptionRequest).not.toHaveBeenCalled();
   expect(refresh).toHaveBeenCalled();
@@ -72,8 +73,8 @@ it('preselects a requested trial without a payment form', async () => {
   await act(async () => {});
   expect(screen.queryByLabelText('Referencia del pago externo')).toBeNull();
   fireEvent.changeText(screen.getByLabelText('Motivo de la operación'), 'Prueba acordada con el especialista');
-  fireEvent.press(screen.getByRole('button', { name: 'Revisar consecuencias' }));
-  await screen.findByRole('button', { name: 'Confirmar operación' });
+  fireEvent.press(screen.getByRole('button', { name: 'Continuar' }));
+  await screen.findByRole('button', { name: 'Aceptar solicitud' });
   expect(service.previewSubscriptionCommand).toHaveBeenCalledWith('specialist', expect.objectContaining({ requestId: 'trial-request', kind: 'TRIAL', plan: 'HORIZONTE' }));
 });
 it('does not add another month for a change request whose plan was already granted', async () => {
@@ -81,14 +82,14 @@ it('does not add another month for a change request whose plan was already grant
   render(<AdminSubscriptionWorkspace specialistId="specialist" onOpen={jest.fn()} onBack={jest.fn()} />);
   await screen.findByLabelText(/Importe total: 60,49/);
   expect(screen.getByText(/El plan solicitado ya está vigente/)).toBeTruthy();
-  expect(screen.getByRole('button', { name: 'Revisar consecuencias' })).toBeDisabled();
+  expect(screen.getByRole('button', { name: 'Continuar' })).toBeDisabled();
   expect(service.previewSubscriptionCommand).not.toHaveBeenCalled();
 });
 it('updates the fixed monthly price when selecting another plan', async () => {
   await fillPayment();
   fireEvent(screen.getByLabelText('Plan'), 'select', 'HORIZONTE');
   expect(screen.getByLabelText(/Importe total: 84,69/)).toBeTruthy();
-  fireEvent.press(screen.getByRole('button', { name: 'Revisar consecuencias' }));
+  fireEvent.press(screen.getByRole('button', { name: 'Continuar' }));
   await screen.findByRole('button', { name: 'Confirmar operación' });
   expect(service.previewSubscriptionCommand).toHaveBeenCalledWith('specialist', expect.objectContaining({ plan: 'HORIZONTE', payment: expect.objectContaining({ amountCents: 8469 }) }));
 });
@@ -96,11 +97,11 @@ it('blocks a monthly payment when catalog prices cannot be loaded and permits re
   jest.mocked(service.getSubscriptionCatalog).mockRejectedValueOnce(new Error('No se pudo obtener el catálogo'));
   render(<AdminSubscriptionWorkspace specialistId="specialist" onOpen={jest.fn()} onBack={jest.fn()} />);
   await screen.findByText('No se pudo obtener el catálogo');
-  expect(screen.getByRole('button', { name: 'Revisar consecuencias' })).toBeDisabled();
+  expect(screen.getByRole('button', { name: 'Continuar' })).toBeDisabled();
   expect(service.previewSubscriptionCommand).not.toHaveBeenCalled();
   fireEvent.press(screen.getByRole('button', { name: 'Actualizar importe' }));
   await screen.findByLabelText(/Importe total: 36,29/);
-  expect(screen.getByRole('button', { name: 'Revisar consecuencias' })).not.toBeDisabled();
+  expect(screen.getByRole('button', { name: 'Continuar' })).not.toBeDisabled();
 });
 it('shows readable history without exposing actor IDs or repeating technical notices', async () => {
   jest.mocked(useSubscription).mockReturnValue({ data: { ...summary, history: [{ id: 'event', kind: 'PAY', actorId: 'internal-actor-id', reason: 'Pago mensual comprobado', createdAt: summary.computedAt, details: { ...preview, payment: { amountCents: 6049, currency: 'EUR', paidAt: summary.computedAt, method: 'Transferencia', reference: 'payment-history' } } }] }, loading: false, error: '', refresh });
@@ -124,7 +125,7 @@ it.each(['1e3', '0x10', '-1', 'NaN', 'Infinity', '29.999', '1,234.56', '0', '100
   await fillPayment();
   fireEvent(screen.getByLabelText('Operación'), 'select', 'REFUND');
   fireEvent.changeText(screen.getByLabelText('Importe en euros'), value);
-  fireEvent.press(screen.getByRole('button', { name: 'Revisar consecuencias' }));
+  fireEvent.press(screen.getByRole('button', { name: 'Continuar' }));
   expect(screen.getByText(/Introduce un importe mayor que 0/)).toBeTruthy();
   expect(service.previewSubscriptionCommand).not.toHaveBeenCalled();
   expect(service.executeSubscriptionCommand).not.toHaveBeenCalled();
@@ -138,7 +139,7 @@ it('binds the administrative review to the currently displayed period', async ()
 it.each(['Medio', 'Referencia del pago externo', 'Motivo de la operación'])('rejects whitespace-only text: %s', async label => {
   await fillPayment();
   fireEvent.changeText(screen.getByLabelText(label), '   ');
-  fireEvent.press(screen.getByRole('button', { name: 'Revisar consecuencias' }));
+  fireEvent.press(screen.getByRole('button', { name: 'Continuar' }));
   expect(service.previewSubscriptionCommand).not.toHaveBeenCalled();
 });
 it('selects the payment day from the shared calendar and converts Madrid time to UTC', async () => {
@@ -146,7 +147,7 @@ it('selects the payment day from the shared calendar and converts Madrid time to
   fireEvent.press(screen.getByRole('button', { name: 'Fecha del pago' }));
   fireEvent.press(screen.getByTestId('calendar-day'));
   expect(screen.queryByTestId('calendar-day')).toBeNull();
-  fireEvent.press(screen.getByRole('button', { name: 'Revisar consecuencias' }));
+  fireEvent.press(screen.getByRole('button', { name: 'Continuar' }));
   await screen.findByRole('button', { name: 'Confirmar operación' });
   expect(service.previewSubscriptionCommand).toHaveBeenCalledWith('specialist', expect.objectContaining({ payment: expect.objectContaining({ amountCents: 3629, paidAt: '2026-06-16T10:00:00.000Z' }) }));
 });
@@ -183,7 +184,7 @@ it('keeps correction dates in calendar fields and rejects a reversed period or i
   fireEvent(screen.getByLabelText('Operación'), 'select', 'CORRECT');
   fireEvent(screen.getByLabelText('Período que corregir'), 'select', 'period');
   fireEvent.changeText(screen.getByLabelText('Motivo de la operación'), 'Corrección de la fecha acordada');
-  fireEvent.press(screen.getByRole('button', { name: 'Revisar consecuencias' }));
+  fireEvent.press(screen.getByRole('button', { name: 'Continuar' }));
   await screen.findByRole('button', { name: 'Confirmar operación' });
   expect(service.previewSubscriptionCommand).toHaveBeenCalledWith('specialist', expect.objectContaining({ startsAt: period.startsAt, endsAt: period.endsAt }));
   fireEvent.press(screen.getByRole('button', { name: 'Volver a editar' }));
@@ -191,15 +192,15 @@ it('keeps correction dates in calendar fields and rejects a reversed period or i
   fireEvent.press(screen.getByRole('button', { name: 'Fecha de inicio' }));
   fireEvent.press(screen.getByTestId('calendar-day'));
   fireEvent.changeText(screen.getByLabelText('Hora de inicio (Madrid)'), '13:00');
-  fireEvent.press(screen.getByRole('button', { name: 'Revisar consecuencias' }));
+  fireEvent.press(screen.getByRole('button', { name: 'Continuar' }));
   expect(screen.getByText('El vencimiento debe ser posterior al inicio.')).toBeTruthy();
   expect(service.previewSubscriptionCommand).not.toHaveBeenCalled();
   fireEvent.changeText(screen.getByLabelText('Hora de inicio (Madrid)'), '25:00');
-  fireEvent.press(screen.getByRole('button', { name: 'Revisar consecuencias' }));
+  fireEvent.press(screen.getByRole('button', { name: 'Continuar' }));
   expect(screen.getByText('Selecciona una fecha y una hora válidas de Madrid.')).toBeTruthy();
   expect(service.previewSubscriptionCommand).not.toHaveBeenCalled();
   fireEvent.changeText(screen.getByLabelText('Hora de inicio (Madrid)'), '9:30');
-  fireEvent.press(screen.getByRole('button', { name: 'Revisar consecuencias' }));
+  fireEvent.press(screen.getByRole('button', { name: 'Continuar' }));
   await screen.findByRole('button', { name: 'Confirmar operación' });
   expect(service.previewSubscriptionCommand).toHaveBeenCalledWith('specialist', expect.objectContaining({ kind: 'CORRECT', periodId: 'period', startsAt: '2026-06-16T07:30:00.000Z', endsAt: period.endsAt }));
 });
@@ -253,9 +254,9 @@ it('refreshes and requires a new preview after a rejected stale revision', async
   await screen.findByText('La suscripción ha cambiado.');
   expect(refresh).toHaveBeenCalledTimes(1);
   expect(screen.queryByRole('button', { name: 'Confirmar operación' })).toBeNull();
-  expect(screen.getByRole('button', { name: 'Revisar consecuencias' })).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'Continuar' })).toBeTruthy();
   jest.mocked(service.previewSubscriptionCommand).mockRejectedValueOnce(Object.assign(new Error('La revisión ha cambiado otra vez.'), { code: 'SUBSCRIPTION_CHANGED' }));
-  fireEvent.press(screen.getByRole('button', { name: 'Revisar consecuencias' }));
+  fireEvent.press(screen.getByRole('button', { name: 'Continuar' }));
   await screen.findByText('La revisión ha cambiado otra vez.');
   await waitFor(() => expect(refresh).toHaveBeenCalledTimes(2));
   expect(screen.queryByRole('button', { name: 'Confirmar operación' })).toBeNull();

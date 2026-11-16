@@ -29,19 +29,19 @@ export function SubscriptionOverview({ data, action, management }: { data: Subsc
     accessibilityValue={{ min: 0, max: 100, now: Math.min(100, Math.round(ratio * 100)) }} style={[styles.track, { backgroundColor: theme.border }]}>
     <View style={{ height: 6, width: `${Math.max(0, Math.min(100, ratio * 100))}%`, backgroundColor: data.enforced && ratio >= 1 ? theme.error : theme.primary, borderRadius: 6 }} />
   </View>;
-  const usage = <View style={{ gap: 18 }}>
+  const usage = <View style={{ gap: 12 }}>
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
       <Text accessibilityRole="header" style={[strong, styles.title]}>El uso de tu consulta</Text>
       {!data.enforced && <Text style={[text, styles.body]}>Límites aún no activos</Text>}
     </View>
     <View style={[styles.consumption, { flexWrap: 'wrap', flexDirection: compact ? 'column' : 'row' }]}>
       <View style={[styles.metric, { borderColor: theme.border, flex: compact ? undefined : 1 }]}>
-        <Text accessibilityRole="header" style={[strong, styles.title]}>Pacientes del directorio</Text>
+        <Text accessibilityRole="header" style={[strong, styles.metricTitle]}>Pacientes del directorio</Text>
         <Text accessibilityLabel={patients.directoryCount === undefined ? 'Recuento no disponible' : `${patients.directoryCount} pacientes del directorio`} style={[strong, patients.directoryCount === undefined ? styles.body : styles.number]}>{patients.directoryCount ?? 'Recuento no disponible'}</Text>
         <Text style={[text, styles.body]}>Sin límite</Text>
       </View>
       <View style={[styles.metric, { borderColor: theme.border, flex: compact ? undefined : 1 }]}>
-        <Text accessibilityRole="header" style={[strong, styles.title]}>Pacientes propios</Text>
+        <Text accessibilityRole="header" style={[strong, styles.metricTitle]}>Pacientes propios</Text>
         <Text accessibilityLabel={`${patients.total} pacientes propios con actividad o compromisos`} style={[strong, styles.number]}>{patients.total}{!directory && data.limits.ownPatients !== null && <Text style={[text, styles.body]}> / {data.limits.ownPatients}</Text>}</Text>
         <Text style={[text, styles.body]}>Con actividad o compromisos</Text>
         {data.enforced && data.plan !== 'DIRECTORIO' && data.limits.ownPatients !== null && meter(patientRatio, 'Cupo de pacientes propios')}
@@ -50,7 +50,7 @@ export function SubscriptionOverview({ data, action, management }: { data: Subsc
         {!!patients.unresolvedCount && <Text style={[text, styles.body]}>Hay relaciones con procedencia pendiente de revisión por HERA.</Text>}
       </View>
       <View style={[styles.metric, { flex: directory && !compact ? 1 : undefined, width: !directory || compact ? '100%' : undefined }]}>
-        <Text accessibilityRole="header" style={[strong, styles.title]}>Almacenamiento</Text>
+        <Text accessibilityRole="header" style={[strong, styles.metricTitle]}>Almacenamiento</Text>
         <Text style={[strong, styles.number]}>{storageLabel(storage.usedBytes)}<Text style={[text, styles.body]}> / {storageLabel(data.limits.storageBytes)}</Text></Text>
         {meter(storageRatio, 'Almacenamiento utilizado')}
         <Text style={[text, styles.body]}>{data.enforced ? 'Espacio utilizado' : 'Capacidad prevista'}</Text>
@@ -63,10 +63,10 @@ export function SubscriptionOverview({ data, action, management }: { data: Subsc
     </View>
   </View>;
   return <View style={{ gap: 24 }}>
-    <View style={[styles.hero, { backgroundColor: theme.successLight, borderColor: theme.border, flexDirection: stackedHero ? 'column' : 'row', gap: 24, padding: compact ? 20 : 26 }]}>
+    <View style={[styles.hero, { backgroundColor: theme.successLight, borderColor: theme.border, flexDirection: stackedHero ? 'column' : 'row', gap: 20, padding: 20 }]}>
       <View style={{ gap: 10, flex: stackedHero ? undefined : 1, minWidth: 0 }}>
         <Text style={[strong, styles.eyebrow]}>TU PLAN ACTUAL</Text>
-        <Text accessibilityRole="header" style={[strong, { fontSize: compact ? 30 : 36, lineHeight: 44 }]}>{data.name}</Text>
+        <Text accessibilityRole="header" style={[strong, { fontSize: 28, lineHeight: 36 }]}>{data.name}</Text>
         <View style={{ flexDirection: 'row', gap: 7, alignItems: 'center' }}>
           <Ionicons name={data.period ? 'checkmark-circle' : 'leaf-outline'} size={18} color={theme.success} accessible={false} />
           <Text style={[strong, { fontSize: 15, color: theme.success }]}>{data.period?.kind === 'TRIAL' ? 'Prueba gratuita' : data.period ? 'Suscripción activa' : 'Sin cuota fija'}</Text>
@@ -130,9 +130,9 @@ export function SubscriptionOverview({ data, action, management }: { data: Subsc
   </View>;
 }
 const styles = StyleSheet.create({
-  hero: { borderWidth: 1, borderRadius: 16, padding: 26, flexDirection: 'row' },
+  hero: { borderWidth: 1, borderRadius: 16, flexDirection: 'row' },
   eyebrow: { fontSize: 11, letterSpacing: 1.5 }, body: { fontSize: 14, lineHeight: 23 }, small: { fontSize: 12, lineHeight: 20 },
-  consumption: { flexDirection: 'row', gap: 28 }, metric: { minWidth: 0, paddingBottom: 8, gap: 10 },
-  title: { fontSize: 17, lineHeight: 24 }, number: { fontSize: 34, lineHeight: 44 }, track: { height: 6, borderRadius: 6, overflow: 'hidden' },
+  consumption: { flexDirection: 'row', columnGap: 24, rowGap: 16 }, metric: { minWidth: 0, gap: 4 },
+  title: { fontSize: 17, lineHeight: 24 }, metricTitle: { fontSize: 15, lineHeight: 22 }, number: { fontSize: 24, lineHeight: 30 }, track: { height: 6, borderRadius: 6, overflow: 'hidden' },
   row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 14 }, notice: { padding: 18, borderRadius: 10, fontSize: 14, lineHeight: 23 },
 });

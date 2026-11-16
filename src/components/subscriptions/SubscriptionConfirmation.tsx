@@ -32,11 +32,11 @@ export function SubscriptionConfirmation({ command, preview, operationLabel, spe
     <View style={styles.column}><Text style={[text, styles.caption]}>Desde</Text><Text style={strong}>{dateLabel(startsAt, withTime)}</Text></View>
     <View style={styles.column}><Text style={[text, styles.caption]}>Hasta</Text><Text style={strong}>{dateLabel(endsAt, withTime)}</Text></View>
   </View>;
-  return <FocusedActionSheet visible title="Revisa antes de confirmar" description={specialistName} onClose={onClose} dismissible={!busy}
+  return <FocusedActionSheet visible title={command.requestId ? 'Confirmar solicitud' : 'Revisa antes de confirmar'} description={specialistName} onClose={onClose} dismissible={!busy}
     footer={<View style={{ gap: 12 }}>
       {!!error && <Text accessibilityRole="alert" style={[text, { color: theme.error }]}>{error}</Text>}
       <View style={{ flexDirection: compact ? 'column' : 'row', gap: 10 }}>
-      <Button style={{ flex: compact ? undefined : 1 }} onPress={onConfirm} loading={busy}>Confirmar operación</Button>
+      <Button style={{ flex: compact ? undefined : 1 }} onPress={onConfirm} loading={busy}>{command.requestId ? 'Aceptar solicitud' : 'Confirmar operación'}</Button>
       <Button variant="outline" disabled={busy} onPress={onClose}>Volver a editar</Button>
       </View>
     </View>}>

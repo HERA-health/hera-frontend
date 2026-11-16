@@ -211,7 +211,7 @@ function AdminSubscriptionDetail({ specialistId, onBack }: { specialistId: strin
               <Input editable={!busy} containerStyle={fieldStyle} label="Referencia del pago externo" accessibilityLabel="Referencia del pago externo" value={reference} onChangeText={setReference} maxLength={120} error={fieldErrors.reference} /></View>
             </>}
             <Input editable={!busy} label="Motivo de la operación" accessibilityLabel="Motivo de la operación" value={reason} onChangeText={setReason} maxLength={500} multiline error={fieldErrors.reason} />
-            <Button onPress={() => { void preview(); }} loading={busy} disabled={loading || alreadyApplied || kind === 'PAY' && !monthlyPayment}>Revisar consecuencias</Button>
+            <Button onPress={() => { void preview(); }} loading={busy} disabled={loading || alreadyApplied || kind === 'PAY' && !monthlyPayment}>Continuar</Button>
           {!!actionError && !proposal && <Text accessibilityRole="alert" style={[text, { color: theme.error }]}>{actionError}</Text>}
         </View>
         <SubscriptionHistory history={data.history ?? []} requests={data.requests} />
