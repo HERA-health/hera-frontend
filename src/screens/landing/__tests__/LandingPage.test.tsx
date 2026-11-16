@@ -216,7 +216,7 @@ describe('LandingPage', () => {
     render(<LandingPage />);
 
     expect(screen.getByText('PSICOLOGÍA ONLINE Y PRESENCIAL')).toBeTruthy();
-    expect(screen.getByText('Encuentra a tu psicólogo/a ideal para ti.')).toBeTruthy();
+    expect(screen.getByText('Encuentra al psicólogo ideal para ti.')).toBeTruthy();
     expect(screen.getByText('Busco psicólogo/a')).toBeTruthy();
     expect(screen.getByText('Soy psicólogo/a')).toBeTruthy();
     expect(screen.queryByText('Salud mental')).toBeNull();
