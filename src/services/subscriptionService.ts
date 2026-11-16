@@ -12,7 +12,9 @@ const grantSchema = z.object({ plan: subscriptionPlanSchema, kind: z.string(), s
 const requestSchema = z.object({ id: z.string(), kind: z.enum(['TRIAL','CHANGE','RENEW','CANCEL']), plan: subscriptionPlanSchema.nullable(),
   status: z.enum(['PENDING','RESOLVED','REJECTED']), createdAt: z.string(), resolvedAt: z.string().nullable(), resolution: z.string().nullable() });
 export type SubscriptionRequestKind = z.infer<typeof requestSchema>['kind'];
+const monthlyPaymentSchema = z.object({ baseCents: z.number().int().nonnegative(), vatPercent: z.number(), vatCents: z.number().int().nonnegative(), totalCents: z.number().int().nonnegative() });
 const planSchema = z.object({ id: subscriptionPlanSchema, name: z.string(), monthlyCents: z.number(), ownPatientLimit: z.number().nullable(),
+  monthlyPayment: monthlyPaymentSchema.optional(),
   storageBytes: z.number(), rank: z.number(), features: z.array(z.string()),
   presentation: z.object({ description: z.string(), documents: z.string(), supervision: z.string(), templates: z.string(), directoryProfile: z.string(), publications: z.string(), support: z.string() }),
 });
@@ -41,7 +43,7 @@ export const requestSubscription = async (input: { operationKey: string; kind: S
   requestSchema.parse((await api.post('/subscriptions/requests', input)).data);
 export const dismissSubscriptionInvitation = async () => { await api.post('/subscriptions/invitation/dismiss'); };
 export type SubscriptionPayment = { amountCents: number; currency: 'EUR'; paidAt: string; method: string; reference: string };
-export type SubscriptionCommand = { operationKey: string; expectedRevision: number; expectedCurrentPeriodId?: string | null; reason: string } & (
+export type SubscriptionCommand = { operationKey: string; expectedRevision: number; expectedCurrentPeriodId?: string | null; requestId?: string; reason: string } & (
   { kind: 'TRIAL' | 'DOWNGRADE'; plan: PaidSubscriptionPlan }
   | { kind: 'PAY'; plan: PaidSubscriptionPlan; payment: SubscriptionPayment }
   | { kind: 'UPGRADE'; plan: PaidSubscriptionPlan; payment?: SubscriptionPayment }
@@ -49,6 +51,7 @@ export type SubscriptionCommand = { operationKey: string; expectedRevision: numb
   | { kind: 'REFUND'; payment: SubscriptionPayment }
   | { kind: 'CORRECT'; periodId: string; plan: PaidSubscriptionPlan; startsAt: string; endsAt: string; void: boolean });
 const previewSchema = z.object({ kind: z.string(), effectiveAt: z.string(), before: z.array(periodSchema), after: z.array(periodSchema),
+  monthlyPayment: monthlyPaymentSchema.optional(),
   additions: z.array(grantSchema),
   nextPlan: subscriptionPlanSchema.nullable(), cancelAtEnd: z.boolean(), payment: z.object({ amountCents: z.number(), currency: z.string(), paidAt: z.string(), method: z.string(), reference: z.string() }).nullable(), notice: z.string() });
 export type SubscriptionPreview = z.infer<typeof previewSchema>;

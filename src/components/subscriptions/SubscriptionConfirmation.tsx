@@ -46,9 +46,15 @@ export function SubscriptionConfirmation({ command, preview, operationLabel, spe
         <Text style={[strong, { flex: 1, color: accent, fontSize: 15 }]}>{operationLabel}</Text>
       </View>
       {preview.payment ? <View style={{ gap: 4 }}><Text style={[strong, { fontSize: 34, lineHeight: 42 }]}>{formatPrivatePrice(preview.payment.amountCents)}</Text>
+        {preview.monthlyPayment && <Text style={text}>Base {formatPrivatePrice(preview.monthlyPayment.baseCents)} + IVA {preview.monthlyPayment.vatPercent} % ({formatPrivatePrice(preview.monthlyPayment.vatCents)})</Text>}
         <Text style={text}>{command.kind === 'REFUND' ? 'Devolución realizada fuera de HERA' : 'Pago recibido fuera de HERA'}{'plan' in command ? ` · ${planName[command.plan]}` : ''}</Text></View>
         : 'plan' in command ? <Text style={[strong, { fontSize: 28 }]}>{current && current.plan !== command.plan ? `${planName[current.plan]} → ` : ''}{planName[command.plan]}</Text> : null}
     </View>
+
+    {command.requestId && <View style={[styles.row, { alignItems: 'center' }]}>
+      <Ionicons name="checkmark-done-outline" size={20} color={theme.success} accessible={false} />
+      <Text style={[text, { flex: 1 }]}>La solicitud quedará resuelta al confirmar esta operación.</Text>
+    </View>}
 
     {preview.additions.map(period => <View key={period.startsAt} style={[styles.period, { borderLeftColor: theme.success }]}>
       <Text style={[strong, { color: theme.success }]}>{period.kind === 'TRIAL' ? 'Prueba gratuita' : 'Nuevo período'} · {planName[period.plan]}</Text>

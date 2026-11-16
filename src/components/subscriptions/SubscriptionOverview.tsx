@@ -29,6 +29,39 @@ export function SubscriptionOverview({ data, action, management }: { data: Subsc
     accessibilityValue={{ min: 0, max: 100, now: Math.min(100, Math.round(ratio * 100)) }} style={[styles.track, { backgroundColor: theme.border }]}>
     <View style={{ height: 6, width: `${Math.max(0, Math.min(100, ratio * 100))}%`, backgroundColor: data.enforced && ratio >= 1 ? theme.error : theme.primary, borderRadius: 6 }} />
   </View>;
+  const usage = <View style={{ gap: 18 }}>
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+      <Text accessibilityRole="header" style={[strong, styles.title]}>El uso de tu consulta</Text>
+      {!data.enforced && <Text style={[text, styles.body]}>Límites aún no activos</Text>}
+    </View>
+    <View style={[styles.consumption, { flexWrap: 'wrap', flexDirection: compact ? 'column' : 'row' }]}>
+      <View style={[styles.metric, { borderColor: theme.border, flex: compact ? undefined : 1 }]}>
+        <Text accessibilityRole="header" style={[strong, styles.title]}>Pacientes del directorio</Text>
+        <Text accessibilityLabel={patients.directoryCount === undefined ? 'Recuento no disponible' : `${patients.directoryCount} pacientes del directorio`} style={[strong, patients.directoryCount === undefined ? styles.body : styles.number]}>{patients.directoryCount ?? 'Recuento no disponible'}</Text>
+        <Text style={[text, styles.body]}>Sin límite</Text>
+      </View>
+      <View style={[styles.metric, { borderColor: theme.border, flex: compact ? undefined : 1 }]}>
+        <Text accessibilityRole="header" style={[strong, styles.title]}>Pacientes propios</Text>
+        <Text accessibilityLabel={`${patients.total} pacientes propios con actividad o compromisos`} style={[strong, styles.number]}>{patients.total}{!directory && data.limits.ownPatients !== null && <Text style={[text, styles.body]}> / {data.limits.ownPatients}</Text>}</Text>
+        <Text style={[text, styles.body]}>Con actividad o compromisos</Text>
+        {data.enforced && data.plan !== 'DIRECTORIO' && data.limits.ownPatients !== null && meter(patientRatio, 'Cupo de pacientes propios')}
+        {data.enforced && data.plan === 'DIRECTORIO' && <Text style={[text, styles.body]}>Nuevos pacientes propios: requiere suscripción.</Text>}
+        {data.enforced && data.limits.ownPatients !== null && patients.total > data.limits.ownPatients && <Text style={[strong, styles.body, { color: theme.warning }]}>El consumo supera tu límite. Se mantiene la atención permitida de los pacientes actuales; no puedes incorporar nueva atención propia.</Text>}
+        {!!patients.unresolvedCount && <Text style={[text, styles.body]}>Hay relaciones con procedencia pendiente de revisión por HERA.</Text>}
+      </View>
+      <View style={[styles.metric, { flex: directory && !compact ? 1 : undefined, width: !directory || compact ? '100%' : undefined }]}>
+        <Text accessibilityRole="header" style={[strong, styles.title]}>Almacenamiento</Text>
+        <Text style={[strong, styles.number]}>{storageLabel(storage.usedBytes)}<Text style={[text, styles.body]}> / {storageLabel(data.limits.storageBytes)}</Text></Text>
+        {meter(storageRatio, 'Almacenamiento utilizado')}
+        <Text style={[text, styles.body]}>{data.enforced ? 'Espacio utilizado' : 'Capacidad prevista'}</Text>
+        {storage.unknownFiles > 0 && <Text accessibilityRole={data.enforced ? 'alert' : undefined} style={[data.enforced ? strong : text, styles.body]}>Consumo pendiente de completar: HERA debe revisar el tamaño de {storage.unknownFiles} archivos históricos.</Text>}
+        {data.enforced && storageRatio >= .8 && <Text accessibilityRole="alert" style={[strong, styles.body, { color: storageRatio >= 1 ? theme.error : theme.warning }]}>{storageRatio >= 1 ? 'Has alcanzado el límite. Conservas el acceso y las descargas; las nuevas cargas computables están bloqueadas.' : 'Has utilizado al menos el 80 % de tu espacio.'}</Text>}
+      </View>
+    </View>
+    <View style={{ alignSelf: 'flex-start' }}>
+      <Button focusRef={usageButton} variant="outline" size="small" onPress={() => setUsageDetails(true)} icon={<Ionicons name="information-circle-outline" size={18} color={theme.primary} accessible={false} />}>Cómo se calcula el uso</Button>
+    </View>
+  </View>;
   return <View style={{ gap: 24 }}>
     <View style={[styles.hero, { backgroundColor: theme.successLight, borderColor: theme.border, flexDirection: stackedHero ? 'column' : 'row', gap: 24, padding: compact ? 20 : 26 }]}>
       <View style={{ gap: 10, flex: stackedHero ? undefined : 1, minWidth: 0 }}>
@@ -54,7 +87,7 @@ export function SubscriptionOverview({ data, action, management }: { data: Subsc
           <View style={{ flex: 1 }}><Text style={[text, styles.body]}>{storageLabel(data.limits.storageBytes)} de almacenamiento{!data.enforced ? ' previstos' : ''}</Text>
           </View>
         </View>
-      </View> : management && <View style={{ flex: stackedHero ? undefined : 1, minWidth: 0, borderColor: theme.border, borderLeftWidth: stackedHero ? 0 : 1, borderTopWidth: stackedHero ? 1 : 0, paddingLeft: stackedHero ? 0 : 24, paddingTop: stackedHero ? 20 : 0 }}>{management}</View>}
+      </View> : <View style={{ flex: stackedHero ? undefined : 1.5, minWidth: 0, borderColor: theme.border, borderLeftWidth: stackedHero ? 0 : 1, borderTopWidth: stackedHero ? 1 : 0, paddingLeft: stackedHero ? 0 : 24, paddingTop: stackedHero ? 20 : 0 }}>{usage}</View>}
     </View>
     {data.enforced && remaining !== null && remaining <= 7 * 86400000 && !renewalConfirmed && <Text accessibilityRole="alert" style={[strong, styles.notice, { backgroundColor: theme.warningBg, color: theme.warning }]}>
       {remaining > 0 ? 'Tu período termina en los próximos siete días. Solicita continuidad si quieres mantener el plan.' : 'El período ha terminado. Actualiza la información para consultar tu modalidad vigente.'}
@@ -62,37 +95,7 @@ export function SubscriptionOverview({ data, action, management }: { data: Subsc
     {!data.period && previous && (data.enforced
       ? <Text accessibilityRole="alert" style={[text, styles.notice, { backgroundColor: theme.warningBg, color: theme.warning }]}>Tu último período terminó el {subscriptionDate(previous.endsAt)}. Conservas el historial, los documentos, las citas existentes y las sesiones de bonos ya comprometidas. Para asumir nueva atención propia, solicita continuidad.</Text>
       : <Text style={[text, styles.body]}>Tu último período terminó el {subscriptionDate(previous.endsAt)}. Puedes solicitar continuidad cuando lo necesites.</Text>)}
-    <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-      <Text accessibilityRole="header" style={[strong, styles.title]}>El uso de tu consulta</Text>
-      {!data.enforced && <Text style={[text, styles.body]}>Límites aún no activos</Text>}
-    </View>
-    <View style={[styles.consumption, stackedHero && { flexDirection: 'column' }]}>
-      <View style={[styles.metric, { borderColor: theme.border, flex: stackedHero ? undefined : 1 }]}>
-        <Text accessibilityRole="header" style={[strong, styles.title]}>Pacientes del directorio</Text>
-        <Text accessibilityLabel={patients.directoryCount === undefined ? 'Recuento no disponible' : `${patients.directoryCount} pacientes del directorio`} style={[strong, patients.directoryCount === undefined ? styles.body : styles.number]}>{patients.directoryCount ?? 'Recuento no disponible'}</Text>
-        <Text style={[text, styles.body]}>Sin límite</Text>
-      </View>
-      <View style={[styles.metric, { borderColor: theme.border, flex: compact ? undefined : 1 }]}>
-        <Text accessibilityRole="header" style={[strong, styles.title]}>Pacientes propios</Text>
-        <Text accessibilityLabel={`${patients.total} pacientes propios con actividad o compromisos`} style={[strong, styles.number]}>{patients.total}{data.enforced && !directory && data.limits.ownPatients !== null && <Text style={[text, styles.body]}> / {data.limits.ownPatients}</Text>}</Text>
-        <Text style={[text, styles.body]}>Con actividad o compromisos</Text>
-        {data.enforced && data.plan !== 'DIRECTORIO' && data.limits.ownPatients !== null && meter(patientRatio, 'Cupo de pacientes propios')}
-        {data.enforced && data.plan === 'DIRECTORIO' && <Text style={[text, styles.body]}>Nuevos pacientes propios: requiere suscripción.</Text>}
-        {data.enforced && data.limits.ownPatients !== null && patients.total > data.limits.ownPatients && <Text style={[strong, styles.body, { color: theme.warning }]}>El consumo supera tu límite. Se mantiene la atención permitida de los pacientes actuales; no puedes incorporar nueva atención propia.</Text>}
-        {!!patients.unresolvedCount && <Text style={[text, styles.body]}>Hay relaciones con procedencia pendiente de revisión por HERA.</Text>}
-      </View>
-      <View style={[styles.metric, { borderColor: theme.border, flex: compact ? undefined : 1 }]}>
-        <Text accessibilityRole="header" style={[strong, styles.title]}>Almacenamiento</Text>
-        <Text style={[strong, styles.number]}>{storageLabel(storage.usedBytes)}<Text style={[text, styles.body]}> / {storageLabel(data.limits.storageBytes)}</Text></Text>
-        {meter(storageRatio, 'Almacenamiento utilizado')}
-        <Text style={[text, styles.body]}>{data.enforced ? 'Espacio utilizado' : 'Capacidad prevista'}</Text>
-        {storage.unknownFiles > 0 && <Text accessibilityRole={data.enforced ? 'alert' : undefined} style={[data.enforced ? strong : text, styles.body]}>Consumo pendiente de completar: HERA debe revisar el tamaño de {storage.unknownFiles} archivos históricos.</Text>}
-        {data.enforced && storageRatio >= .8 && <Text accessibilityRole="alert" style={[strong, styles.body, { color: storageRatio >= 1 ? theme.error : theme.warning }]}>{storageRatio >= 1 ? 'Has alcanzado el límite. Conservas el acceso y las descargas; las nuevas cargas computables están bloqueadas.' : 'Has utilizado al menos el 80 % de tu espacio.'}</Text>}
-      </View>
-    </View>
-    <View style={{ alignSelf: 'flex-start' }}>
-      <Button focusRef={usageButton} variant="outline" size="small" onPress={() => setUsageDetails(true)} icon={<Ionicons name="information-circle-outline" size={18} color={theme.primary} accessible={false} />}>Cómo se calcula el uso</Button>
-    </View>
+    {directory && usage}
     {usageDetails && <FocusedActionSheet visible title="Cómo se calcula el uso" closeLabel="Cerrar detalle de uso" onClose={closeUsageDetails}>
       <View style={{ gap: 16 }}>
         <Text style={[text, styles.body]}><Text style={strong}>Directorio. </Text>Pacientes con procedencia HERA confirmada, incluidos los archivados. Cada persona cuenta una sola vez y no consume plazas de pacientes propios.</Text>
@@ -122,7 +125,7 @@ export function SubscriptionOverview({ data, action, management }: { data: Subsc
       </View>
       <Text style={[text, styles.small]}>Las publicaciones, la supervisión y el soporte se coordinan directamente con HERA, según el plan. Los espacios de clínica mantienen sus propios permisos.</Text>
     </View>}
-    {directory && management && <View style={{ maxWidth: 720, gap: 12, paddingTop: 8 }}>{management}</View>}
+    {management && <View style={{ maxWidth: 720, gap: 12, paddingTop: 8 }}>{management}</View>}
     <Text style={[text, styles.small, { borderTopWidth: 1, borderTopColor: theme.border, paddingTop: 18 }]}>Las comisiones por pacientes del directorio son independientes de la suscripción y se mantienen en todos los planes. No hay cobros ni renovaciones automáticas.</Text>
   </View>;
 }

@@ -10,7 +10,7 @@ import { getErrorCode, getErrorMessage } from '../../constants/errors';
 import { Button } from '../../components/common/Button';
 import { Input } from '../../components/common/Input';
 import { SimpleDropdown } from '../../components/common/SimpleDropdown';
-import { SubscriptionOverview } from '../../components/subscriptions/SubscriptionOverview';
+import { SubscriptionHistory } from '../../components/subscriptions/SubscriptionHistory';
 import { SubscriptionConfirmation } from '../../components/subscriptions/SubscriptionConfirmation';
 import { MadridDateField } from '../../components/finance/MadridDateField';
 import { useSubscription } from '../../hooks/useSubscription';
@@ -25,6 +25,14 @@ const actions: { value: service.SubscriptionCommand['kind']; label: string }[] =
   { value: 'UPGRADE', label: 'Subir de plan ahora' }, { value: 'DOWNGRADE', label: 'Programar bajada al vencimiento' },
   { value: 'CANCEL', label: 'Finalizar al vencimiento' }, { value: 'CORRECT', label: 'Corregir o anular un período' }, { value: 'REFUND', label: 'Registrar devolución' },
 ];
+const requestLabels = { TRIAL: 'Prueba gratuita', CHANGE: 'Cambio de plan', RENEW: 'Continuidad', CANCEL: 'Finalización' };
+function requestedOperation(request: service.SubscriptionSummary['requests'][number], current: service.SubscriptionPlan): service.SubscriptionCommand['kind'] {
+  if (request.kind === 'TRIAL') return 'TRIAL';
+  if (request.kind === 'CANCEL') return 'CANCEL';
+  if (request.kind === 'RENEW' || current === 'DIRECTORIO' || request.plan === current) return 'PAY';
+  const order = ['DIRECTORIO', 'CALMA', 'CRECIMIENTO', 'HORIZONTE'];
+  return order.indexOf(request.plan ?? 'DIRECTORIO') > order.indexOf(current) ? 'UPGRADE' : 'DOWNGRADE';
+}
 type OperationErrors = Partial<Record<'amount' | 'paidDate' | 'method' | 'reference' | 'reason' | 'period' | 'start' | 'end', string>>;
 
 function correctionBoundary(dateKey: string, time: string, original?: string) {
@@ -56,7 +64,10 @@ export function AdminSubscriptionWorkspace({ specialistId, onOpen, onBack }: { s
 function AdminSubscriptionDetail({ specialistId, onBack }: { specialistId: string; onBack: () => void }) {
   const { theme } = useTheme(); const compact = useWindowDimensions().width < 768;
   const { data, loading, error, refresh } = useSubscription(specialistId);
-  const scroll = useRef<ScrollView>(null); const operationY = useRef(0);
+  const pending = data?.requests.find(request => request.status === 'PENDING');
+  const [manualOperation, setManualOperation] = useState(false);
+  const request = manualOperation ? undefined : pending;
+  const alreadyApplied = request?.kind === 'CHANGE' && request.plan === data?.plan;
   const [kind, setKind] = useState<service.SubscriptionCommand['kind']>('PAY'); const [plan, setPlan] = useState<service.PaidSubscriptionPlan>('CALMA');
   const [reason, setReason] = useState(''); const [amount, setAmount] = useState(''); const [method, setMethod] = useState('Transferencia');
   const [reference, setReference] = useState(''); const [paidDate, setPaidDate] = useState(getMadridDateKey());
@@ -65,11 +76,29 @@ function AdminSubscriptionDetail({ specialistId, onBack }: { specialistId: strin
   const [busy, setBusy] = useState(false); const busyRef = useRef(false); const [actionError, setActionError] = useState(''); const [feedback, setFeedback] = useState('');
   const [proposal, setProposal] = useState<{ command: service.SubscriptionCommand; preview: service.SubscriptionPreview } | null>(null);
   const [fieldErrors, setFieldErrors] = useState<OperationErrors>({});
+  const [catalog, setCatalog] = useState<service.SubscriptionCatalog | null>(null);
+  const [catalogError, setCatalogError] = useState('');
+  const [catalogRevision, setCatalogRevision] = useState(0);
+  useEffect(() => {
+    const controller = new AbortController();
+    setCatalogError('');
+    void service.getSubscriptionCatalog(controller.signal).then(value => { if (!controller.signal.aborted) setCatalog(value); })
+      .catch(failure => { if (!controller.signal.aborted) setCatalogError(getErrorMessage(failure)); });
+    return () => controller.abort();
+  }, [catalogRevision]);
+  const monthlyPayment = catalog?.plans.find(p => p.id === plan)?.monthlyPayment;
+  const money = (cents: number) => (cents / 100).toLocaleString('es-ES', { style: 'currency', currency: 'EUR' });
   const text = { color: theme.textSecondary, fontFamily: theme.fontSans, fontSize: 14, lineHeight: 23 };
   const strong = { color: theme.textPrimary, fontFamily: theme.fontSansSemiBold };
   const fieldStyle = { flexGrow: 1, flexBasis: compact ? '100%' as const : '48%' as const, minWidth: 0, marginBottom: 0 };
   useEffect(() => { setProposal(null); setFeedback(''); }, [specialistId]);
-  useEffect(() => { if (data?.nextPlan && data.nextPlan !== 'DIRECTORIO') setPlan(data.nextPlan); else if (data?.plan && data.plan !== 'DIRECTORIO') setPlan(data.plan); }, [data?.plan, data?.nextPlan, specialistId]);
+  useEffect(() => {
+    if (request && data) {
+      if (request.plan && request.plan !== 'DIRECTORIO') setPlan(request.plan);
+      setKind(requestedOperation(request, data.plan));
+    } else if (data?.nextPlan && data.nextPlan !== 'DIRECTORIO') setPlan(data.nextPlan);
+    else if (data?.plan && data.plan !== 'DIRECTORIO') setPlan(data.plan);
+  }, [data?.plan, data?.nextPlan, request?.id, manualOperation, specialistId]);
   function selectPeriod(id: string) {
     setPeriodId(id); const period = data?.periods.find(p => p.id === id); if (!period || period.plan === 'DIRECTORIO') return;
     setPlan(period.plan); setStartDate(getMadridDateKey(new Date(period.startsAt))); setEndDate(getMadridDateKey(new Date(period.endsAt)));
@@ -85,7 +114,7 @@ function AdminSubscriptionDetail({ specialistId, onBack }: { specialistId: strin
     const end = correctionBoundary(endDate, endTime, selectedPeriod?.endsAt);
     if (reason.trim().length < 5 || reason.trim().length > 500) errors.reason = 'Indica un motivo de entre 5 y 500 caracteres.';
     if (kind === 'PAY' || kind === 'REFUND' || kind === 'UPGRADE' && amount.trim()) {
-      const cents = parsePrivatePrice(amount);
+      const cents = kind === 'PAY' ? monthlyPayment?.totalCents ?? null : parsePrivatePrice(amount);
       if (cents === null || cents <= 0 || cents > 100_000_000) errors.amount = 'Introduce un importe mayor que 0 y hasta 1.000.000 €, con un máximo de dos decimales.';
       if (!parseMadridDateTime(paidDate, '12:00')) errors.paidDate = 'Selecciona una fecha válida.';
       if (!method.trim() || method.trim().length > 50) errors.method = 'Indica el medio de pago (máximo 50 caracteres).';
@@ -101,9 +130,10 @@ function AdminSubscriptionDetail({ specialistId, onBack }: { specialistId: strin
     if (Object.keys(errors).length) return;
     setBusy(true); busyRef.current = true;
     try {
-      const base = { operationKey: randomUUID(), expectedRevision: data.revision, expectedCurrentPeriodId: data.period?.id ?? null, reason: reason.trim() };
+      const base = { operationKey: randomUUID(), expectedRevision: data.revision, expectedCurrentPeriodId: data.period?.id ?? null,
+        ...(request ? { requestId: request.id } : {}), reason: reason.trim() };
       const makePayment = (): service.SubscriptionPayment => {
-        const amountCents = parsePrivatePrice(amount); const date = parseMadridDateTime(paidDate, '12:00');
+        const amountCents = kind === 'PAY' ? monthlyPayment?.totalCents ?? null : parsePrivatePrice(amount); const date = parseMadridDateTime(paidDate, '12:00');
         if (amountCents === null || !date) throw new Error('Revisa el importe y la fecha del pago externo.');
         return { amountCents, currency: 'EUR', paidAt: date.iso, method: method.trim(), reference: reference.trim() };
       };
@@ -123,7 +153,7 @@ function AdminSubscriptionDetail({ specialistId, onBack }: { specialistId: strin
     if (!proposal || busyRef.current) return;
     setBusy(true); busyRef.current = true; setActionError('');
     try {
-      await service.executeSubscriptionCommand(specialistId, proposal.command); setProposal(null); setFeedback('Operación registrada. La suscripción se ha actualizado.'); setReason(''); setReference(''); setAmount(''); setKind('PAY'); refresh();
+      await service.executeSubscriptionCommand(specialistId, proposal.command); setProposal(null); setFeedback(proposal.command.requestId ? 'Solicitud atendida. La suscripción y su estado se han actualizado.' : 'Operación registrada. La suscripción se ha actualizado.'); setReason(''); setReference(''); setAmount(''); setKind('PAY'); refresh();
     } catch (failure) {
       setActionError(getErrorMessage(failure));
       // A rejected revision is safe to re-preview. Uncertain network failures retain the key for retries.
@@ -131,19 +161,32 @@ function AdminSubscriptionDetail({ specialistId, onBack }: { specialistId: strin
     }
     finally { setBusy(false); busyRef.current = false; }
   }
-  return <><ScrollView ref={scroll} style={{ flex: 1, backgroundColor: theme.bg }} contentContainerStyle={{ padding: compact ? 18 : 28 }} keyboardShouldPersistTaps="handled">
-    <View style={{ width: '100%', maxWidth: 1440, alignSelf: 'center', gap: 24, paddingBottom: 36 }}>
+  return <><ScrollView style={{ flex: 1, backgroundColor: theme.bg }} contentContainerStyle={{ padding: compact ? 18 : 28 }} keyboardShouldPersistTaps="handled">
+    <View style={{ width: '100%', maxWidth: 1080, alignSelf: 'center', gap: 24, paddingBottom: 36 }}>
       <View style={{ alignSelf: 'flex-start' }}><Button variant="ghost" onPress={onBack}>← Todas las suscripciones</Button></View>
       {loading && <ActivityIndicator color={theme.primary} accessibilityLabel="Cargando suscripción" />}
       {!!error && <><Text accessibilityRole="alert" style={text}>{error}</Text><Button onPress={refresh}>Reintentar</Button></>}
       {!!feedback && <Text accessibilityRole="alert" style={[text, { color: theme.primary }]}>{feedback}</Text>}
       {data && <>
         {data.specialist && <View style={{ gap: 4 }}><Text style={[strong, { fontSize: 20 }]}>{data.specialist.name}</Text><Text style={text}>{data.specialist.email}</Text></View>}
-        <SubscriptionOverview data={data} action={<Button variant="outline" onPress={() => scroll.current?.scrollTo({ y: operationY.current, animated: false })}>Registrar una operación</Button>} />
-        <View onLayout={event => { operationY.current = event.nativeEvent.layout.y; }} style={{ borderTopWidth: 1, borderTopColor: theme.border, paddingTop: 24, gap: 16 }}>
-          <Text accessibilityRole="header" style={[strong, { fontSize: 20 }]}>Operación administrativa</Text>
-            <View style={{ flexDirection: compact ? 'column' : 'row', gap: 16 }}><View style={{ flex: compact ? undefined : 1 }}><SimpleDropdown disabled={busy} value={kind} options={actions.filter(a => a.value !== 'TRIAL' || data.trialEligible)} onSelect={value => { setKind(value); setFieldErrors({}); setActionError(''); }} accessibilityLabel="Operación" presentation="portal" /></View>
-            {!['CANCEL', 'REFUND'].includes(kind) && <View style={{ flex: compact ? undefined : 1 }}><SimpleDropdown disabled={busy} value={plan} options={plans} onSelect={setPlan} accessibilityLabel="Plan" presentation="portal" /></View>}</View>
+        <View style={{ padding: compact ? 18 : 24, gap: 10, borderRadius: 14, backgroundColor: theme.successLight, borderWidth: 1, borderColor: theme.border }}>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+            <Text accessibilityRole="header" style={[strong, { fontSize: 22 }]}>{pending ? `${requestLabels[pending.kind]}${pending.plan ? ` · ${plans.find(p => p.value === pending.plan)?.label ?? pending.plan}` : ''}` : 'Gestión de suscripción'}</Text>
+            <Text style={[strong, { color: pending ? theme.warning : theme.success }]}>{pending ? 'Pendiente de revisión' : 'Sin solicitudes pendientes'}</Text>
+          </View>
+          {pending && <Text style={text}>Solicitada el {service.subscriptionDate(pending.createdAt)}</Text>}
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+            <Text style={text}>Plan vigente: <Text style={strong}>{data.name}</Text>{data.period ? ` · hasta el ${service.subscriptionDate(data.period.endsAt)}` : ' · sin cuota fija'}</Text>
+            {pending && <Button variant="ghost" size="small" disabled={busy} onPress={() => { setManualOperation(v => !v); setFieldErrors({}); setActionError(''); setKind('PAY'); }}>{manualOperation ? 'Volver a la solicitud' : 'Registrar otra operación'}</Button>}
+          </View>
+        </View>
+        <View style={{ gap: 16 }}>
+          {alreadyApplied && <Text accessibilityRole="alert" style={[text, { color: theme.warning }]}>El plan solicitado ya está vigente. Revisa si la solicitud ya fue atendida y ciérrala desde «Revisar solicitud», sin añadir otra mensualidad.</Text>}
+          <Text accessibilityRole="header" style={[strong, { fontSize: 20 }]}>{request ? actions.find(a => a.value === kind)?.label : 'Operación administrativa'}</Text>
+          {pending && manualOperation && <Text style={[text, { color: theme.warning }]}>Esta operación es independiente. La solicitud seguirá pendiente.</Text>}
+          {request ? <Text style={text}>Al confirmar se actualizará la suscripción y se cerrará esta solicitud.</Text>
+          : <View style={{ flexDirection: compact ? 'column' : 'row', gap: 16 }}><View style={{ flex: compact ? undefined : 1 }}><SimpleDropdown disabled={busy} value={kind} options={actions.filter(a => a.value !== 'TRIAL' || data.trialEligible)} onSelect={value => { setKind(value); setFieldErrors({}); setActionError(''); }} accessibilityLabel="Operación" presentation="portal" /></View>
+            {!['CANCEL', 'REFUND'].includes(kind) && <View style={{ flex: compact ? undefined : 1 }}><SimpleDropdown disabled={busy} value={plan} options={plans} onSelect={setPlan} accessibilityLabel="Plan" presentation="portal" /></View>}</View>}
             {kind === 'CORRECT' && <>
               <SimpleDropdown disabled={busy} value={periodId} onSelect={selectPeriod} accessibilityLabel="Período que corregir" options={data.periods.filter(p => !p.voidedAt).map(p => ({ value: p.id, label: `${p.plan} · ${service.subscriptionDate(p.startsAt)} – ${service.subscriptionDate(p.endsAt)}` }))} presentation="portal" />
               {!!fieldErrors.period && <Text accessibilityRole="alert" style={[text, { color: theme.error }]}>{fieldErrors.period}</Text>}
@@ -155,30 +198,23 @@ function AdminSubscriptionDetail({ specialistId, onBack }: { specialistId: strin
               <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}><Switch disabled={busy} value={voidPeriod} onValueChange={setVoidPeriod} accessibilityLabel="Anular el período" /><Text style={[text, { flex: 1 }]}>Anular el período y retirar su acceso concedido</Text></View>
             </>}
             {['PAY','UPGRADE','REFUND'].includes(kind) && <>
-              <Text style={text}>{kind === 'UPGRADE' ? 'Si se ha acordado una diferencia económica, registra el pago recibido. No se calcula ningún prorrateo.' : 'Registra únicamente un pago o una devolución ya realizados fuera de HERA.'}</Text>
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 16 }}><Input editable={!busy} containerStyle={fieldStyle} accessibilityLabel="Importe en euros" label={kind === 'UPGRADE' ? 'Importe recibido en euros (opcional)' : 'Importe en euros'} value={amount} onChangeText={setAmount} keyboardType="decimal-pad" maxLength={12} placeholder="29,99" helperText="Máximo dos decimales. Admite coma o punto." error={fieldErrors.amount} rightIcon={<Text style={text}>€</Text>} />
+              <Text style={text}>{kind === 'UPGRADE' ? 'Registra solo el ajuste acordado y recibido por este cambio. No es una nueva mensualidad ni se calcula un prorrateo automático.' : kind === 'REFUND' ? 'Registra la devolución ya realizada fuera de HERA.' : 'Confirma únicamente un pago ya recibido fuera de HERA.'}</Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 16 }}>
+              {kind === 'PAY' ? <View style={[fieldStyle, { padding: 18, borderRadius: 12, backgroundColor: theme.successLight, gap: 6 }]}>
+                <Text style={strong}>Mensualidad · {plans.find(p => p.value === plan)?.label}</Text>
+                {monthlyPayment ? <><Text accessibilityLabel={`Importe total: ${money(monthlyPayment.totalCents)}`} style={[strong, { fontSize: 28 }]}>{money(monthlyPayment.totalCents)}</Text>
+                  <Text style={text}>Base {money(monthlyPayment.baseCents)} + IVA {monthlyPayment.vatPercent} % ({money(monthlyPayment.vatCents)})</Text></>
+                  : <><Text accessibilityRole={catalogError || catalog ? 'alert' : undefined} style={text}>{catalogError || (catalog ? 'El catálogo no incluye el importe actualizado. Recarga antes de confirmar.' : 'Cargando importe…')}</Text><Button variant="ghost" onPress={() => setCatalogRevision(v => v + 1)}>Actualizar importe</Button></>}
+              </View> : <Input editable={!busy} containerStyle={fieldStyle} accessibilityLabel="Importe en euros" label={kind === 'UPGRADE' ? 'Ajuste recibido en euros (opcional)' : 'Importe devuelto en euros'} value={amount} onChangeText={setAmount} keyboardType="decimal-pad" maxLength={12} helperText="Importe del ajuste o devolución ya realizado." error={fieldErrors.amount} rightIcon={<Text style={text}>€</Text>} />}
               <View style={fieldStyle}><MadridDateField disabled={busy} label={kind === 'REFUND' ? 'Fecha de devolución' : 'Fecha del pago'} value={paidDate} onChange={setPaidDate} error={fieldErrors.paidDate} /></View>
               <Input editable={!busy} containerStyle={fieldStyle} label="Medio" accessibilityLabel="Medio" value={method} onChangeText={setMethod} maxLength={50} error={fieldErrors.method} />
               <Input editable={!busy} containerStyle={fieldStyle} label="Referencia del pago externo" accessibilityLabel="Referencia del pago externo" value={reference} onChangeText={setReference} maxLength={120} error={fieldErrors.reference} /></View>
             </>}
             <Input editable={!busy} label="Motivo de la operación" accessibilityLabel="Motivo de la operación" value={reason} onChangeText={setReason} maxLength={500} multiline error={fieldErrors.reason} />
-            <Button onPress={() => { void preview(); }} loading={busy} disabled={loading}>Revisar consecuencias</Button>
+            <Button onPress={() => { void preview(); }} loading={busy} disabled={loading || alreadyApplied || kind === 'PAY' && !monthlyPayment}>Revisar consecuencias</Button>
           {!!actionError && !proposal && <Text accessibilityRole="alert" style={[text, { color: theme.error }]}>{actionError}</Text>}
         </View>
-        <Text accessibilityRole="header" style={[strong, { fontSize: 20 }]}>Historial</Text>
-        {!data.history?.length && <Text style={text}>Todavía no hay operaciones administrativas.</Text>}
-        {data.history?.map(event => <View key={event.id} style={{ gap: 6, paddingBottom: 14, borderBottomWidth: 1, borderBottomColor: theme.border }}>
-          <Text style={strong}>{actions.find(a => a.value === event.kind)?.label ?? event.kind} · {service.subscriptionDate(event.createdAt)}</Text>
-          <Text style={text}>{event.reason}</Text><Text style={[text, { fontSize: 12 }]}>Responsable: {event.actorId}</Text>
-          {event.details.additions.map(p => <Text key={p.startsAt} style={text}>Período concedido {p.plan}: {service.subscriptionDate(p.startsAt)} – {service.subscriptionDate(p.endsAt)}.</Text>)}
-          {event.details.after.filter(p => {
-            const previous = event.details.before.find(before => before.id === p.id);
-            return !previous || previous.plan !== p.plan || previous.startsAt !== p.startsAt || previous.endsAt !== p.endsAt || previous.voidedAt !== p.voidedAt;
-          }).map(p => <Text key={p.id} style={text}>Período modificado {p.plan}: {service.subscriptionDate(p.startsAt)} – {service.subscriptionDate(p.endsAt)}{p.voidedAt ? ' · Anulado' : ''}.</Text>)}
-          {event.kind === 'DOWNGRADE' && event.details.nextPlan && <Text style={text}>Bajada prevista a {event.details.nextPlan}, pendiente de pago.</Text>}
-          {event.details.payment && <Text style={text}>{(event.details.payment.amountCents / 100).toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })} · {service.subscriptionDate(event.details.payment.paidAt)} · {event.details.payment.method} · Ref. {event.details.payment.reference}</Text>}
-          <Text style={text}>{event.details.notice}</Text>
-        </View>)}
+        <SubscriptionHistory history={data.history ?? []} requests={data.requests} />
       </>}
     </View>
   </ScrollView>
@@ -271,10 +307,10 @@ function RequestRow({ row, onChange, onOpen }: { row: service.AdminSubscriptionR
       <Input label="Resolución / motivo" accessibilityLabel="Resolución / motivo" value={reason} onChangeText={setReason} maxLength={500} multiline />
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
         {!row.specialistId && <Button variant="outline" disabled={busy || !verified || !sid || reason.trim().length < 5} onPress={() => { void resolve('PENDING'); }}>Vincular solicitud</Button>}
-        <Button disabled={busy || reason.trim().length < 5} onPress={() => { void resolve('RESOLVED'); }}>Marcar resuelta</Button>
+        <Button disabled={busy || reason.trim().length < 5} onPress={() => { void resolve('RESOLVED'); }}>Cerrar sin cambiar el plan</Button>
         <Button variant="ghost" disabled={busy || reason.trim().length < 5} onPress={() => { void resolve('REJECTED'); }}>No aprobar</Button>
       </View>
-      <Text style={[text, { fontSize: 12 }]}>Resolver la solicitud no activa ni modifica un plan. Confirma la operación en la ficha de suscripción.</Text>
+      <Text style={[text, { fontSize: 12 }]}>Para activar o modificar el plan, usa «Gestionar suscripción». Cierra aquí solo solicitudes ya atendidas o que no requieren cambios.</Text>
     </>}
     {row.deliveryStatus !== 'SENT' && <Button variant="ghost" disabled={busy} onPress={() => { setBusy(true); void service.retrySubscriptionNotification(row.id).then(onChange).catch(e => setError(getErrorMessage(e))).finally(() => setBusy(false)); }}>Reintentar aviso a HERA</Button>}
     </>}

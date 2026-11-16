@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { ProfessionalSubscriptionScreen } from '../ProfessionalSubscriptionScreen';
 import { useSubscription } from '../../../hooks/useSubscription';
 import { getSubscriptionCatalog, requestSubscription, type SubscriptionSummary } from '../../../services/subscriptionService';
@@ -7,7 +7,9 @@ import { subscriptionCatalogFixture } from '../../landing/__fixtures__/subscript
 
 const mockNavigate = jest.fn();
 let mockSelectedPlan: 'CRECIMIENTO' | undefined;
-jest.mock('@react-navigation/native', () => ({ useNavigation: () => ({ navigate: mockNavigate }), useRoute: () => ({ params: { plan: mockSelectedPlan } }) }));
+const mockSetParams = jest.fn(({ plan }: { plan?: 'CRECIMIENTO' }) => { mockSelectedPlan = plan; });
+const mockNavigation = { navigate: mockNavigate, setParams: mockSetParams };
+jest.mock('@react-navigation/native', () => ({ useNavigation: () => mockNavigation, useRoute: () => ({ params: { plan: mockSelectedPlan } }) }));
 jest.mock('../../../contexts/ThemeContext', () => ({ useTheme: () => ({ theme: require('../../../constants/theme').lightTheme }) }));
 jest.mock('../../../hooks/useSubscription', () => ({ useSubscription: jest.fn() }));
 jest.mock('../../../services/api', () => ({ api: {}, publicApi: {} }));
@@ -24,7 +26,7 @@ const summary = (): SubscriptionSummary => ({
 });
 const setup = (data: SubscriptionSummary) => {
   jest.mocked(useSubscription).mockReturnValue({ data, loading: false, error: '', refresh });
-  render(<ProfessionalSubscriptionScreen />);
+  return render(<ProfessionalSubscriptionScreen />);
 };
 beforeEach(() => {
   jest.clearAllMocks(); mockSelectedPlan = undefined; jest.mocked(getSubscriptionCatalog).mockResolvedValue(subscriptionCatalogFixture);
@@ -35,10 +37,63 @@ it('uses the plan chosen in comparison and requests a change without offering an
   data.period = { id: 'paid', kind: 'PAID', plan: 'CALMA', startsAt: data.computedAt, endsAt: new Date(Date.now() + 86400000).toISOString(), voidedAt: null, offerVersion: 'fixture' };
   setup(data);
   await waitFor(() => expect(screen.getByRole('button', { name: 'Solicitar cambio de plan' })).not.toBeDisabled());
-  expect(screen.getByText('Suscripción activa')).toBeTruthy();
+  expect(screen.getByRole('header', { name: 'Confirma tu solicitud' })).toBeTruthy();
+  expect(screen.getByText('El plan aún no se ha solicitado.')).toBeTruthy();
+  expect(requestSubscription).not.toHaveBeenCalled();
   expect(screen.queryByRole('button', { name: 'Solicitar prueba gratuita' })).toBeNull();
   fireEvent.press(screen.getByRole('button', { name: 'Solicitar cambio de plan' }));
   await waitFor(() => expect(requestSubscription).toHaveBeenCalledWith(expect.objectContaining({ kind: 'CHANGE', plan: 'CRECIMIENTO' })));
+});
+
+it('keeps the chosen plan when account data arrives after navigation and consumes the route intent', async () => {
+  mockSelectedPlan = 'CRECIMIENTO';
+  jest.mocked(useSubscription).mockReturnValue({ data: null, loading: true, error: '', refresh });
+  const view = render(<ProfessionalSubscriptionScreen />);
+  expect(screen.getByRole('header', { name: 'Confirma tu solicitud' })).toBeTruthy();
+  expect(mockSetParams).toHaveBeenCalledWith({ plan: undefined });
+  const data = summary(); data.plan = 'CALMA'; data.trialEligible = false;
+  jest.mocked(useSubscription).mockReturnValue({ data, loading: false, error: '', refresh });
+  view.rerender(<ProfessionalSubscriptionScreen />);
+  await screen.findByRole('button', { name: 'Solicitar continuidad' });
+  expect(screen.getByText(/Crecimiento · 49,99/)).toBeTruthy();
+  fireEvent.press(screen.getByRole('button', { name: 'Cerrar solicitud' }));
+  expect(screen.queryByRole('header', { name: 'Confirma tu solicitud' })).toBeNull();
+  expect(requestSubscription).not.toHaveBeenCalled();
+  mockSelectedPlan = 'CRECIMIENTO';
+  view.rerender(<ProfessionalSubscriptionScreen />);
+  expect(screen.getByRole('header', { name: 'Confirma tu solicitud' })).toBeTruthy();
+});
+
+it('reports submission in the dialog and prevents duplicate sends or dismissal while sending', async () => {
+  mockSelectedPlan = 'CRECIMIENTO';
+  let finish: () => void = () => {};
+  jest.mocked(requestSubscription).mockImplementationOnce(() => new Promise(resolve => { finish = () => resolve({ id: 'new-request', kind: 'TRIAL', plan: 'CRECIMIENTO', status: 'PENDING', createdAt: new Date().toISOString(), resolvedAt: null, resolution: null }); }));
+  const view = setup(summary());
+  const send = await screen.findByRole('button', { name: 'Solicitar prueba gratuita' });
+  await waitFor(() => expect(send).not.toBeDisabled());
+  fireEvent.press(send); fireEvent.press(send);
+  expect(requestSubscription).toHaveBeenCalledTimes(1);
+  expect(screen.getByRole('button', { name: 'Cerrar solicitud' })).toBeDisabled();
+  await act(async () => finish());
+  expect(screen.getByRole('header', { name: 'Solicitud registrada' })).toBeTruthy();
+  expect(screen.queryByRole('button', { name: 'Solicitar prueba gratuita' })).toBeNull();
+  fireEvent.press(screen.getByRole('button', { name: 'Volver a mi suscripción' }));
+  expect(screen.getByText(/Solicitud registrada\. HERA/)).toBeTruthy();
+  const resolved = summary(); resolved.trialEligible = false;
+  resolved.requests = [{ id: 'new-request', kind: 'TRIAL', plan: 'CRECIMIENTO', status: 'RESOLVED', createdAt: resolved.computedAt, resolvedAt: resolved.computedAt, resolution: 'Solicitud atendida' }];
+  jest.mocked(useSubscription).mockReturnValue({ data: resolved, loading: false, error: '', refresh });
+  view.rerender(<ProfessionalSubscriptionScreen />);
+  expect(screen.queryByText('Pendiente de revisión por HERA')).toBeNull();
+});
+
+it('opens an existing pending request instead of offering a second request for the selected plan', async () => {
+  mockSelectedPlan = 'CRECIMIENTO';
+  const data = summary(); data.requests = [{ id: 'pending', kind: 'TRIAL', plan: 'CALMA', status: 'PENDING', createdAt: data.computedAt, resolvedAt: null, resolution: null }];
+  setup(data);
+  await screen.findByRole('header', { name: 'Ya tienes una solicitud en curso' });
+  expect(screen.queryByLabelText('Plan solicitado')).toBeNull();
+  expect(screen.queryByRole('button', { name: 'Solicitar prueba gratuita' })).toBeNull();
+  expect(requestSubscription).not.toHaveBeenCalled();
 });
 it('opens plan comparison from the top action without duplicating the shell title', async () => {
   setup(summary());
@@ -49,6 +104,7 @@ it('opens plan comparison from the top action without duplicating the shell titl
 });
 
 it('uses the current trial policy and keeps the same operation key when retrying a failed request', async () => {
+  mockSelectedPlan = 'CRECIMIENTO';
   const data = summary(); data.trialPolicy = { unit: 'day', count: 14 }; setup(data);
   await waitFor(() => expect(screen.getByRole('button', { name: 'Solicitar prueba gratuita' })).not.toBeDisabled());
   expect(screen.getByText(/Puedes solicitar 14 días de prueba/)).toBeTruthy();
@@ -172,4 +228,20 @@ it('does not ask for another renewal when the following period is already paid',
   data.periods = [{ ...data.period, id: 'renewed', startsAt: data.period.endsAt, endsAt: new Date(Date.now() + 32 * 86400000).toISOString() }, data.period];
   setup(data); await screen.findByText('Próximos períodos');
   expect(screen.queryByText(/Tu período termina en los próximos siete días/)).toBeNull();
+});
+
+it('shows the active plan and usage without a pending banner after a request is resolved', async () => {
+  const data = summary(); data.plan = 'CRECIMIENTO'; data.name = 'Crecimiento'; data.trialEligible = false; data.enforced = false;
+  data.period = { id: 'confirmed', plan: 'CRECIMIENTO', kind: 'PAID', startsAt: data.computedAt,
+    endsAt: new Date(Date.now() + 30 * 86400000).toISOString(), voidedAt: null, offerVersion: 'fixture' };
+  data.limits = { ownPatients: 30, storageBytes: '50000000000' };
+  data.usage.storage.usedBytes = '1000000000';
+  data.requests = [{ id: 'resolved', kind: 'RENEW', plan: 'CRECIMIENTO', status: 'RESOLVED', createdAt: data.computedAt, resolvedAt: data.computedAt, resolution: 'Pago confirmado' }];
+  setup(data);
+  await screen.findByRole('button', { name: 'Solicitar continuidad' });
+  expect(screen.getByText('Suscripción activa')).toBeTruthy();
+  expect(screen.queryByText('Pendiente de revisión')).toBeNull();
+  expect(screen.queryByText('Solicitud en curso')).toBeNull();
+  expect(screen.getByText('1 GB / 50 GB')).toBeTruthy();
+  expect(screen.getByRole('progressbar', { name: 'Almacenamiento utilizado' })).toHaveProp('accessibilityValue', { min: 0, max: 100, now: 2 });
 });

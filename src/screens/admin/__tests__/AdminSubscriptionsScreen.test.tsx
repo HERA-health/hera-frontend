@@ -4,6 +4,7 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-
 import { AdminSubscriptionWorkspace, AdminSubscriptionsScreen } from '../AdminSubscriptionsScreen';
 import { useSubscription } from '../../../hooks/useSubscription';
 import { useAuth } from '../../../contexts/AuthContext';
+import { subscriptionCatalogFixture } from '../../landing/__fixtures__/subscriptionCatalog';
 import * as service from '../../../services/subscriptionService';
 
 const mockDispatch = jest.fn();
@@ -12,7 +13,7 @@ jest.mock('../../../contexts/AuthContext', () => ({ useAuth: jest.fn(() => ({ us
 jest.mock('../../../contexts/ThemeContext', () => ({ useTheme: () => ({ theme: require('../../../constants/theme').lightTheme }) }));
 jest.mock('../../../hooks/useSubscription', () => ({ useSubscription: jest.fn() }));
 jest.mock('../../../services/api', () => ({ api: {}, publicApi: {} }));
-jest.mock('../../../services/subscriptionService', () => ({ ...jest.requireActual('../../../services/subscriptionService'), previewSubscriptionCommand: jest.fn(), executeSubscriptionCommand: jest.fn(), listSubscriptionRequests: jest.fn(), listSubscriptionAccounts: jest.fn(), resolveSubscriptionRequest: jest.fn() }));
+jest.mock('../../../services/subscriptionService', () => ({ ...jest.requireActual('../../../services/subscriptionService'), getSubscriptionCatalog: jest.fn(), previewSubscriptionCommand: jest.fn(), executeSubscriptionCommand: jest.fn(), listSubscriptionRequests: jest.fn(), listSubscriptionAccounts: jest.fn(), resolveSubscriptionRequest: jest.fn() }));
 jest.mock('react-native-calendars', () => {
   const React = require('react'); const { Text } = require('react-native');
   return { LocaleConfig: { locales: {}, defaultLocale: 'es' }, Calendar: ({ onDayPress }: { onDayPress: (day: { dateString: string }) => void }) =>
@@ -30,33 +31,99 @@ const preview: service.SubscriptionPreview = { kind: 'PAY', effectiveAt: summary
   nextPlan: null, cancelAtEnd: false, payment: null, notice: 'Período confirmado tras comprobar el pago externo.' };
 beforeEach(() => {
   jest.clearAllMocks();
+  jest.mocked(service.getSubscriptionCatalog).mockResolvedValue({ ...subscriptionCatalogFixture, plans: subscriptionCatalogFixture.plans.map(p => ({ ...p, monthlyPayment: { baseCents: p.monthlyCents, vatPercent: 21, vatCents: Math.round(p.monthlyCents * .21), totalCents: p.monthlyCents + Math.round(p.monthlyCents * .21) } })) });
   jest.mocked(useSubscription).mockReturnValue({ data: summary, loading: false, error: '', refresh });
   jest.mocked(service.previewSubscriptionCommand).mockResolvedValue(preview);
   jest.mocked(service.executeSubscriptionCommand).mockResolvedValue();
 });
-function fillPayment(amount = '29,99') {
+async function fillPayment() {
   render(<AdminSubscriptionWorkspace specialistId="specialist" onOpen={jest.fn()} onBack={jest.fn()} />);
-  fireEvent.changeText(screen.getByLabelText('Importe en euros'), amount);
+  await screen.findByLabelText(/Importe total: 36,29/);
   fireEvent.changeText(screen.getByLabelText('Referencia del pago externo'), 'transferencia-fixture');
   fireEvent.changeText(screen.getByLabelText('Motivo de la operación'), 'Pago comprobado por administración');
 }
 async function reviewPayment() {
-  fillPayment();
+  await fillPayment();
   fireEvent.press(screen.getByRole('button', { name: 'Revisar consecuencias' }));
   await screen.findByRole('button', { name: 'Confirmar operación' });
 }
+it('opens a pending request with its plan and resolves it through the same confirmation', async () => {
+  jest.mocked(useSubscription).mockReturnValue({ data: { ...summary, requests: [{ id: 'pending-request', kind: 'RENEW', plan: 'CRECIMIENTO', status: 'PENDING', createdAt: summary.computedAt, resolvedAt: null, resolution: null }] }, loading: false, error: '', refresh });
+  render(<AdminSubscriptionWorkspace specialistId="specialist" onOpen={jest.fn()} onBack={jest.fn()} />);
+  await screen.findByLabelText(/Importe total: 60,49/);
+  expect(screen.queryByText('TU PLAN ACTUAL')).toBeNull();
+  expect(screen.queryByText('El uso de tu consulta')).toBeNull();
+  expect(screen.queryByLabelText('Plan')).toBeNull();
+  expect(screen.queryByLabelText('Importe en euros')).toBeNull();
+  fireEvent.changeText(screen.getByLabelText('Referencia del pago externo'), 'payment-request');
+  fireEvent.changeText(screen.getByLabelText('Motivo de la operación'), 'Pago de Crecimiento verificado');
+  fireEvent.press(screen.getByRole('button', { name: 'Revisar consecuencias' }));
+  await screen.findByRole('button', { name: 'Confirmar operación' });
+  expect(service.previewSubscriptionCommand).toHaveBeenCalledWith('specialist', expect.objectContaining({ requestId: 'pending-request', kind: 'PAY', plan: 'CRECIMIENTO', payment: expect.objectContaining({ amountCents: 6049 }) }));
+  expect(screen.getByText('La solicitud quedará resuelta al confirmar esta operación.')).toBeTruthy();
+  fireEvent.press(screen.getByRole('button', { name: 'Confirmar operación' }));
+  await screen.findByText('Solicitud atendida. La suscripción y su estado se han actualizado.');
+  expect(service.resolveSubscriptionRequest).not.toHaveBeenCalled();
+  expect(refresh).toHaveBeenCalled();
+});
+it('preselects a requested trial without a payment form', async () => {
+  jest.mocked(useSubscription).mockReturnValue({ data: { ...summary, requests: [{ id: 'trial-request', kind: 'TRIAL', plan: 'HORIZONTE', status: 'PENDING', createdAt: summary.computedAt, resolvedAt: null, resolution: null }] }, loading: false, error: '', refresh });
+  render(<AdminSubscriptionWorkspace specialistId="specialist" onOpen={jest.fn()} onBack={jest.fn()} />);
+  await act(async () => {});
+  expect(screen.queryByLabelText('Referencia del pago externo')).toBeNull();
+  fireEvent.changeText(screen.getByLabelText('Motivo de la operación'), 'Prueba acordada con el especialista');
+  fireEvent.press(screen.getByRole('button', { name: 'Revisar consecuencias' }));
+  await screen.findByRole('button', { name: 'Confirmar operación' });
+  expect(service.previewSubscriptionCommand).toHaveBeenCalledWith('specialist', expect.objectContaining({ requestId: 'trial-request', kind: 'TRIAL', plan: 'HORIZONTE' }));
+});
+it('does not add another month for a change request whose plan was already granted', async () => {
+  jest.mocked(useSubscription).mockReturnValue({ data: { ...summary, plan: 'CRECIMIENTO', name: 'Crecimiento', requests: [{ id: 'old-request', kind: 'CHANGE', plan: 'CRECIMIENTO', status: 'PENDING', createdAt: summary.computedAt, resolvedAt: null, resolution: null }] }, loading: false, error: '', refresh });
+  render(<AdminSubscriptionWorkspace specialistId="specialist" onOpen={jest.fn()} onBack={jest.fn()} />);
+  await screen.findByLabelText(/Importe total: 60,49/);
+  expect(screen.getByText(/El plan solicitado ya está vigente/)).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'Revisar consecuencias' })).toBeDisabled();
+  expect(service.previewSubscriptionCommand).not.toHaveBeenCalled();
+});
+it('updates the fixed monthly price when selecting another plan', async () => {
+  await fillPayment();
+  fireEvent(screen.getByLabelText('Plan'), 'select', 'HORIZONTE');
+  expect(screen.getByLabelText(/Importe total: 84,69/)).toBeTruthy();
+  fireEvent.press(screen.getByRole('button', { name: 'Revisar consecuencias' }));
+  await screen.findByRole('button', { name: 'Confirmar operación' });
+  expect(service.previewSubscriptionCommand).toHaveBeenCalledWith('specialist', expect.objectContaining({ plan: 'HORIZONTE', payment: expect.objectContaining({ amountCents: 8469 }) }));
+});
+it('blocks a monthly payment when catalog prices cannot be loaded and permits retry', async () => {
+  jest.mocked(service.getSubscriptionCatalog).mockRejectedValueOnce(new Error('No se pudo obtener el catálogo'));
+  render(<AdminSubscriptionWorkspace specialistId="specialist" onOpen={jest.fn()} onBack={jest.fn()} />);
+  await screen.findByText('No se pudo obtener el catálogo');
+  expect(screen.getByRole('button', { name: 'Revisar consecuencias' })).toBeDisabled();
+  expect(service.previewSubscriptionCommand).not.toHaveBeenCalled();
+  fireEvent.press(screen.getByRole('button', { name: 'Actualizar importe' }));
+  await screen.findByLabelText(/Importe total: 36,29/);
+  expect(screen.getByRole('button', { name: 'Revisar consecuencias' })).not.toBeDisabled();
+});
+it('shows readable history without exposing actor IDs or repeating technical notices', async () => {
+  jest.mocked(useSubscription).mockReturnValue({ data: { ...summary, history: [{ id: 'event', kind: 'PAY', actorId: 'internal-actor-id', reason: 'Pago mensual comprobado', createdAt: summary.computedAt, details: { ...preview, payment: { amountCents: 6049, currency: 'EUR', paidAt: summary.computedAt, method: 'Transferencia', reference: 'payment-history' } } }] }, loading: false, error: '', refresh });
+  await fillPayment();
+  expect(screen.getByText('Pago confirmado')).toBeTruthy();
+  expect(screen.getByText('Referencia: payment-history')).toBeTruthy();
+  expect(screen.queryByText(/internal-actor-id/)).toBeNull();
+  expect(screen.queryByText(preview.notice)).toBeNull();
+});
 it('previews the exact external payment and only persists after confirmation', async () => {
   await reviewPayment();
   expect(service.executeSubscriptionCommand).not.toHaveBeenCalled();
   const command = jest.mocked(service.previewSubscriptionCommand).mock.calls[0][1];
-  expect(command).toEqual(expect.objectContaining({ expectedRevision: 7, expectedCurrentPeriodId: null, kind: 'PAY', plan: 'CALMA', payment: expect.objectContaining({ amountCents: 2999, reference: 'transferencia-fixture' }) }));
+  expect(command).toEqual(expect.objectContaining({ expectedRevision: 7, expectedCurrentPeriodId: null, kind: 'PAY', plan: 'CALMA', payment: expect.objectContaining({ amountCents: 3629, reference: 'transferencia-fixture' }) }));
   fireEvent.press(screen.getByRole('button', { name: 'Confirmar operación' }));
   await screen.findByText('Operación registrada. La suscripción se ha actualizado.');
   expect(service.executeSubscriptionCommand).toHaveBeenCalledWith('specialist', command);
   expect(refresh).toHaveBeenCalledTimes(1);
 });
-it.each(['1e3', '0x10', '-1', 'NaN', 'Infinity', '29.999', '1,234.56', '0', '1000000.01'])('rejects an invalid monetary value without rounding or sending it: %s', value => {
-  fillPayment(value);
+it.each(['1e3', '0x10', '-1', 'NaN', 'Infinity', '29.999', '1,234.56', '0', '1000000.01'])('rejects an invalid monetary value without rounding or sending it: %s', async value => {
+  await fillPayment();
+  fireEvent(screen.getByLabelText('Operación'), 'select', 'REFUND');
+  fireEvent.changeText(screen.getByLabelText('Importe en euros'), value);
   fireEvent.press(screen.getByRole('button', { name: 'Revisar consecuencias' }));
   expect(screen.getByText(/Introduce un importe mayor que 0/)).toBeTruthy();
   expect(service.previewSubscriptionCommand).not.toHaveBeenCalled();
@@ -68,27 +135,28 @@ it('binds the administrative review to the currently displayed period', async ()
   await reviewPayment();
   expect(service.previewSubscriptionCommand).toHaveBeenCalledWith('specialist', expect.objectContaining({ expectedCurrentPeriodId: 'current-period' }));
 });
-it.each(['Medio', 'Referencia del pago externo', 'Motivo de la operación'])('rejects whitespace-only text: %s', label => {
-  fillPayment();
+it.each(['Medio', 'Referencia del pago externo', 'Motivo de la operación'])('rejects whitespace-only text: %s', async label => {
+  await fillPayment();
   fireEvent.changeText(screen.getByLabelText(label), '   ');
   fireEvent.press(screen.getByRole('button', { name: 'Revisar consecuencias' }));
   expect(service.previewSubscriptionCommand).not.toHaveBeenCalled();
 });
 it('selects the payment day from the shared calendar and converts Madrid time to UTC', async () => {
-  fillPayment('29.99');
+  await fillPayment();
   fireEvent.press(screen.getByRole('button', { name: 'Fecha del pago' }));
   fireEvent.press(screen.getByTestId('calendar-day'));
   expect(screen.queryByTestId('calendar-day')).toBeNull();
   fireEvent.press(screen.getByRole('button', { name: 'Revisar consecuencias' }));
   await screen.findByRole('button', { name: 'Confirmar operación' });
-  expect(service.previewSubscriptionCommand).toHaveBeenCalledWith('specialist', expect.objectContaining({ payment: expect.objectContaining({ amountCents: 2999, paidAt: '2026-06-16T10:00:00.000Z' }) }));
+  expect(service.previewSubscriptionCommand).toHaveBeenCalledWith('specialist', expect.objectContaining({ payment: expect.objectContaining({ amountCents: 3629, paidAt: '2026-06-16T10:00:00.000Z' }) }));
 });
 it('opens a modal and returns to the original form without losing values or recording a payment', async () => {
   await reviewPayment();
   expect(screen.UNSAFE_getAllByType(Modal).filter(modal => modal.props.visible)).toHaveLength(1);
   fireEvent.press(screen.getByRole('button', { name: 'Volver a editar' }));
   expect(screen.queryByRole('button', { name: 'Confirmar operación' })).toBeNull();
-  expect(screen.getByLabelText('Importe en euros').props.value).toBe('29,99');
+  expect(screen.queryByLabelText('Importe en euros')).toBeNull();
+  expect(screen.getByLabelText(/Importe total: 36,29/)).toBeTruthy();
   expect(screen.getByLabelText('Referencia del pago externo').props.value).toBe('transferencia-fixture');
   expect(service.executeSubscriptionCommand).not.toHaveBeenCalled();
 });
@@ -156,9 +224,9 @@ it('opens specialist management from a compact request and preserves explicit re
   fireEvent.press(screen.getByRole('button', { name: 'Gestionar suscripción' }));
   expect(open).toHaveBeenCalledWith('specialist');
   fireEvent.press(screen.getByRole('button', { name: 'Revisar solicitud' }));
-  expect(screen.getByRole('button', { name: 'Marcar resuelta' })).toBeDisabled();
+  expect(screen.getByRole('button', { name: 'Cerrar sin cambiar el plan' })).toBeDisabled();
   fireEvent.changeText(screen.getByLabelText('Resolución / motivo'), 'Activación comprobada por HERA');
-  await act(async () => { fireEvent.press(screen.getByRole('button', { name: 'Marcar resuelta' })); });
+  await act(async () => { fireEvent.press(screen.getByRole('button', { name: 'Cerrar sin cambiar el plan' })); });
   await waitFor(() => expect(service.resolveSubscriptionRequest).toHaveBeenCalledWith('request', { status: 'RESOLVED', reason: 'Activación comprobada por HERA' }));
   expect(service.executeSubscriptionCommand).not.toHaveBeenCalled();
 });
