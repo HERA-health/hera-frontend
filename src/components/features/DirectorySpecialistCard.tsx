@@ -128,6 +128,7 @@ export function DirectorySpecialistCard({ specialist, onPress, href, style, comp
             {specialist.name}
           </Text>
           <Text style={[styles.profession, body]} numberOfLines={2}>{specialist.professionalTypeLabel}</Text>
+          {specialist.subscriptionBadge === 'HORIZONTE' && <Text style={{ color: theme.primary, fontFamily: theme.fontSansSemiBold, fontSize: 11 }}>Horizonte</Text>}
           <View style={[styles.credentials, compactDirectory && styles.credentialsRow]}>
             <View style={styles.verified}>
               <Ionicons name="shield-checkmark" size={13} color={theme.primary} />

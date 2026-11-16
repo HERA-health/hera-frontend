@@ -17,6 +17,7 @@ import { AnimatedPressable, Button } from '../../components/common';
 import LoadingState from '../../components/common/LoadingState';
 import { TourTarget } from '../../components/onboarding/TourTarget';
 import { GoogleMeetInvitation } from '../../components/professional/GoogleMeetInvitation';
+import { SubscriptionInvitation } from '../../components/subscriptions/SubscriptionInvitation';
 import { useProfessionalTourAutoStart } from '../../components/onboarding/professionalTourContext';
 import {
   ActivationHero,
@@ -241,6 +242,7 @@ export function ProfessionalHomeScreen(): React.ReactElement {
         </View>
 
         <GoogleMeetInvitation />
+        <SubscriptionInvitation />
         <View style={[styles.mainGrid, !isWide ? styles.mainGridStacked : null]}>
           <TourTarget id="professional.home.today" fill style={isWide ? styles.mainColumn : styles.stackedColumn}>
             <TodayAgenda

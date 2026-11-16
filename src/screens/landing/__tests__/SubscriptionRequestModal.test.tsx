@@ -2,17 +2,20 @@ import React from 'react';
 import { Linking } from 'react-native';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { SubscriptionRequestModal } from '../components/SubscriptionRequestModal';
-import { PRICING_PLANS } from '../pricingContent';
+import { pricingPlansFromCatalog } from '../pricingContent';
+import { subscriptionCatalogFixture } from '../__fixtures__/subscriptionCatalog';
+const PRICING_PLANS = pricingPlansFromCatalog(subscriptionCatalogFixture);
 import { getSubscriptionConditions, submitSubscriptionRequest, SubscriptionRequestError, type SubscriptionConditions } from '../../../services/subscriptionRequestService';
 
 jest.mock('../../../contexts/ThemeContext', () => ({ useTheme: () => ({ theme: require('../../../constants/theme').lightTheme, isDark: false }) }));
 jest.mock('../../../services/api', () => ({ publicApi: { get: jest.fn(), post: jest.fn() } }));
-jest.mock('../../../services/legalReader', () => ({ legalReaderUrl: (_key: string, version: string) => `https://www.health-hera.com/legal/privacidad/${version}` }));
+jest.mock('../../../services/legalReader', () => ({ legalReaderUrl: (key: string, version: string) => `https://www.health-hera.com/legal/${key === 'PRIVACY_POLICY' ? 'privacidad' : key}/${version}` }));
 jest.mock('../../../services/subscriptionRequestService', () => ({
   ...jest.requireActual('../../../services/subscriptionRequestService'),
   getSubscriptionConditions: jest.fn(), submitSubscriptionRequest: jest.fn(),
 }));
 const conditions: SubscriptionConditions = {
+  trial: { unit: 'month', count: 1 },
   title: 'Condiciones de solicitud de suscripción', version: 'fixture-v1', contentHash: 'a'.repeat(64),
   paragraphs: ['HERA confirma manualmente el inicio del mes gratuito.', 'La continuidad de pago es voluntaria.'],
   privacy: { title: 'Política de privacidad', version: 'privacy-v1', contentHash: 'b'.repeat(64), publicPath: '/legal/privacidad/privacy-v1' },
@@ -59,12 +62,22 @@ it('validates required fields and email before contacting the backend', async ()
 it('keeps contact fields when reading conditions or opening privacy', async () => {
   const link = jest.spyOn(Linking, 'openURL').mockResolvedValue(undefined);
   await open(); fill();
-  fireEvent.press(screen.getByText('Leer condiciones'));
-  expect(screen.getByText(conditions.paragraphs[0])).toBeTruthy();
+  fireEvent.press(screen.getByRole('link', { name: 'Condiciones de la solicitud ↗' }));
+  expect(link).toHaveBeenCalledWith(expect.stringContaining('/legal/solicitud-suscripcion/fixture-v1'));
+  expect(screen.queryByText(conditions.paragraphs[0])).toBeNull();
   fireEvent.press(screen.getByText('Política de privacidad ↗'));
   expect(link).toHaveBeenCalledWith(expect.stringContaining('/legal/privacidad/privacy-v1'));
-  fireEvent.press(screen.getByText('Ocultar condiciones'));
   expect(screen.getByLabelText('Email').props.value).toBe('fixture@example.invalid');
+  link.mockRestore();
+});
+it('keeps the form available when the legal reader cannot be opened', async () => {
+  const link = jest.spyOn(Linking, 'openURL').mockRejectedValueOnce(new Error('Unavailable'));
+  await open(); fill();
+  fireEvent.press(screen.getByRole('link', { name: 'Condiciones de la solicitud ↗' }));
+  await screen.findByText('No se han podido abrir las condiciones. Vuelve a intentarlo.');
+  expect(screen.getByLabelText('Email').props.value).toBe('fixture@example.invalid');
+  expect(screen.getByRole('checkbox')).toHaveAccessibilityState({ checked: false });
+  expect(send).not.toHaveBeenCalled();
   link.mockRestore();
 });
 
@@ -99,7 +112,8 @@ it('reloads stale conditions and requires fresh acceptance without discarding th
   load.mockResolvedValue({ ...conditions, version: 'fixture-v2', contentHash: 'c'.repeat(64) });
   send.mockRejectedValueOnce(new SubscriptionRequestError('Las condiciones han cambiado.', true));
   fireEvent.press(screen.getByLabelText('Solicitar prueba gratuita'));
-  await screen.findByText('Versión fixture-v2');
+  await screen.findByText('Las condiciones han cambiado.');
+  await waitFor(() => expect(load).toHaveBeenCalledTimes(2));
   expect(screen.getByRole('checkbox')).toHaveAccessibilityState({ checked: false });
   expect(screen.getByLabelText('Solicitar prueba gratuita')).toBeDisabled();
   expect(screen.getByLabelText('Nombre').props.value).toBe('Nombre sintético');

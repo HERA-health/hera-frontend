@@ -14,9 +14,11 @@ import { FooterSection } from './components/FooterSection';
 import { SubscriptionRequestModal } from './components/SubscriptionRequestModal';
 import type { LandingSectionAnchor } from './types';
 import {
-  DIRECTORY_OFFER, PRICING_AVAILABILITY, PRICING_COMMISSION_NOTE, PRICING_FAQS,
-  PRICING_PLANS, PRICING_STORAGE_NOTE, SUBSCRIPTION_ESSENTIALS, SUBSCRIPTION_TOOL_GROUPS, type PricingPlanId,
+  DIRECTORY_OFFER, pricingAvailability, PRICING_COMMISSION_NOTE, pricingFaqs,
+  pricingPlansFromCatalog, PRICING_STORAGE_NOTE, SUBSCRIPTION_ESSENTIALS, SUBSCRIPTION_TOOL_GROUPS, type PricingPlanId,
 } from './pricingContent';
+import { getSubscriptionCatalog, storageLabel, trialLabel, type SubscriptionCatalog } from '../../services/subscriptionService';
+import { getErrorMessage } from '../../constants/errors';
 
 const DESKTOP_BREAKPOINT = 1040;
 const TABLET_BREAKPOINT = 720;
@@ -81,6 +83,21 @@ export function PricingScreen(): React.ReactElement {
   const [requestPlanId, setRequestPlanId] = useState<PricingPlanId | null>(null);
   const [selectedId, setSelectedId] = useState<PricingPlanId | null>(null);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
+  const [catalog, setCatalog] = useState<SubscriptionCatalog | null>(null);
+  const [catalogError, setCatalogError] = useState('');
+  const [catalogRevision, setCatalogRevision] = useState(0);
+  useEffect(() => {
+    const controller = new AbortController(); setCatalogError('');
+    void getSubscriptionCatalog(controller.signal).then(setCatalog).catch(error => { if (!controller.signal.aborted) setCatalogError(getErrorMessage(error)); });
+    return () => controller.abort();
+  }, [catalogRevision]);
+  const PRICING_PLANS = catalog ? pricingPlansFromCatalog(catalog) : [];
+  const PRICING_AVAILABILITY = catalog ? pricingAvailability(catalog.trial) : '';
+  const directory = catalog?.plans.find(plan => plan.id === 'DIRECTORIO');
+  const directoryStorage = directory ? storageLabel(directory.storageBytes) : '—';
+  const PRICING_FAQS = catalog ? pricingFaqs(PRICING_PLANS, directoryStorage, catalog.trial, catalog.activityDays, catalog.enforced) : [];
+  const managesSubscription = isAuthenticated && user?.type === 'professional';
+  const requestLabel = managesSubscription ? 'Elegir este plan' : 'Solicitar prueba gratuita';
   const selectedPlan = PRICING_PLANS.find(plan => plan.id === selectedId);
   const requestPlan = PRICING_PLANS.find(plan => plan.id === requestPlanId);
   const body = { color: theme.textSecondary, fontFamily: theme.fontSans };
@@ -90,7 +107,7 @@ export function PricingScreen(): React.ReactElement {
 
   useWebPageMetadata({
     title: 'Hera | Planes y precios para psicólogos/as',
-    description: 'Compara los planes Calma, Crecimiento y Horizonte. Solicita la activación manual con 1 mes gratuito y continúa, si lo deseas, mediante transferencia bancaria.',
+    description: 'Compara los planes Calma, Crecimiento y Horizonte. Solicita la activación manual y continúa, si lo deseas, mediante pago externo.',
     canonicalPath: '/planes',
     indexable: true,
   });
@@ -136,6 +153,13 @@ export function PricingScreen(): React.ReactElement {
     if (Platform.OS === 'web') requestAnimationFrame(() => cardButtons.current[originPlan.current]?.focus());
   };
   const openRequest = (id: PricingPlanId, button: View | null | undefined) => {
+    if (managesSubscription) {
+      if (navigation.getState().routeNames.includes('ProfessionalSubscription')) {
+        const selectedPlan = { calma: 'CALMA', crecimiento: 'CRECIMIENTO', horizonte: 'HORIZONTE' } as const;
+        navigation.navigate('ProfessionalSubscription', { plan: selectedPlan[id] });
+      } else handleAccess();
+      return;
+    }
     requestOrigin.current = button ?? null;
     setRequestPlanId(id);
   };
@@ -187,23 +211,26 @@ export function PricingScreen(): React.ReactElement {
             <View style={[styles.directoryIncludes, tablet && styles.directoryIncludesRow, { backgroundColor: theme.landingProfessional }]}>
               <View style={styles.directoryStorage}>
                 <Text style={styles.directoryStorageIcon} accessible={false} aria-hidden>📁</Text>
-                <Text style={[styles.small, strong, styles.directoryStorageLabel]}>{DIRECTORY_OFFER.storageLabel} de almacenamiento total</Text>
+                <Text style={[styles.small, strong, styles.directoryStorageLabel]}>{directoryStorage} de almacenamiento{catalog?.enforced === false ? ' previsto en el plan' : ' total'}</Text>
               </View>
-              <Text style={[styles.caption, body, tablet && styles.flex]}>Agenda, historial, documentos, consentimientos, facturación, recordatorios, Google Meet y resumen de actividad.</Text>
+              <Text style={[styles.caption, body, tablet && styles.flex]}>Agenda, historial, documentos, consentimientos, facturación, recordatorios, Google Meet y estadísticas completas.</Text>
             </View>
-            <Text style={[styles.directoryScope, styles.caption, body]}>Herramientas para tus pacientes de HERA. La gestión de pacientes propios no está incluida.</Text>
+            {catalog && <Text style={[styles.directoryScope, styles.caption, body]}>{catalog.enforced
+              ? 'Herramientas para tus pacientes de HERA. Se conserva la gestión de tu cartera anterior protegida. Para incorporar nuevos pacientes propios necesitas una suscripción.'
+              : 'La suscripción es opcional en esta etapa. Puedes seguir incorporando pacientes propios y trabajando como hasta ahora. Los límites de pacientes y almacenamiento todavía no se aplican.'}</Text>}
           </View>
 
           <View style={styles.subscriptionHeading}>
             <Text style={[styles.eyebrow, { color: theme.primary, fontFamily: theme.fontSansSemiBold }]}>02 / SUSCRIPCIONES</Text>
             <Text accessibilityRole="header" aria-level={2} style={[styles.sectionTitle, display]}>Tu consulta, con espacio para crecer.</Text>
-            <Text style={[styles.body, body]}>Gestiona también tus pacientes propios y amplía las prestaciones de tu consulta.</Text>
+            {catalog && <Text style={[styles.body, body]}>{catalog.enforced ? 'Gestiona también tus pacientes propios y amplía las prestaciones de tu consulta.' : 'Conoce los planes y solicita el que encaje con tu consulta. Los cupos, el acceso por nivel a recursos y el destacado Horizonte todavía no están activos.'}</Text>}
             <View style={styles.availability}>
               <Ionicons name="information-circle-outline" color={theme.primary} size={16} accessible={false} />
-              <Text style={[styles.caption, body, styles.flex]}>{PRICING_AVAILABILITY}</Text>
+              <Text style={[styles.caption, body, styles.flex]}>{managesSubscription ? 'Gestiona el cambio desde Mi suscripción. Si aún no has disfrutado de la prueba gratuita, podrás solicitarla allí. HERA confirmará contigo los siguientes pasos.' : PRICING_AVAILABILITY}</Text>
             </View>
           </View>
           <View style={[styles.cards, desktop && styles.horizontal]}>
+            {!catalog && <View style={{ gap: 12 }}><Text accessibilityRole={catalogError ? 'alert' : undefined} style={body}>{catalogError || 'Cargando planes…'}</Text>{!!catalogError && <PricingAction label="Volver a cargar planes" onPress={() => setCatalogRevision(value => value + 1)}>Reintentar</PricingAction>}</View>}
             {PRICING_PLANS.map(plan => {
               const featured = plan.id === 'crecimiento';
               return <View key={plan.id} testID={`pricing-plan-card-${plan.id}`} style={[styles.card, desktop && styles.flex, {
@@ -219,18 +246,18 @@ export function PricingScreen(): React.ReactElement {
                   </View>
                 </View>
                 <View style={styles.cardRequest}>
-                  <Text style={[styles.caption, strong]}>1 mes gratuito · Sin pago ahora</Text>
-                  <PricingAction label={`Solicitar prueba gratuita de ${plan.name}`} filled icon="arrow-forward"
+                  <Text style={[styles.caption, strong]}>{managesSubscription ? 'Cambio de plan con confirmación de HERA' : `${catalog ? trialLabel(catalog.trial) : ''} de prueba · Sin pago ahora`}</Text>
+                  <PricingAction label={`${requestLabel} de ${plan.name}`} filled icon="arrow-forward"
                     focusRef={node => { cardRequestButtons.current[plan.id] = node; }}
-                    onPress={() => openRequest(plan.id, cardRequestButtons.current[plan.id])}>Solicitar prueba gratuita</PricingAction>
-                  <Text style={[styles.caption, body]}>Después, la cuota indicada si decides continuar.</Text>
+                    onPress={() => openRequest(plan.id, cardRequestButtons.current[plan.id])}>{requestLabel}</PricingAction>
+                  <Text style={[styles.caption, body]}>{managesSubscription ? 'Consulta las opciones disponibles en tu suscripción.' : 'Después, la cuota indicada si decides continuar.'}</Text>
                 </View>
                 <Text style={[styles.small, body, styles.cardDescription, desktop && styles.cardDescriptionDesktop]}>{plan.description}</Text>
                 <View style={[styles.capacity, { borderColor: theme.borderStrong }]}>
                   <View style={styles.capacityMetrics}>
-                    <View style={styles.patientMetric} accessible accessibilityLabel={`${plan.ownPatients} pacientes propios activos`}>
+                    <View style={styles.patientMetric} accessible accessibilityLabel={`${plan.ownPatients} pacientes propios activos o con plaza comprometida`}>
                       <View style={styles.metricHeading}><Text style={styles.metricEmoji} accessible={false} aria-hidden>👥</Text><Text style={[styles.metricValue, strong]}>{plan.ownPatients}</Text></View>
-                      <Text style={[styles.caption, body]}>pacientes propios activos</Text>
+                      <Text style={[styles.caption, body]}>pacientes propios activos o con plaza comprometida</Text>
                     </View>
                     <View style={[styles.flex, styles.storageMetric, { borderColor: theme.borderStrong }]} accessible accessibilityLabel={`${plan.storageLabel} de almacenamiento`}>
                       <View style={styles.metricHeading}><Text style={styles.metricEmoji} accessible={false} aria-hidden>📁</Text><Text style={[styles.metricValue, strong]}>{plan.storageLabel}</Text></View>
@@ -278,9 +305,9 @@ export function PricingScreen(): React.ReactElement {
                 </View>
                 <View style={[styles.detailPrice, !tablet && styles.fullWidth]}>
                   <Text style={[styles.price, strong]}>{selectedPlan.monthlyPrice} €</Text>
-                  <Text style={[styles.small, body]}>al mes + IVA · después de 1 mes gratuito</Text>
-                  <PricingAction label={`Solicitar prueba gratuita de ${selectedPlan.name}`} filled focusRef={activationButton}
-                    onPress={() => openRequest(selectedPlan.id, activationButton.current)} icon="arrow-forward">Solicitar prueba gratuita</PricingAction>
+                  <Text style={[styles.small, body]}>{managesSubscription ? 'al mes + IVA' : 'al mes + IVA · después de la prueba gratuita'}</Text>
+                  <PricingAction label={`${requestLabel} de ${selectedPlan.name}`} filled focusRef={activationButton}
+                    onPress={() => openRequest(selectedPlan.id, activationButton.current)} icon="arrow-forward">{requestLabel}</PricingAction>
                   <Text style={[styles.caption, body]}>Sin pago ahora. HERA confirmará la activación.</Text>
                 </View>
               </View>
@@ -331,10 +358,10 @@ export function PricingScreen(): React.ReactElement {
               <View style={[styles.contract, { backgroundColor: theme.landingProfessional }, tablet && styles.horizontal]}>
                 <View style={[styles.contractCopy, tablet && styles.flex]}>
                   <Text style={[styles.body, strong]}>Empieza con el plan {selectedPlan.name}</Text>
-                  <Text style={[styles.small, body]}>HERA confirmará tu prueba gratuita por email. Después, {selectedPlan.monthlyPrice} €/mes + IVA por transferencia, solo si deseas continuar.</Text>
+                  <Text style={[styles.small, body]}>{managesSubscription ? 'Elige el plan y envía tu solicitud desde Mi suscripción. HERA confirmará contigo las condiciones y la activación por email.' : `HERA confirmará tu prueba gratuita por email. Después, ${selectedPlan.monthlyPrice} €/mes + IVA por transferencia, solo si deseas continuar.`}</Text>
                 </View>
-                <PricingAction label={`Solicitar prueba gratuita de ${selectedPlan.name}`} filled focusRef={reminderButton} style={!tablet && styles.fullWidth}
-                  onPress={() => openRequest(selectedPlan.id, reminderButton.current)} icon="arrow-forward">Solicitar prueba gratuita</PricingAction>
+                <PricingAction label={`${requestLabel} de ${selectedPlan.name}`} filled focusRef={reminderButton} style={!tablet && styles.fullWidth}
+                  onPress={() => openRequest(selectedPlan.id, reminderButton.current)} icon="arrow-forward">{requestLabel}</PricingAction>
               </View>
             </View>
           </View> : null}

@@ -22,8 +22,9 @@ import type { ScreenProps } from '../../constants/types';
 import { CommissionWorkspace } from '../commissions/HeraCommissionsScreen';
 import { ResourceCatalog } from '../../components/resources/ResourceCatalog';
 import { AdminDashboardScreen, dashboardDefaultFilters } from './AdminDashboardScreen';
+import { AdminSubscriptionWorkspace } from './AdminSubscriptionsScreen';
 
-type TabKey = 'dashboard' | 'verifications' | 'management' | 'commissions' | 'help' | 'feedback' | 'resources';
+type TabKey = 'dashboard' | 'verifications' | 'management' | 'commissions' | 'subscriptions' | 'help' | 'feedback' | 'resources';
 type IconName = ComponentProps<typeof Ionicons>['name'];
 
 interface Tab {
@@ -37,6 +38,7 @@ interface Tab {
 const TABS: Tab[] = [
   { key: 'resources', label: 'Plantillas y recursos', compactLabel: 'Recursos', icon: 'documents-outline', iconActive: 'documents' },
   { key: 'dashboard', label: 'Dashboard', compactLabel: 'Dashboard', icon: 'analytics-outline', iconActive: 'analytics' },
+  { key: 'subscriptions', label: 'Suscripciones', compactLabel: 'Suscripciones', icon: 'pricetag-outline', iconActive: 'pricetag' },
   {
     key: 'verifications',
     label: 'Verificaciones pendientes',
@@ -191,6 +193,10 @@ export function AdminPanelTabbedScreen({
       </View>}
 
       <View style={styles.content}>
+        {activeTab === 'subscriptions' && <AdminSubscriptionWorkspace specialistId={route.params?.subscriptionSpecialistId}
+          onOpen={subscriptionSpecialistId => navigation.setParams({ subscriptionSpecialistId })}
+          onBack={() => navigation.setParams({ subscriptionSpecialistId: undefined })}
+        />}
         {activeTab === 'resources' && <ResourceCatalog admin />}
         {activeTab === 'dashboard' && <AdminDashboardScreen
           section={route.params?.dashboardSection ?? 'overview'}

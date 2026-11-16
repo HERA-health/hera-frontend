@@ -15,6 +15,7 @@ export function MadridDateField({
   optional = false,
   minDate,
   error,
+  disabled = false,
 }: {
   label: string;
   value: string;
@@ -22,6 +23,7 @@ export function MadridDateField({
   optional?: boolean;
   minDate?: string;
   error?: string;
+  disabled?: boolean;
 }): React.ReactElement {
   const { theme } = useTheme();
   const [open, setOpen] = useState(false);
@@ -29,7 +31,7 @@ export function MadridDateField({
   return (
     <View style={styles.root}>
       <Text style={[styles.label, { color: theme.textSecondary }]}>{label}</Text>
-      <AnimatedPressable onPress={() => setOpen(true)} accessibilityRole="button" accessibilityLabel={label} style={[styles.trigger, { borderColor: error ? theme.error : theme.border, backgroundColor: theme.bgCard }]} hoverLift={false}>
+      <AnimatedPressable onPress={() => setOpen(true)} disabled={disabled} accessibilityRole="button" accessibilityLabel={label} style={[styles.trigger, { borderColor: error ? theme.error : theme.border, backgroundColor: theme.bgCard }]} hoverLift={false}>
         <Ionicons name="calendar-outline" size={18} color={theme.primary} />
         <Text style={[styles.value, { color: value ? theme.textPrimary : theme.textMuted }]}>{value ? formatMadridDateKey(value, { day: '2-digit', month: 'short', year: 'numeric' }) : optional ? 'Sin fecha de fin' : 'Seleccionar fecha'}</Text>
         <Ionicons name="chevron-down" size={16} color={theme.textMuted} />

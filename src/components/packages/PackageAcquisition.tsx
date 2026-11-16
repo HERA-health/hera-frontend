@@ -4,6 +4,7 @@ import { ActivityIndicator, Modal, ScrollView, Switch, Text, TextInput, View } f
 import * as Crypto from 'expo-crypto';
 import { useTheme } from '../../contexts/ThemeContext';
 import { Button } from '../common/Button';
+import { SubscriptionActionLink } from '../subscriptions/SubscriptionActionLink';
 import { getErrorMessage, getErrorCode } from '../../constants/errors';
 
 import { acquirePackage, quotePackage, packagePrice, packageModality, type PackageOffer, type PackageQuote, type PatientPackage } from '../../services/packageService';
@@ -93,6 +94,7 @@ export function PackageAcquisition({ offer, clientId: presetClientId, specialist
         {billingRequired && <PackageBillingFields value={billing} onChange={setBilling} disabled={busy || Boolean(submission.current)} />}
         {quote?.fiscal && <Text style={text}>Factura para {quote.fiscal.recipient.fiscalName} · {quote.fiscal.recipientEmail}{quote.fiscal.recipient.fiscalTaxId ? ` · ${quote.fiscal.recipient.fiscalTaxId}` : ''}</Text>}
         {!!error && <Text accessibilityRole="alert" style={{ color: theme.error }}>{error}</Text>}
+        {professional && <SubscriptionActionLink message={error} onLeave={onClose} />}
         {busy && <ActivityIndicator color={theme.primary} />}
         {quote ? <Button loading={busy} disabled={!professional && quote.payment?.mode === 'ONLINE' && (!paymentAcceptance || !quote.payment.available)} onPress={() => void confirm()}>{professional ? 'Asignar y enviar factura' : quote.payment?.mode === 'ONLINE' ? 'Adquirir y continuar al pago' : 'Solicitar y recibir factura'}</Button> : <Button disabled={professional && !clientId} loading={busy} onPress={() => void review()}>Revisar antes de confirmar</Button>}
         {quote && !!error && !submission.current && <Button variant="ghost" disabled={busy} onPress={() => void review()}>Consultar condiciones actualizadas</Button>}

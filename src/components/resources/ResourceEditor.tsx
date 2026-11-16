@@ -80,7 +80,7 @@ export function ResourceEditor({ initial, onClose }: { initial: HeraResource | n
           <View style={styles.field}><Text style={text}>Categoría</Text><SimpleDropdown value={metadata.category} options={resourceCategories} accessibilityLabel="Categoría del recurso" disabled={busy} presentation="portal" onSelect={category => setMetadata(value => ({ ...value, category }))} /></View>
           <View style={styles.field}><Text style={text}>Plan mínimo previsto</Text><SimpleDropdown value={metadata.minimumPlan} options={resourcePlans} accessibilityLabel="Plan mínimo del recurso" disabled={busy} presentation="portal" onSelect={minimumPlan => setMetadata(value => ({ ...value, minimumPlan }))} /></View>
         </View>
-        <Text style={text}>El plan clasifica el recurso para las futuras suscripciones. Durante el acceso inicial, todos los recursos publicados están disponibles.</Text>
+        <Text style={text}>El nivel mínimo controla la vista previa y la descarga. Los planes superiores incluyen también los recursos de los niveles anteriores.</Text>
         <View style={styles.actions}><Button disabled={busy || !dirty} onPress={() => void save()}>Guardar ficha</Button></View>
       </View>
       <View style={[styles.section, { borderColor: theme.border, backgroundColor: theme.bgCard }]}>

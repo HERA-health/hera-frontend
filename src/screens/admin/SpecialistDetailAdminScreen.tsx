@@ -801,6 +801,11 @@ export function SpecialistDetailAdminScreen({ route, navigation }: Props) {
           </AnimatedPressable>
         </View>
 
+        <View style={{ alignSelf: 'flex-start', marginBottom: 16 }}>
+          <Button variant="outline" onPress={() => navigation.navigate('AdminPanel', { initialTab: 'subscriptions', subscriptionSpecialistId: specialist.id })}>
+            Gestionar suscripción
+          </Button>
+        </View>
         <View style={styles.overviewGrid}>
           {renderHeaderCard()}
           {renderPatients()}

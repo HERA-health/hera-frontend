@@ -12,12 +12,18 @@ export function FocusedActionSheet({
   title,
   description,
   onClose,
+  closeLabel = 'Cerrar formulario',
+  dismissible = true,
+  footer,
   children,
 }: {
   visible: boolean;
   title: string;
   description?: string;
   onClose: () => void;
+  closeLabel?: string;
+  dismissible?: boolean;
+  footer?: React.ReactNode;
   children: React.ReactNode;
 }): React.ReactElement {
   const { theme, isDark } = useTheme();
@@ -26,17 +32,18 @@ export function FocusedActionSheet({
     if (visible && Platform.OS === 'web') setTimeout(() => closeRef.current?.focus(), 0);
   }, [visible]);
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={() => { if (dismissible) onClose(); }}>
       <View style={[styles.overlay, { backgroundColor: theme.overlay }]}>
-        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityLabel="Cerrar" />
-        <View style={[styles.sheet, shadows.xl, { backgroundColor: isDark ? theme.bgElevated : theme.bgCard, borderColor: theme.border }]}>
+        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} disabled={!dismissible} accessibilityLabel="Cerrar" />
+        <View accessibilityViewIsModal style={[styles.sheet, shadows.xl, { backgroundColor: isDark ? theme.bgElevated : theme.bgCard, borderColor: theme.border }]}>
           <View style={[styles.header, { borderBottomColor: theme.border }]}>
-            <View style={styles.copy}><Text style={[styles.title, { color: theme.textPrimary }]}>{title}</Text>{description ? <Text style={[styles.description, { color: theme.textSecondary }]}>{description}</Text> : null}</View>
-            <AnimatedPressable focusRef={closeRef} onPress={onClose} accessibilityRole="button" accessibilityLabel="Cerrar formulario" style={styles.close} hoverLift={false}>
+            <View style={styles.copy}><Text accessibilityRole="header" style={[styles.title, { color: theme.textPrimary }]}>{title}</Text>{description ? <Text style={[styles.description, { color: theme.textSecondary }]}>{description}</Text> : null}</View>
+            <AnimatedPressable focusRef={closeRef} onPress={onClose} disabled={!dismissible} accessibilityRole="button" accessibilityLabel={closeLabel} style={styles.close} hoverLift={false}>
               <Ionicons name="close" size={22} color={theme.textSecondary} />
             </AnimatedPressable>
           </View>
           <VisibleScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">{children}</VisibleScrollView>
+          {footer ? <View style={[styles.footer, { borderTopColor: theme.border }]}>{footer}</View> : null}
         </View>
       </View>
     </Modal>
@@ -52,4 +59,5 @@ const styles = StyleSheet.create({
   description: { marginTop: spacing.xs, fontSize: typography.fontSizes.sm, lineHeight: 20 },
   close: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center', borderRadius: 20 },
   content: { gap: spacing.md, padding: spacing.lg },
+  footer: { padding: spacing.lg, borderTopWidth: 1 },
 });

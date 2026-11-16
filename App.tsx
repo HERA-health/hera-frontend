@@ -80,6 +80,8 @@ export const linking: LinkingOptions<RootStackParamList> = {
       AdminMatchingAdvice: 'admin/orientacion',
       ProfessionalTariffs: 'profesional/tarifas',
       ...(RESOURCES_VISIBLE ? { ResourceLibrary: 'profesional/recursos' } : {}),
+      ProfessionalSubscription: 'profesional/suscripcion',
+      AdminSubscriptions: 'admin/suscripciones',
       GoogleCalendarIntegration: 'integrations/google-calendar',
       GoogleCalendarSession: 'calendar/session/:sessionId',
       EmailVerification: {
@@ -157,6 +159,7 @@ export const linking: LinkingOptions<RootStackParamList> = {
               || initialTab === 'dashboard'
               || initialTab === 'verifications'
               || initialTab === 'commissions'
+              || initialTab === 'subscriptions'
               || initialTab === 'help'
               || initialTab === 'feedback'
             ) return initialTab;

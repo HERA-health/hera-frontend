@@ -29,6 +29,7 @@ import { LegalNoticeItem } from '../legal/LegalNoticeItem';
 const ROUTE_TITLES: Record<string, { title: string; eyebrow?: string }> = {
   ProfessionalHome: { title: 'Inicio' },
   AdminPanel: { title: 'Panel de administrador' },
+  AdminSubscriptions: { title: 'Suscripciones' },
   ProfessionalClients: { title: 'Pacientes' },
   ClientProfile: { title: 'Ficha del paciente', eyebrow: 'Pacientes' },
   ProfessionalSessions: { title: 'Agenda' },
@@ -40,6 +41,7 @@ const ROUTE_TITLES: Record<string, { title: string; eyebrow?: string }> = {
   CreateInvoice: { title: 'Nueva factura', eyebrow: 'Facturación' },
   ProfessionalDashboard: { title: 'Estadísticas' },
   ResourceLibrary: { title: 'Plantillas y recursos' },
+  ProfessionalSubscription: { title: 'Mi suscripción' },
   ProfessionalAvailability: { title: 'Disponibilidad' },
   ProfessionalProfile: { title: 'Perfil profesional' },
   GoogleCalendarIntegration: { title: 'Calendario y Meet', eyebrow: 'Ajustes' },
@@ -161,13 +163,14 @@ export function ProfessionalTopBar({
     setOpenMenu(null);
   }, []);
 
-  const navigateSimple = useCallback((route: 'ProfessionalSessions' | 'ProfessionalBilling' | 'ProfessionalProfile' | 'CreateInvoice' | 'ProfessionalHelp') => {
+  const navigateSimple = useCallback((route: 'ProfessionalSessions' | 'ProfessionalBilling' | 'ProfessionalProfile' | 'CreateInvoice' | 'ProfessionalHelp' | 'ProfessionalSubscription') => {
     switch (route) {
       case 'ProfessionalSessions': navigateProfessionalSection(navigation, 'ProfessionalSessions'); break;
       case 'ProfessionalBilling': navigateProfessionalSection(navigation, 'ProfessionalBilling'); break;
       case 'ProfessionalProfile': navigateProfessionalSection(navigation, 'ProfessionalProfile'); break;
       case 'CreateInvoice': navigation.navigate('CreateInvoice', {}); break;
       case 'ProfessionalHelp': navigateProfessionalSection(navigation, 'ProfessionalHelp'); break;
+      case 'ProfessionalSubscription': navigateProfessionalSection(navigation, 'ProfessionalSubscription'); break;
     }
     closeAfterNavigation();
   }, [closeAfterNavigation, navigation]);
@@ -367,6 +370,7 @@ export function ProfessionalTopBar({
                 <Text style={[styles.accountRole, { color: theme.textMuted, fontFamily: theme.fontSans }]}>Espacio profesional</Text>
               </View>
               <MenuRow icon="person-circle-outline" title="Perfil profesional" onPress={() => navigateSimple('ProfessionalProfile')} />
+              <MenuRow icon="layers-outline" title="Mi suscripción" onPress={() => navigateSimple('ProfessionalSubscription')} />
               <View style={[styles.divider, { backgroundColor: theme.borderLight }]} />
               <Text style={[styles.menuLabel, { color: theme.textMuted, fontFamily: theme.fontSansSemiBold }]}>Apariencia</Text>
               <View style={styles.themeOptions}>

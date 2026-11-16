@@ -398,14 +398,16 @@ describe('useProfessionalAgendaController', () => {
 
   it('persists only view and filters per account and never exposes a previous account response', async () => {
     const pending = createDeferred<professionalService.ProfessionalAgendaResponse>();
-    getProfessionalAgendaMock.mockReturnValueOnce(pending.promise).mockResolvedValue(createAgendaResponse('second-account'));
+    const secondAccount = createDeferred<professionalService.ProfessionalAgendaResponse>();
+    getProfessionalAgendaMock.mockReturnValueOnce(pending.promise).mockReturnValueOnce(secondAccount.promise);
     const { result, rerender, unmount } = renderHook(({ id }: { id: string }) => useProfessionalAgendaController(id), { initialProps: { id: 'user-1' } });
     await waitFor(() => expect(getProfessionalAgendaMock).toHaveBeenCalledTimes(1));
     act(() => { result.current.setOriginFilter('DIRECTORY'); result.current.setStatusFilter('ALL'); });
     await waitFor(() => expect(AsyncStorage.setItem).toHaveBeenCalledWith('hera:agenda:v2:user-1', JSON.stringify({ view: 'week', origin: 'DIRECTORY', status: 'ALL' })));
     rerender({ id: 'user-2' });
     expect(result.current.sessions).toEqual([]);
-    await waitFor(() => expect(result.current.sessions[0]?.id).toBe('second-account'));
+    await act(async () => secondAccount.resolve(createAgendaResponse('second-account')));
+    expect(result.current.sessions[0]?.id).toBe('second-account');
     expect(result.current.originFilter).toBe('ALL');
     expect(result.current.statusFilter).toBe('ACTIVE');
     await act(async () => pending.resolve(createAgendaResponse('first-account-secret')));

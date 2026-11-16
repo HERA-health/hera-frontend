@@ -19,6 +19,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import * as adminService from '../../services/adminService';
 import type { PendingSpecialist, SpecialistFullDetail } from '../../services/adminService';
 import { showAppAlert, useAppAlert } from '../../components/common/alert';
+import { Button } from '../../components/common/Button';
 
 const getInsuranceStatusBadge = (status: SpecialistFullDetail['insuranceReviewStatus']) => {
   switch (status) {
@@ -264,7 +265,8 @@ export function AdminSpecialistDetailScreen() {
         style={styles.scrollView}
         contentContainerStyle={styles.contentContainer}
       >
-        {/* Back header */}
+          <Button variant="outline" onPress={() => navigation.navigate('AdminPanel', { initialTab: 'subscriptions', subscriptionSpecialistId: specialist.id })}>Gestionar suscripción</Button>
+          {/* Back header */}
         <TouchableOpacity
           style={styles.backHeader}
           onPress={() => navigation.goBack()}

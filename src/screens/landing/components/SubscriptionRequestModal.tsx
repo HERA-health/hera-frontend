@@ -1,4 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { randomUUID } from 'expo-crypto';
+import { trialLabel } from '../../../services/subscriptionService';
 import { ActivityIndicator, KeyboardAvoidingView, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useTheme } from '../../../contexts/ThemeContext';
@@ -21,13 +23,13 @@ export function SubscriptionRequestModal({ plan, onClose }: { plan: PricingPlan;
   const closeButton = useRef<AnimatedPressableHandle>(null);
   const mounted = useRef(true);
   const sending = useRef(false);
+  const requestKey = useRef<{ fingerprint: string; key: string } | null>(null);
   const [contact, setContact] = useState<SubscriptionContact>({ firstName: '', lastName: '', email: '', phone: '', licenseNumber: '' });
   const [errors, setErrors] = useState<Partial<Record<keyof SubscriptionContact, string>>>({});
   const [conditions, setConditions] = useState<SubscriptionConditions | null>(null);
   const [loadingConditions, setLoadingConditions] = useState(true);
   const [conditionsError, setConditionsError] = useState(false);
   const [accepted, setAccepted] = useState(false);
-  const [showConditions, setShowConditions] = useState(false);
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState('');
@@ -76,7 +78,10 @@ export function SubscriptionRequestModal({ plan, onClose }: { plan: PricingPlan;
     setBusy(true);
     setError('');
     try {
+      const fingerprint = JSON.stringify([parsed.data, plan.id, conditions.contentHash, conditions.privacy.contentHash]);
+      if (requestKey.current?.fingerprint !== fingerprint) requestKey.current = { fingerprint, key: randomUUID() };
       await submitSubscriptionRequest({
+        operationKey: requestKey.current.key,
         ...parsed.data, planId: plan.id, accepted: true,
         conditionsVersion: conditions.version, conditionsHash: conditions.contentHash,
         privacyVersion: conditions.privacy.version, privacyHash: conditions.privacy.contentHash,
@@ -88,7 +93,6 @@ export function SubscriptionRequestModal({ plan, onClose }: { plan: PricingPlan;
       if (failure instanceof SubscriptionRequestError && failure.conditionsChanged) {
         setAccepted(false);
         setConditions(null);
-        setShowConditions(true);
         await loadConditions();
       }
     } finally {
@@ -100,6 +104,11 @@ export function SubscriptionRequestModal({ plan, onClose }: { plan: PricingPlan;
     if (!conditions) return;
     try { await Linking.openURL(legalReaderUrl('PRIVACY_POLICY', conditions.privacy.version)); }
     catch { setError('No se ha podido abrir la política de privacidad. Vuelve a intentarlo.'); }
+  }
+  async function openConditions() {
+    if (!conditions) return;
+    try { await Linking.openURL(legalReaderUrl('solicitud-suscripcion', conditions.version)); }
+    catch { setError('No se han podido abrir las condiciones. Vuelve a intentarlo.'); }
   }
 
   return <Modal visible transparent animationType="none" onRequestClose={close} onShow={() => closeButton.current?.focus()}>
@@ -124,7 +133,7 @@ export function SubscriptionRequestModal({ plan, onClose }: { plan: PricingPlan;
               <Text style={[styles.copy, body]}>Déjanos tus datos para solicitar la activación. HERA te confirmará por email cuándo empieza tu prueba gratuita.</Text>
             </View>
             <View style={[styles.plan, { backgroundColor: theme.landingProfessional }]}>
-              <View style={styles.flex}><Text style={[styles.planName, strong]}>Plan {plan.name}</Text><Text style={[styles.small, body]}>1 mes gratuito desde la activación</Text></View>
+              <View style={styles.flex}><Text style={[styles.planName, strong]}>Plan {plan.name}</Text><Text style={[styles.small, body]}>{conditions ? `${trialLabel(conditions.trial)} de prueba desde la activación` : 'Prueba gratuita desde la activación'}</Text></View>
               <View><Text style={[styles.planPrice, strong]}>{plan.monthlyPrice} €</Text><Text style={[styles.small, body]}>después / mes + IVA</Text></View>
             </View>
             <View style={[styles.fields, !compact && styles.row]}>
@@ -144,14 +153,9 @@ export function SubscriptionRequestModal({ plan, onClose }: { plan: PricingPlan;
                   <Text style={[styles.small, body, styles.flex]}>Acepto las condiciones de solicitud de suscripción y la política de privacidad de HERA.</Text>
                 </Pressable>
                 <View style={styles.links}>
-                  <Pressable accessibilityRole="button" aria-expanded={showConditions} accessibilityState={{ expanded: showConditions }} onPress={() => setShowConditions(!showConditions)} style={styles.link}><Text style={[styles.small, { color: theme.primary, fontFamily: theme.fontSansSemiBold, textDecorationLine: 'underline' }]}>{showConditions ? 'Ocultar condiciones' : 'Leer condiciones'}</Text></Pressable>
+                  <Pressable accessibilityRole="link" onPress={() => { void openConditions(); }} style={styles.link}><Text style={[styles.small, { color: theme.primary, fontFamily: theme.fontSansSemiBold, textDecorationLine: 'underline' }]}>Condiciones de la solicitud ↗</Text></Pressable>
                   <Pressable accessibilityRole="link" onPress={() => { void openPrivacy(); }} style={styles.link}><Text style={[styles.small, { color: theme.primary, fontFamily: theme.fontSansSemiBold, textDecorationLine: 'underline' }]}>Política de privacidad ↗</Text></Pressable>
                 </View>
-                {showConditions ? <View style={[styles.terms, { borderColor: theme.borderLight }]}>
-                  <Text accessibilityRole="header" style={[styles.copy, strong]}>{conditions.title}</Text>
-                  <Text style={[styles.small, body]}>Versión {conditions.version}</Text>
-                  {conditions.paragraphs.map((paragraph, index) => <Text key={index} style={[styles.small, body]}>{paragraph}</Text>)}
-                </View> : null}
               </View> : null}
             {error ? <Text accessibilityRole="alert" accessibilityLiveRegion="polite" style={[styles.small, { color: theme.error, fontFamily: theme.fontSans }]}>{error}</Text> : null}
             <View style={[styles.actions, !compact && styles.row]}>
@@ -188,7 +192,6 @@ const styles = StyleSheet.create({
   acceptance: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 44 },
   links: { flexDirection: 'row', flexWrap: 'wrap', columnGap: 18 },
   link: { minHeight: 44, justifyContent: 'center' },
-  terms: { paddingTop: 12, paddingBottom: 8, gap: 10, borderTopWidth: 1 },
   actions: { gap: 12 },
   action: { flexGrow: 1, flexBasis: 0 },
   loading: { flexDirection: 'row', gap: 10, alignItems: 'center', minHeight: 44 },

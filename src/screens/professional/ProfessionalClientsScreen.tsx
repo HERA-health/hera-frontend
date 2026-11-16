@@ -37,6 +37,7 @@ import {
 } from '../../constants/errors';
 import * as clinicalService from '../../services/clinicalService';
 import { createManagedPatientWithInitialConsent } from '../../services/managedPatientConsentService';
+import { SubscriptionActionLink } from '../../components/subscriptions/SubscriptionActionLink';
 import * as professionalService from '../../services/professionalService';
 import type { UploadAsset } from '../../utils/multipartUpload';
 import {
@@ -1382,6 +1383,7 @@ export function ProfessionalClientsScreen() {
               </View>
 
               <View style={[stylesForTheme.modalActions, isMobile ? stylesForTheme.modalActionsMobile : null]}>
+                {!!error && <View style={{ gap: 10, flex: 1 }}><Text accessibilityRole="alert" style={{ color: theme.error }}>{error}</Text><SubscriptionActionLink message={error} onLeave={() => setModalVisible(false)} /></View>}
                 <Button variant="ghost" size="medium" onPress={() => setModalVisible(false)} fullWidth={isMobile}>
                   Cancelar
                 </Button>

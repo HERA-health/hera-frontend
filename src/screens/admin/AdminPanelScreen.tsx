@@ -139,6 +139,7 @@ export function AdminPanelScreen() {
       }
     >
       <Button variant="ghost" onPress={() => navigation.navigate('AdminPanel', { initialTab: 'commissions', commissionSpecialistId: undefined, commissionAccountId: undefined })}>Comisiones HERA · saldos por especialista</Button>
+      <Button variant="outline" onPress={() => navigation.navigate('AdminPanel', { initialTab: 'subscriptions', subscriptionSpecialistId: undefined })}>Suscripciones · solicitudes y vencimientos</Button>
       <View style={styles.summaryCard}>
         <View>
           <Text style={styles.summaryLabel}>Verificación profesional</Text>

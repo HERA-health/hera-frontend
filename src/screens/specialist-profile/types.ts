@@ -7,6 +7,7 @@ import type { ProfessionalType } from '../../constants/professionalTypes';
 import type { TimeSlot as AvailableSlot } from '../../services/sessionsService';
 
 export interface Specialist {
+  subscriptionBadge?: 'HORIZONTE' | null;
   publicOptions?: import('../../services/specialistsService').PublicPriceOption[];
   offersPhone?: boolean;
   id: string;

@@ -100,6 +100,7 @@ export interface SpecialistFilters {
 }
 
 export interface PublicSpecialistProfileData {
+  subscriptionBadge?: 'HORIZONTE' | null;
   publicOptions?: PublicPriceOption[]; offersPhone?: boolean;
   id: string;
   publicSlug?: string | null;
@@ -154,6 +155,7 @@ export type PublicSpecialistDirectorySort =
 
 export interface PublicPriceOption { serviceId?: string; serviceKey?: string; serviceName?: string; serviceDescription?: string | null; specialistId: string; optionId: string; modality: string; durationMinutes: number; priceCents: number }
 export interface PublicSpecialistCard {
+  subscriptionBadge?: 'HORIZONTE' | null;
   publicOptions?: PublicPriceOption[]; matchedOptionId?: string | null; offersPhone?: boolean;
   id: string;
   publicSlug?: string | null;
@@ -464,6 +466,7 @@ export const mapPublicSpecialistToProfile = (data: PublicSpecialistProfileData):
       collegiateNumber: data.collegiateNumber ?? undefined,
     }),
     isPubliclyListed: data.isPubliclyListed,
+    subscriptionBadge: data.subscriptionBadge,
   });
 
 export const openPublicCertificateDocument = async (

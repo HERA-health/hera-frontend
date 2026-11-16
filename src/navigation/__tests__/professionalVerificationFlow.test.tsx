@@ -225,12 +225,12 @@ describe('professional verification flow', () => {
     jest.mocked(authService.getCurrentUser).mockResolvedValue(pendingUser);
     renderFlow();
     await waitFor(() => expect(screen.getByText('Entrar en cuenta de prueba')).toBeTruthy());
-    fireEvent.press(screen.getByText('Entrar en cuenta de prueba'));
+    await act(async () => fireEvent.press(screen.getByText('Entrar en cuenta de prueba')));
     await waitFor(() => expect(screen.getByText('Actualizar cuenta profesional')).toBeTruthy());
     jest.mocked(authService.getCurrentUser).mockResolvedValue({
       ...pendingUser, specialist: { ...pendingUser.specialist, verificationStatus: 'REJECTED' },
     });
-    fireEvent.press(screen.getByText('Actualizar cuenta profesional'));
+    await act(async () => fireEvent.press(screen.getByText('Actualizar cuenta profesional')));
     await waitFor(() => expect(screen.getByText('Formulario de carnet')).toBeTruthy());
     expect(screen.queryByText('Actualizar cuenta profesional')).toBeNull();
   });
@@ -256,6 +256,7 @@ describe('professional verification flow', () => {
     const unhandledAction = jest.fn();
     render(<AuthProvider><NavigationContainer ref={navigationRef} onUnhandledAction={unhandledAction}><RootNavigator /></NavigationContainer></AuthProvider>);
     await waitFor(() => expect(screen.getByText('Actualizar cuenta profesional')).toBeTruthy());
+    await waitFor(() => expect(navigationRef.isReady()).toBe(true));
     act(() => navigationRef.navigate('EmailVerification', { token: 'pending-professional-link' }));
     await waitFor(() => expect(screen.getByText('Comenzar')).toBeTruthy());
     expect(screen.getByText('El carné de colegiado ya se ha enviado.')).toBeTruthy();

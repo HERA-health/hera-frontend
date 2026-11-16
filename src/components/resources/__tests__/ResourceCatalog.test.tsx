@@ -6,7 +6,7 @@ import * as service from '../../../services/resourceService';
 import * as picker from 'expo-document-picker';
 
 jest.mock('../../../contexts/ThemeContext', () => ({ useTheme: () => ({ theme: require('../../../constants/theme').lightTheme }) }));
-jest.mock('@react-navigation/native', () => ({ useIsFocused: () => true }));
+jest.mock('@react-navigation/native', () => ({ useIsFocused: () => true, useNavigation: () => ({ navigate: jest.fn() }) }));
 jest.mock('../../../services/api', () => ({ api: { get: jest.fn(), post: jest.fn() } }));
 jest.mock('../../../services/resourceService', () => ({ ...jest.requireActual('../../../services/resourceService'), listResources: jest.fn(), saveResource: jest.fn(), publishResource: jest.fn(), uploadResourceFile: jest.fn(), requestResourceFile: jest.fn() }));
 jest.mock('expo-document-picker', () => ({ getDocumentAsync: jest.fn() }));
@@ -14,7 +14,7 @@ jest.mock('../../../utils/openPrivateDocument', () => ({ openPrivateDocument: je
 jest.mock('../../common/alert', () => ({ useAppAlert: () => ({ confirm: jest.fn().mockResolvedValue(true) }) }));
 
 const resource: service.HeraResource = { id: 'resource1', title: 'Registro de emociones', description: 'Material para tu práctica.', category: 'THERAPEUTIC', minimumPlan: 'CALMA', status: 'PUBLISHED', updatedAt: '2026-11-11T10:00:00Z', files: [{ id: 'file1', format: 'PDF', fileName: 'registro.pdf', sizeBytes: 1200 }] };
-const result: service.ResourceList = { items: [resource], total: 1, page: 1, pageSize: 20, openAccess: true, categoryCounts: [{ category: 'THERAPEUTIC', count: 1 }] };
+const result: service.ResourceList = { items: [resource], total: 1, page: 1, pageSize: 20, openAccess: true, enforced: false, categoryCounts: [{ category: 'THERAPEUTIC', count: 1 }] };
 beforeEach(() => {
   jest.clearAllMocks();
   jest.mocked(service.listResources).mockResolvedValue(result);
@@ -28,11 +28,22 @@ it('shows only HERA catalogue actions and requests links only on interaction', a
   expect(service.requestResourceFile).not.toHaveBeenCalled();
 });
 it('closed access disables file actions but keeps the catalogue visible', async () => {
-  jest.mocked(service.listResources).mockResolvedValue({ ...result, openAccess: false });
+  jest.mocked(service.listResources).mockResolvedValue({ ...result, openAccess: false, enforced: true });
   render(<ResourceCatalog />); await screen.findByText(resource.title);
   expect(screen.getByLabelText(`Ver PDF de ${resource.title}`)).toBeDisabled();
   expect(screen.getByLabelText(`Descargar PDF de ${resource.title}`)).toBeDisabled();
-  expect(screen.getByText(/todavía no está habilitado/)).toBeTruthy();
+  expect(screen.getByText(/Los planes superiores incluyen los niveles anteriores/)).toBeTruthy();
+  expect(screen.getByText('Mi suscripción')).toBeTruthy();
+});
+it.each([true, false])('preserves legacy resource access without suggesting a subscription requirement (open: %s)', async openAccess => {
+  jest.mocked(service.listResources).mockResolvedValue({ ...result, openAccess });
+  render(<ResourceCatalog />); await screen.findByText(resource.title);
+  const download = screen.getByLabelText(`Descargar PDF de ${resource.title}`);
+  if (openAccess) expect(download).not.toBeDisabled(); else expect(download).toBeDisabled();
+  expect(screen.queryByText('Mi suscripción')).toBeNull();
+  expect(screen.queryByText('Desde Calma')).toBeNull();
+  expect(screen.queryByText(/nivel de plan que necesitas/)).toBeNull();
+  if (!openAccess) expect(screen.getByText(/El acceso a los archivos todavía no está habilitado/)).toBeTruthy();
 });
 it('search and categories filter on the server and can be reset', async () => {
   render(<ResourceCatalog />); await screen.findByText(resource.title);

@@ -4,7 +4,7 @@ import type { RootStackParamList } from '../constants/types';
 const sections = [
   'ProfessionalHome', 'ProfessionalClients', 'ProfessionalSessions',
   'ProfessionalPayments', 'ProfessionalTariffs', 'ProfessionalBilling', 'ProfessionalDashboard', 'ProfessionalAvailability',
-  'ProfessionalProfile', 'ProfessionalHelp', 'ProfessionalClinicWorkspace', 'ResourceLibrary',
+  'ProfessionalProfile', 'ProfessionalHelp', 'ProfessionalClinicWorkspace', 'ResourceLibrary', 'ProfessionalSubscription',
 ] as const;
 
 export type ProfessionalSection = typeof sections[number];

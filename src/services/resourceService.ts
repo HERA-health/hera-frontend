@@ -10,11 +10,12 @@ export const resourceMetadataSchema = z.object({
   category: resourceCategorySchema, minimumPlan: resourcePlanSchema,
 });
 export const resourceSchema = resourceMetadataSchema.extend({
+  accessible: z.boolean().optional(),
   id: z.string(), status: z.enum(['DRAFT', 'PUBLISHED']), updatedAt: z.string(),
   files: z.array(z.object({ id: z.string(), format: resourceFormatSchema, fileName: z.string(), sizeBytes: z.number() })),
 });
 const resourceListSchema = z.object({
-  items: z.array(resourceSchema), total: z.number(), page: z.number(), pageSize: z.number(), openAccess: z.boolean(),
+  items: z.array(resourceSchema), total: z.number(), page: z.number(), pageSize: z.number(), openAccess: z.boolean(), enforced: z.boolean(),
   categoryCounts: z.array(z.object({ category: resourceCategorySchema, count: z.number() })),
 });
 export type HeraResource = z.infer<typeof resourceSchema>;

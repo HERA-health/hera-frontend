@@ -1,4 +1,5 @@
 import { PackageAssignment } from '../packages/PackageAssignment';
+import { SubscriptionActionLink } from '../subscriptions/SubscriptionActionLink';
 import { StackActions, useIsFocused, useNavigation } from '@react-navigation/native';
 import type { AppNavigationProp } from '../../constants/types';
 import { billingReadinessFromError, type BillingReadiness } from '../../services/billingReadiness';
@@ -904,6 +905,7 @@ export function ManagedSessionSchedulerModal({
                 {errors.form}
               </Text>
             )}
+            <SubscriptionActionLink message={errors.form} onLeave={onClose} />
             {billingIssue && <Button variant="outline" onPress={() => {
               correctionRequested.current = true;
               if (billingIssue.correctionTarget === 'BILLING_SETTINGS') navigation.navigate('ProfessionalBilling', { initialSection: 'fiscal' });

@@ -102,6 +102,7 @@ export function PublicProfileHero({ specialist, onPractice, onReviews, reviewsVi
           </Text>}
       </View>
       <View style={[styles.identity, mobile && styles.identityMobile]}>
+          {specialist.subscriptionBadge === 'HORIZONTE' && <Text style={{ color: theme.primary, fontFamily: theme.fontSansSemiBold, fontSize: 12 }}>Horizonte · Presencia destacada</Text>}
         <View style={[styles.nameRow, mobile && styles.nameRowMobile]}>
         <Text accessibilityRole="header" style={[styles.name, mobile && styles.nameMobile, { color: theme.textPrimary, fontFamily: theme.fontDisplay }]}>{specialist.name}{specialist.age != null ? <Text style={{ color: theme.textSecondary, fontFamily: theme.fontSans, fontSize: 20 }}>{` ·\u00a0${specialist.age}\u00a0años`}</Text> : null}</Text>
         <View style={styles.actions}>

@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { StyleSheet, Text, TextInput, View } from "react-native";
 import { Button } from "../common";
+import { SubscriptionActionLink } from "../subscriptions/SubscriptionActionLink";
 import { SimpleDropdown } from "../common/SimpleDropdown";
 import { useTheme } from "../../contexts/ThemeContext";
 import { spacing } from "../../constants/colors";
@@ -518,6 +519,7 @@ export function ClinicalWorkspaceComposer({
           </Button>
         </View>
       ))}
+      <SubscriptionActionLink message={error} />
       {error ? (
         <Text
           accessibilityRole="alert"

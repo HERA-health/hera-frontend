@@ -4,6 +4,7 @@ import { publicApi } from './api';
 import type { PricingPlanId } from '../screens/landing/pricingContent';
 
 const conditionsSchema = z.object({
+  trial: z.object({ unit: z.enum(['month','day']), count: z.number().int().positive() }),
   version: z.string().min(1),
   contentHash: z.string().regex(/^[a-f0-9]{64}$/),
   title: z.string().min(1),
@@ -24,6 +25,7 @@ export const subscriptionContactSchema = z.object({
 });
 export type SubscriptionContact = z.infer<typeof subscriptionContactSchema>;
 export interface SubscriptionRequest extends SubscriptionContact {
+  operationKey?: string;
   planId: PricingPlanId;
   accepted: true;
   conditionsVersion: string;

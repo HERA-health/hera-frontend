@@ -70,6 +70,7 @@ function FeaturedSpecialistCard({ specialist, onPress, href, style }: PublicSpec
         <Ionicons name="arrow-forward" size={16} color={theme.primary} />
       </View>
       <View style={styles.content}>
+        {specialist.subscriptionBadge === 'HORIZONTE' && <Text style={{ color: '#FFFFFF', fontFamily: theme.fontSansSemiBold, fontSize: 10, letterSpacing: 1 }}>HORIZONTE · PERFIL DESTACADO</Text>}
         <Text accessibilityRole="header" aria-level={3} numberOfLines={2} style={[styles.name, { fontFamily: theme.fontSansBold }]}>
           {specialist.name}
         </Text>

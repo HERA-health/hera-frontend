@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { useIsFocused } from '@react-navigation/native';
+import { useIsFocused, useNavigation } from '@react-navigation/native';
+import type { AppNavigationProp } from '../../constants/types';
 import { useTheme } from '../../contexts/ThemeContext';
 import { AnimatedPressable } from '../common/AnimatedPressable';
 import { Button } from '../common/Button';
@@ -13,6 +14,7 @@ import { ResourceEditor } from './ResourceEditor';
 import { resourceCategories, planLabel } from './resourcePresentation';
 
 export function ResourceCatalog({ admin = false }: { admin?: boolean }) {
+  const navigation = useNavigation<AppNavigationProp>();
   const { theme } = useTheme();
   const width = useWindowDimensions().width;
   const desktop = width >= 1200;
@@ -74,7 +76,8 @@ export function ResourceCatalog({ admin = false }: { admin?: boolean }) {
       </View>
       {!admin && result && !result.openAccess && <View style={[styles.notice, { borderColor: theme.border }]}>
         <Ionicons name="lock-closed-outline" size={19} color={theme.primary} />
-        <Text style={[text, { flex: 1, fontSize: 13, lineHeight: 20 }]}>Puedes consultar el catálogo. El acceso a los archivos todavía no está habilitado.</Text>
+        <Text style={[text, { flex: 1, fontSize: 13, lineHeight: 20 }]}>{result.enforced ? 'Cada recurso indica el nivel de plan que necesitas. Los planes superiores incluyen los niveles anteriores.' : 'Puedes consultar el catálogo. El acceso a los archivos todavía no está habilitado.'}</Text>
+        {result.enforced && <Button variant="ghost" onPress={() => navigation.navigate('ProfessionalSubscription')}>Mi suscripción</Button>}
       </View>}
       <View style={styles.toolbar}>
         <Text accessibilityRole="header" style={[strong, { fontSize: 16, marginRight: 'auto' }]}>{category ? resourceCategories.find(item => item.value === category)?.label : 'Todos los recursos'}</Text>
@@ -95,7 +98,7 @@ export function ResourceCatalog({ admin = false }: { admin?: boolean }) {
           {filtered && <Button variant="outline" onPress={reset}>Restablecer filtros</Button>}
         </View> : <View style={[styles.table, { borderColor: theme.border, backgroundColor: theme.bgCard }]}>
           {desktop && <View style={[styles.row, styles.tableHead, { backgroundColor: theme.bgMuted, borderColor: theme.border }]}>
-            <Text style={[text, styles.mainCol, styles.caption]}>Nombre y descripción</Text><Text style={[text, styles.formatCol, styles.caption]}>Formato</Text><Text style={[text, styles.dateCol, styles.caption]}>Actualización</Text><Text style={[text, styles.planCol, styles.caption]}>{admin ? 'Plan / estado' : 'Plan previsto'}</Text><Text style={[text, styles.actionCol, styles.caption]}>Acciones</Text>
+            <Text style={[text, styles.mainCol, styles.caption]}>Nombre y descripción</Text><Text style={[text, styles.formatCol, styles.caption]}>Formato</Text><Text style={[text, styles.dateCol, styles.caption]}>Actualización</Text>{(admin || result.enforced) && <Text style={[text, styles.planCol, styles.caption]}>{admin ? 'Plan / estado' : 'Plan incluido'}</Text>}<Text style={[text, styles.actionCol, styles.caption]}>Acciones</Text>
           </View>}
           {result.items.map(item => <View key={item.id} style={[styles.row, !desktop && styles.mobileRow, { borderColor: theme.border }]}>
             <View style={[desktop ? styles.mainCol : undefined, { gap: 6 }]}>
@@ -107,9 +110,9 @@ export function ResourceCatalog({ admin = false }: { admin?: boolean }) {
               {!item.files.length && <Text style={[text, styles.caption]}>Sin archivos</Text>}
             </View>
             <Text style={[text, desktop && styles.dateCol, styles.caption]}>{!desktop ? 'Actualizado: ' : ''}{new Date(item.updatedAt).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' })}</Text>
-            <View style={[desktop && styles.planCol, { gap: 7 }]}><Text style={[text, styles.caption]}>Desde {planLabel(item.minimumPlan)}</Text>{admin && <Text style={[styles.caption, { color: item.status === 'PUBLISHED' ? theme.primary : theme.textMuted, fontFamily: theme.fontSansSemiBold }]}>{item.status === 'PUBLISHED' ? 'Publicado' : 'Borrador'}</Text>}</View>
+            {(admin || result.enforced) && <View style={[desktop && styles.planCol, { gap: 7 }]}><Text style={[text, styles.caption]}>Desde {planLabel(item.minimumPlan)}</Text>{admin && <Text style={[styles.caption, { color: item.status === 'PUBLISHED' ? theme.primary : theme.textMuted, fontFamily: theme.fontSansSemiBold }]}>{item.status === 'PUBLISHED' ? 'Publicado' : 'Borrador'}</Text>}</View>}
             <View style={[desktop && styles.actionCol, { gap: 8 }]}>
-              <ResourceActions resource={item} admin={admin} enabled={admin || result.openAccess} />
+              <ResourceActions resource={item} admin={admin} enabled={admin || Boolean(item.accessible) || result.openAccess} />
               {admin && <AnimatedPressable accessibilityRole="button" accessibilityLabel={`Editar ${item.title}`} onPress={() => setEditor({ resource: item })} style={{ paddingVertical: 8 }}><Text style={{ color: theme.primary, fontFamily: theme.fontSansSemiBold, fontSize: 13 }}>Editar recurso →</Text></AnimatedPressable>}
             </View>
           </View>)}

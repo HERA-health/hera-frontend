@@ -183,6 +183,8 @@ export type RootStackParamList = {
   } | undefined;
   ProfessionalDashboard: undefined;
   ResourceLibrary: undefined;
+  ProfessionalSubscription: { plan?: 'CALMA' | 'CRECIMIENTO' | 'HORIZONTE' } | undefined;
+  AdminSubscriptions: { specialistId?: string } | undefined;
   ProfessionalClients: { openCreatePatient?: boolean } | undefined;
   ProfessionalClinicPatientDetail: {
     clinicId: string;
@@ -228,7 +230,8 @@ export type RootStackParamList = {
     returnAfterBillingSave?: boolean;
   };
   AdminPanel: {
-    initialTab?: 'dashboard' | 'verifications' | 'management' | 'commissions' | 'help' | 'feedback' | 'resources';
+    initialTab?: 'dashboard' | 'verifications' | 'management' | 'commissions' | 'subscriptions' | 'help' | 'feedback' | 'resources';
+    subscriptionSpecialistId?: string;
     dashboardSection?: import('../services/adminMetricsTypes').MetricsSection;
     dashboardFilters?: import('../services/adminMetricsTypes').MetricsFilters;
     commissionAccountId?: string;

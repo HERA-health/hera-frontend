@@ -6,6 +6,7 @@ import { ProfessionalWorkspaceProvider } from '../../../contexts/ProfessionalWor
 import { acceptLegalDocuments, dismissLegalNotice, type LegalNotice } from '../../../services/legalService';
 
 const mockNavigate = jest.fn();
+const mockDispatch = jest.fn();
 const mockRefreshAttention = jest.fn();
 const mockRefreshProfile = jest.fn();
 let mockWorkspace = {
@@ -21,7 +22,10 @@ const sentNotice: LegalNotice = {
   notifiedAt: '2026-11-01T12:00:00Z', appliesAt: '2026-11-17T12:00:00Z',
 };
 
-jest.mock('@react-navigation/native', () => ({ useNavigation: () => ({ navigate: mockNavigate }) }));
+jest.mock('@react-navigation/native', () => ({
+  useNavigation: () => ({ navigate: mockNavigate, dispatch: mockDispatch }),
+  CommonActions: { navigate: (payload: unknown) => ({ type: 'NAVIGATE', payload }) },
+}));
 jest.mock('../../../contexts/AuthContext', () => ({ useAuth: () => ({ user: { type: 'professional', name: 'Profesional Prueba' }, logout: jest.fn() }) }));
 jest.mock('../../../contexts/ThemeContext', () => ({ useTheme: () => ({ theme: require('../../../constants/theme').lightTheme, mode: 'light', setMode: jest.fn() }) }));
 jest.mock('../../../contexts/ProfessionalWorkspaceContext', () => {
@@ -49,6 +53,14 @@ beforeEach(() => {
     homeData: { ...mockWorkspace.homeData, pendingRequests: { total: 0 } },
     unreadSupport: 0,
   };
+});
+
+test('opens my subscription from the account menu', () => {
+  const view = render(<ProfessionalTopBar currentRoute="ProfessionalHome" onOpenMobileSidebar={jest.fn()} />);
+  fireEvent.press(view.getByLabelText('Abrir menú de usuario'));
+  fireEvent.press(view.getByText('Mi suscripción'));
+  expect(mockDispatch).toHaveBeenCalledWith({ type: 'NAVIGATE', payload: { name: 'ProfessionalSubscription', pop: true } });
+  expect(view.queryByText('Mi suscripción')).toBeNull();
 });
 
 test('shows sent legal notices only inside the bell and combines their count with existing pending items', () => {

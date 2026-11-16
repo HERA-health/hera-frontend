@@ -319,6 +319,14 @@ const ResourceLibraryRoute = createDeferredLayoutRoute<'ResourceLibrary'>(
   () => Platform.OS === 'web' ? import('../screens/professional/ResourceLibraryScreen') : require('../screens/professional/ResourceLibraryScreen'),
   { displayName: 'ResourceLibraryRoute', exportName: 'ResourceLibraryScreen' }
 );
+const ProfessionalSubscriptionRoute = createDeferredLayoutRoute<'ProfessionalSubscription'>(
+  () => Platform.OS === 'web' ? import('../screens/professional/ProfessionalSubscriptionScreen') : require('../screens/professional/ProfessionalSubscriptionScreen'),
+  { displayName: 'ProfessionalSubscriptionRoute', exportName: 'ProfessionalSubscriptionScreen' }
+);
+const AdminSubscriptionsRoute = createDeferredLayoutRoute<'AdminSubscriptions'>(
+  () => Platform.OS === 'web' ? import('../screens/admin/AdminSubscriptionsScreen') : require('../screens/admin/AdminSubscriptionsScreen'),
+  { displayName: 'AdminSubscriptionsRoute', exportName: 'AdminSubscriptionsScreen' }
+);
 const ProfessionalDashboardRoute = createDeferredLayoutRoute<'ProfessionalDashboard'>(
   () => Platform.OS === 'web' ? import('../screens/professional/DashboardScreen') : require('../screens/professional/DashboardScreen'),
   { displayName: 'ProfessionalDashboardRoute', exportName: 'DashboardScreen' }
@@ -1038,6 +1046,8 @@ export function RootNavigator() {
           />
           <Stack.Screen name="ProfessionalTariffs" component={ProfessionalTariffsRoute} options={{ headerTitle: 'Servicios y bonos' }} />
           {RESOURCES_VISIBLE && <Stack.Screen name="ResourceLibrary" component={ResourceLibraryRoute} options={{ headerTitle: 'Plantillas y recursos' }} />}
+          <Stack.Screen name="ProfessionalSubscription" component={ProfessionalSubscriptionRoute} options={{ headerTitle: 'Mi suscripción' }} />
+          <Stack.Screen name="AdminSubscriptions" component={AdminSubscriptionsRoute} options={{ headerTitle: 'Suscripciones' }} />
           {SESSION_PAYMENTS_VISIBLE && <><Stack.Screen name="SessionPayment" component={SessionPaymentRoute} /><Stack.Screen name="PackagePayment" component={PackagePaymentRoute} /></>}
           {SESSION_PAYMENTS_VISIBLE && <Stack.Screen name="ProfessionalPayments" component={ProfessionalPaymentsRoute} />}
           <Stack.Screen
@@ -1264,6 +1274,7 @@ export function RootNavigator() {
         />
         <Stack.Screen name="MatchingAdvice" component={MatchingAdviceRoute} />
         <Stack.Screen name="AdminMatchingAdvice" component={AdminMatchingAdviceRoute} />
+        <Stack.Screen name="AdminSubscriptions" component={AdminSubscriptionsRoute} options={{ headerTitle: 'Suscripciones' }} />
         <Stack.Screen
           name="AdminPanel"
           component={AdminPanelRoute}
