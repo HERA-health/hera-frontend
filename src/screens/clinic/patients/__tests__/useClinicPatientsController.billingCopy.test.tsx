@@ -300,6 +300,11 @@ describe('useClinicPatientsController billing copy', () => {
       });
     const { result } = renderHook(() => useClinicPatientsController());
 
+    // Consume the initial empty-list response before the post-create refresh.
+    await waitFor(() => {
+      expect(mockedListClinicPatients).toHaveBeenCalledTimes(1);
+      expect(result.current.patientsLoading).toBe(false);
+    });
     act(() => result.current.handleAdd());
     act(() => {
       result.current.handleChange('firstName', 'Lucía');
