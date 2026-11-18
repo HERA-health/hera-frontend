@@ -127,7 +127,7 @@ export function getDocumentTitleForRoute(
     ProfessionalAgenda: professionalPages.agenda.title,
     ProfessionalPatients: professionalPages.patients.title,
     ProfessionalBillingInfo: professionalPages.billing.title,
-    ProfessionalShowcase: 'HERA por dentro: recorrido del producto',
+    ProfessionalShowcase: 'HERA por dentro · Demo del software para psicólogos',
     Pricing: 'Planes y precios para psicólogos · HERA',
   };
   if (routeName && publicTitles[routeName]) return publicTitles[routeName];

@@ -84,8 +84,13 @@ test("tour covers the eight actual product areas and uses dedicated marketing as
   assert.ok(!html.includes("autoplay"));
   assert.ok(!html.includes('class="pro-breadcrumb"'));
   assert.match(html, /class="pro-tour-workspace"/);
-  for (const shot of marketingCaptures)
-    assert.ok(html.includes(`id="tour-${shot.id}"`));
+  for (const shot of marketingCaptures) {
+    const start = html.indexOf(`<section class="pro-tour-step" id="tour-${shot.id}"`);
+    assert.notEqual(start, -1);
+    const panel = html.slice(start, html.indexOf("</section>", start));
+    assert.ok(panel.includes(shot.heading) && panel.includes(shot.detail));
+    assert.ok(panel.includes(`href="${professionalPages[shot.relatedPage].path}"`));
+  }
 });
 test("theme initializes before mounting from preference or system; audiences have distinct navigation", () => {
   assert.match(publicThemeBoot, /localStorage/);

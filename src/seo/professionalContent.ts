@@ -283,45 +283,72 @@ export const marketingCaptures: readonly {
   id: MarketingCapture;
   label: string;
   text: string;
+  heading: string;
+  detail: string;
+  relatedPage: ProfessionalPageId;
 }[] = [
   {
     id: "home",
     label: "Tu día",
+    heading: "Prepara tu próxima sesión",
+    detail: "Comprueba quién viene después y si la sesión es online o presencial. Junto a las citas de hoy puedes ver cuántas sesiones has reservado esta semana y cuántas has completado.",
+    relatedPage: "agenda",
     text: "Comprueba a quién atiendes después y qué necesita tu atención hoy.",
   },
   {
     id: "agenda",
     label: "Agenda",
+    heading: "Tu semana de sesiones, de un vistazo",
+    detail: "En la agenda de psicología, cada cita ocupa su franja horaria. Consulta qué paciente viene, revisa el estado de la sesión y abre su ficha para preparar el encuentro.",
+    relatedPage: "agenda",
     text: "Consulta la semana y organiza tus sesiones con su contexto.",
   },
   {
     id: "patients",
     label: "Pacientes",
+    heading: "Encuentra la ficha que necesitas",
+    detail: "Busca a un paciente por su nombre o filtra el listado de tu consulta. Desde su ficha puedes consultar sus datos de contacto y revisar las sesiones que tenéis previstas.",
+    relatedPage: "patients",
     text: "Localiza a cada paciente y retoma su proceso desde su propio espacio.",
   },
   {
     id: "record",
     label: "Historia clínica",
+    heading: "Retoma el hilo de la última sesión",
+    detail: "Antes de recibir a un paciente, abre su historia clínica y recupera las notas de la última visita. En el área clínica protegida puedes revisar cómo ha evolucionado el proceso y qué quedó pendiente.",
+    relatedPage: "patients",
     text: "Revisa lo que trabajasteis en la última sesión antes de empezar la siguiente.",
   },
   {
     id: "documents",
     label: "Documentos",
+    heading: "Ten a mano los documentos de cada paciente",
+    detail: "La ficha reúne los documentos vinculados al proceso terapéutico. Desde aquí puedes localizar un archivo y consultar el estado del consentimiento antes de la siguiente sesión.",
+    relatedPage: "patients",
     text: "Localiza los documentos del paciente y comprueba el estado de su consentimiento.",
   },
   {
     id: "billing",
     label: "Facturación",
+    heading: "Distingue lo cobrado de lo pendiente",
+    detail: "Consulta las facturas emitidas y revisa los pagos que has registrado. Si necesitas repasar un cobro, localiza la factura del paciente y comprueba su importe y su estado.",
+    relatedPage: "billing",
     text: "Revisa facturas y cobros registrados en tu consulta.",
   },
   {
     id: "availability",
     label: "Disponibilidad",
+    heading: "Decide cuándo se puede reservar contigo",
+    detail: "Define las franjas en las que atiendes cada semana. Cuando cambie tu horario, utiliza las excepciones para ajustar los huecos disponibles de un día concreto.",
+    relatedPage: "agenda",
     text: "Organiza tus horarios y el tiempo que dedicas a la consulta.",
   },
   {
     id: "statistics",
     label: "Estadísticas",
+    heading: "Sigue la actividad de tu consulta",
+    detail: "Revisa las sesiones completadas y los cobros registrados en el periodo que elijas. Así puedes comparar la actividad clínica con los ingresos de ese mismo periodo.",
+    relatedPage: "billing",
     text: "Consulta cuántas sesiones has atendido y cómo evoluciona tu actividad.",
   },
 ];

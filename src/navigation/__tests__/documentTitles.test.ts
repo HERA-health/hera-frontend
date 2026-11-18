@@ -7,7 +7,7 @@ describe('documentTitles', () => {
     expect(getDocumentTitleForRoute('Register')).toBe('Hera | Crear cuenta');
     expect(getDocumentTitleForRoute('PublicSpecialists')).toBe('Hera | Psicólogos y profesionales de salud mental');
     expect(getDocumentTitleForRoute('ProfessionalShowcase')).toBe(
-      'HERA por dentro: recorrido del producto'
+      'HERA por dentro · Demo del software para psicólogos'
     );
   });
 

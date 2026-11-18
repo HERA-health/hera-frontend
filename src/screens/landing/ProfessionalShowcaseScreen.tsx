@@ -40,9 +40,9 @@ export function ProfessionalShowcaseScreen(): React.ReactElement {
   const isLastStep = activeIndex === PROFESSIONAL_SHOWCASE_STEPS.length - 1;
 
   useWebPageMetadata({
-    title: 'HERA por dentro: recorrido del producto',
+    title: 'HERA por dentro · Demo del software para psicólogos',
     description:
-      'Conoce el software de HERA para gestionar tu consulta de psicología: pacientes, agenda, facturación y estadísticas. Explora el recorrido sin crear una cuenta.',
+      'Explora el software para psicólogos de HERA sin crear una cuenta. Recorre la agenda, la historia clínica y la facturación con pantallas reales de la aplicación.',
     canonicalPath: '/profesionales/recorrido',
     indexable: true,
   });
