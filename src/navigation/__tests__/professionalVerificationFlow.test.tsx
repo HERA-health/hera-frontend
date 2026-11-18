@@ -59,7 +59,7 @@ jest.mock('../../screens/legal/LegalDocumentScreen', () => {
   const { Text } = require('react-native');
   return { LegalDocumentScreen: () => ReactModule.createElement(Text, null, 'Documento de privacidad') };
 });
-jest.mock('../../screens/landing', () => {
+jest.mock('../../screens/landing/LandingPage', () => {
   const ReactModule = require('react');
   const { Text, View } = require('react-native');
   const { useAuth } = require('../../contexts/AuthContext') as typeof import('../../contexts/AuthContext');

@@ -83,7 +83,7 @@ jest.mock('../../services/pendingBookingIntentService', () => ({
   mapPendingIntentToBookingParams: jest.fn(),
 }));
 
-jest.mock('../../screens/landing', () => {
+jest.mock('../../screens/landing/LandingPage', () => {
   const ReactModule = require('react');
   const { Text } = require('react-native');
   return { LandingPage: () => ReactModule.createElement(Text, null, 'Landing pública') };
