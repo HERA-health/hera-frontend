@@ -86,7 +86,7 @@ export function PrivacyControls({ children }: { children?: React.ReactNode }) {
   return <PrivacyControlsContext.Provider value={() => setOpen(true)}>
     <PrivacyControlsVisibleContext.Provider value={open}>
     {children}
-    {open ? <View pointerEvents="box-none" style={[styles.overlay, {
+    {open ? <View style={[styles.overlay, {
       paddingTop: insets.top + edgeSpacing,
       paddingBottom: insets.bottom + edgeSpacing,
       paddingLeft: insets.left + edgeSpacing,
@@ -127,7 +127,7 @@ export function PrivacyControls({ children }: { children?: React.ReactNode }) {
 }
 
 const styles = StyleSheet.create({
-  overlay: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, zIndex: 1000, justifyContent: 'flex-end', alignItems: 'flex-end' },
+  overlay: { pointerEvents: 'box-none', position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, zIndex: 1000, justifyContent: 'flex-end', alignItems: 'flex-end' },
   card: {
     width: '100%', maxWidth: 480, maxHeight: '100%', borderWidth: 1, borderRadius: borderRadius.lg,
     shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.5, shadowRadius: 16, elevation: 8,

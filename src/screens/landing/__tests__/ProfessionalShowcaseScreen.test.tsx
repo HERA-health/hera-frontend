@@ -60,8 +60,8 @@ describe('ProfessionalShowcaseScreen', () => {
     render(<ProfessionalShowcaseScreen />);
 
     expect(screen.getByText('Tu consulta de psicología, en un solo lugar.')).toBeTruthy();
-    expect(screen.getByText('Empieza el día con una visión clara')).toBeTruthy();
-    expect(screen.getByText('Próxima cita y accesos directos')).toBeTruthy();
+    expect(screen.getAllByText('Tu día').length).toBeGreaterThan(0);
+    expect(screen.getByText('Próxima cita')).toBeTruthy();
     expect(mockedTrack).toHaveBeenCalledWith({
       event: 'professional_showcase_step_viewed',
       properties: { step: 'home', position: 1 },
@@ -73,17 +73,16 @@ describe('ProfessionalShowcaseScreen', () => {
 
     fireEvent.press(screen.getByLabelText(/Ver Agenda/));
 
-    expect(screen.getByText('Una agenda pensada para trabajar')).toBeTruthy();
-    expect(screen.getByText('Vistas diaria, semanal, mensual y lista')).toBeTruthy();
+    expect(screen.getByText('Organización semanal')).toBeTruthy();
     expect(mockedTrack).toHaveBeenLastCalledWith({
       event: 'professional_showcase_step_viewed',
-      properties: { step: 'agenda', position: 3 },
+      properties: { step: 'agenda', position: 2 },
     });
   });
 
   it('uses the screenshot that matches the active theme', () => {
     const { rerender } = render(<ProfessionalShowcaseScreen />);
-    const imageLabel = 'Vista del inicio del espacio profesional de HERA';
+    const imageLabel = PROFESSIONAL_SHOWCASE_STEPS[0].imageAccessibilityLabel;
 
     expect(screen.getByLabelText(imageLabel).props.source).toBe(
       PROFESSIONAL_SHOWCASE_STEPS[0].images.light,
@@ -119,6 +118,6 @@ describe('ProfessionalShowcaseScreen', () => {
 
     fireEvent.press(screen.getByLabelText('Volver a HERA para profesionales'));
 
-    expect(navigate).toHaveBeenCalledWith('Landing', { section: 'forSpecialists' });
+    expect(navigate).toHaveBeenCalledWith('ProfessionalSoftware');
   });
 });

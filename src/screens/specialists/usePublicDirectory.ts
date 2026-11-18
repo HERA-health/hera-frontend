@@ -6,10 +6,13 @@ import {
   type PublicSpecialistDirectoryPage,
 } from '../../services/specialistsService';
 
+type OpenPage = (response: PublicSpecialistDirectoryPage) => void;
+
 /** Keep the committed page visible until its replacement has actually arrived. */
-export function usePublicDirectory(filters: PublicSpecialistDirectoryFilters) {
-  const [data, setData] = useState<PublicSpecialistDirectoryPage | null>(null);
-  const [loading, setLoading] = useState(true);
+export function usePublicDirectory(filters: PublicSpecialistDirectoryFilters, entryPage?: PublicSpecialistDirectoryPage) {
+  const initialPage = useRef(entryPage);
+  const [data, setData] = useState<PublicSpecialistDirectoryPage | null>(entryPage ?? null);
+  const [loading, setLoading] = useState(!data);
   const [error, setError] = useState<string | null>(null);
   const sequence = useRef(0);
   const mounted = useRef(true);
@@ -18,12 +21,14 @@ export function usePublicDirectory(filters: PublicSpecialistDirectoryFilters) {
   currentFilters.current = filters;
   const committed = useRef<{ filters: PublicSpecialistDirectoryFilters; page: number } | null>(null);
   const retryPage = useRef(1);
+  const retryNavigation = useRef<OpenPage | undefined>(undefined);
 
-  const loadPage = useCallback(async (requestedPage: number, refresh = false) => {
+  const loadPage = useCallback(async (requestedPage: number, refresh = false, openPage?: OpenPage) => {
     if (refresh && activeRequest.current !== null) return;
     const request = ++sequence.current;
     activeRequest.current = request;
     retryPage.current = requestedPage;
+    retryNavigation.current = openPage;
     const isCurrent = () => mounted.current && sequence.current === request && currentFilters.current === filters;
     if (committed.current?.filters !== filters) {
       committed.current = null;
@@ -32,13 +37,22 @@ export function usePublicDirectory(filters: PublicSpecialistDirectoryFilters) {
     setLoading(true);
     setError(null);
     try {
-      let response = await getPublicSpecialistDirectory({ ...filters, page: requestedPage });
+      const query = { ...filters, page: requestedPage };
+      const prepared = initialPage.current;
+      initialPage.current = undefined;
+      let response = prepared ?? await getPublicSpecialistDirectory(query);
       if (!isCurrent()) return;
       const lastPage = Math.max(1, Math.ceil(response.total / response.pageSize));
       if (response.page > lastPage) {
         response = await getPublicSpecialistDirectory({ ...filters, page: lastPage });
       }
       if (!isCurrent()) return;
+      if (openPage && response.page !== committed.current?.page && !filters.religion) {
+        retryNavigation.current = undefined;
+        retryPage.current = committed.current?.page ?? 1;
+        openPage(response);
+        return;
+      }
       committed.current = { filters, page: response.page };
       retryPage.current = response.page;
       setData(response);
@@ -61,5 +75,5 @@ export function usePublicDirectory(filters: PublicSpecialistDirectoryFilters) {
   }, []);
   useEffect(() => { void loadPage(filters.page ?? 1); }, [loadPage]);
 
-  return { data, loading, error, loadPage, retry: () => loadPage(retryPage.current) };
+  return { data, loading, error, loadPage, retry: () => loadPage(retryPage.current, false, retryNavigation.current) };
 }

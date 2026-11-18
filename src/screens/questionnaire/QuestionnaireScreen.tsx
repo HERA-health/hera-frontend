@@ -457,7 +457,7 @@ export function QuestionnaireScreen() {
         onExploreProfessionals={
           !user
             ? () =>
-                navigation.navigate('Landing', { section: 'forSpecialists' })
+                navigation.navigate('ProfessionalSoftware')
             : undefined
         }
       />
@@ -619,6 +619,7 @@ export function QuestionnaireScreen() {
           ref={heading}
           {...(Platform.OS === 'web' ? { tabIndex: -1 } : {})}
           accessibilityRole="header"
+          aria-level={1}
           style={{
             fontFamily: theme.fontDisplay,
             ...(Platform.OS === 'web'

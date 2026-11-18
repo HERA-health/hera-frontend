@@ -1,6 +1,7 @@
 import React from 'react';
 import {
   Image,
+  Platform,
   type ImageSourcePropType,
   type StyleProp,
   type ViewStyle,
@@ -45,7 +46,7 @@ const CANVAS_16_9 = { width: 1920, height: 1080 };
 // These bounds crop the transparent artboard at render time without mutating assets.
 const WORDMARK_ASSETS: Record<BrandLogoTone, BrandAssetMeta> = {
   brand: {
-    source: require('../../../assets/main-logo.png'),
+    source: Platform.OS === 'web' ? require('../../../assets/main-logo.webp') : require('../../../assets/main-logo.png'),
     canvas: CANVAS_16_9,
     content: { x: 734, y: 482, width: 451, height: 103 },
   },
@@ -60,7 +61,7 @@ const WORDMARK_ASSETS: Record<BrandLogoTone, BrandAssetMeta> = {
     content: { x: 734, y: 482, width: 451, height: 103 },
   },
   beigeDark: {
-    source: require('../../../assets/Logo-Hera-beige-oscuro.png'),
+    source: Platform.OS === 'web' ? require('../../../assets/Logo-Hera-beige-oscuro.webp') : require('../../../assets/Logo-Hera-beige-oscuro.png'),
     canvas: CANVAS_16_9,
     content: { x: 734, y: 482, width: 451, height: 103 },
   },
@@ -78,7 +79,7 @@ const WORDMARK_ASSETS: Record<BrandLogoTone, BrandAssetMeta> = {
 
 const MARK_ASSETS: Record<BrandLogoTone, BrandAssetMeta> = {
   brand: {
-    source: require('../../../assets/Isotipo-Hera-Azul-oscuro-original.png'),
+    source: Platform.OS === 'web' ? require('../../../assets/Isotipo-Hera-Azul-oscuro-original.webp') : require('../../../assets/Isotipo-Hera-Azul-oscuro-original.png'),
     canvas: CANVAS_16_9,
     content: { x: 918, y: 497, width: 84, height: 86 },
   },
@@ -88,12 +89,12 @@ const MARK_ASSETS: Record<BrandLogoTone, BrandAssetMeta> = {
     content: { x: 910, y: 489, width: 100, height: 102 },
   },
   beigeLight: {
-    source: require('../../../assets/Isotipo-Hera-beige-claro.png'),
+    source: Platform.OS === 'web' ? require('../../../assets/Isotipo-Hera-beige-claro.webp') : require('../../../assets/Isotipo-Hera-beige-claro.png'),
     canvas: CANVAS_16_9,
     content: { x: 911, y: 489, width: 98, height: 102 },
   },
   beigeDark: {
-    source: require('../../../assets/Isotipo-Hera-beige-claro.png'),
+    source: Platform.OS === 'web' ? require('../../../assets/Isotipo-Hera-beige-claro.webp') : require('../../../assets/Isotipo-Hera-beige-claro.png'),
     canvas: CANVAS_16_9,
     content: { x: 911, y: 489, width: 98, height: 102 },
   },

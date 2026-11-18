@@ -158,7 +158,7 @@ function BookingPublicHeader({ navigation, scrolled = false }: { navigation: Boo
       onLogoPress={handleGoHome}
       onFindSpecialist={() => navigation.navigate('PublicSpecialists')}
       onViewPlans={() => navigation.navigate('Pricing')}
-      onExploreProfessionals={canVisitLanding ? () => navigateToSection('forSpecialists') : undefined}
+      onExploreProfessionals={canVisitLanding ? () => navigation.navigate('ProfessionalSoftware') : undefined}
       onScrollToSection={canVisitLanding ? navigateToSection : undefined}
       onAccess={() => isAuthenticated ? handleGoHome() : navigation.navigate('Login', { userType: 'CLIENT' })}
     />

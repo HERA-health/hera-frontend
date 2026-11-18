@@ -1,5 +1,6 @@
 import type { LegalDocumentKey } from '../constants/legal';
 import type { RootStackParamList } from '../constants/types';
+import { professionalPages } from '../seo/professionalContent';
 
 const BRAND_NAME = 'Hera';
 
@@ -13,7 +14,11 @@ const ROUTE_TITLES: Record<keyof RootStackParamList, string> = {
   ClinicalPinReset: 'Restablecer PIN clínico',
   PsychologyOnline: 'Psicólogos online',
   PsychologyTopic: 'Apoyo psicológico',
-  ProfessionalShowcase: 'Software de gestión para psicólogos',
+  ProfessionalSoftware: 'Software para psicólogos',
+  ProfessionalAgenda: 'Agenda para psicólogos',
+  ProfessionalPatients: 'Gestión de pacientes e historia clínica',
+  ProfessionalBillingInfo: 'Facturación para psicólogos',
+  ProfessionalShowcase: 'HERA por dentro',
   Pricing: 'Planes y precios para psicólogos',
   Welcome: 'Bienvenida',
   Login: 'Iniciar sesión',
@@ -115,6 +120,15 @@ export function getDocumentTitleForRoute(
   routeName: string | undefined,
   params?: unknown
 ): string {
+  const publicTitles: Record<string, string> = {
+    ProfessionalSoftware: professionalPages.software.title,
+    ProfessionalAgenda: professionalPages.agenda.title,
+    ProfessionalPatients: professionalPages.patients.title,
+    ProfessionalBillingInfo: professionalPages.billing.title,
+    ProfessionalShowcase: 'HERA por dentro: recorrido del producto',
+    Pricing: 'Planes y precios para psicólogos · HERA',
+  };
+  if (routeName && publicTitles[routeName]) return publicTitles[routeName];
   const routeTitle = getRouteTitle(routeName, params);
   return `${BRAND_NAME} | ${routeTitle}`;
 }

@@ -13,8 +13,8 @@ export function DirectoryPagination({ page, totalPages, compact, busy, onChange,
   const pages = [...new Set([1, page - 1, page, page + 1, totalPages])].filter(value => value >= 1 && value <= totalPages).sort((a, b) => a - b);
   const text = { color: theme.textPrimary, fontFamily: theme.fontSansSemiBold, fontSize: 13 };
   const control = (next: number, label: string, icon: 'chevron-back' | 'chevron-forward', disabled: boolean) => (
-    <AnimatedPressable accessibilityRole={Platform.OS === "web" && hrefForPage ? "link" : "button"} accessibilityLabel={label} accessibilityState={{ disabled: disabled || busy }}
-      href={!disabled && !busy ? hrefForPage?.(next) : undefined} disabled={disabled || busy} onPress={() => { if (Platform.OS === 'web' && hrefForPage) window.location.assign(hrefForPage(next)); else onChange(next); }}
+    <AnimatedPressable hoverLift={false} pressScale={1} accessibilityRole={Platform.OS === "web" && hrefForPage ? "link" : "button"} accessibilityLabel={label} accessibilityState={{ disabled: disabled || busy }}
+      href={!disabled && !busy ? hrefForPage?.(next) : undefined} disabled={disabled || busy} onPress={() => onChange(next)}
       style={[styles.control, { opacity: disabled || busy ? 0.45 : 1, borderColor: theme.border }]}>
       {icon === 'chevron-back' && <Ionicons name={icon} size={16} color={theme.textPrimary} />}
       <Text style={text}>{label}</Text>
@@ -28,9 +28,9 @@ export function DirectoryPagination({ page, totalPages, compact, busy, onChange,
         <View style={styles.numbers}>
           {pages.map((value, index) => <React.Fragment key={value}>
             {index > 0 && value - pages[index - 1] > 1 ? <Text style={[text, styles.ellipsis]}>…</Text> : null}
-            <AnimatedPressable accessibilityRole={Platform.OS === 'web' && hrefForPage ? 'link' : 'button'} accessibilityLabel={`Página ${value}`}
+            <AnimatedPressable hoverLift={false} pressScale={1} accessibilityRole={Platform.OS === 'web' && hrefForPage ? 'link' : 'button'} accessibilityLabel={`Página ${value}`}
               accessibilityState={{ selected: value === page, disabled: busy }} disabled={busy}
-              href={hrefForPage?.(value)} onPress={() => { if (value !== page) { if (Platform.OS === 'web' && hrefForPage) window.location.assign(hrefForPage(value)); else onChange(value); } }}
+              href={hrefForPage?.(value)} ariaCurrent={value === page ? 'page' : undefined} onPress={() => { if (value !== page) onChange(value); }}
               style={[styles.number, { backgroundColor: value === page ? theme.actionPrimary : 'transparent' }]}>
               <Text style={[text, value === page && { color: theme.actionPrimaryText }]}>{value}</Text>
             </AnimatedPressable>

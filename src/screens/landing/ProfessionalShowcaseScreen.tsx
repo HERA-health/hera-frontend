@@ -40,7 +40,7 @@ export function ProfessionalShowcaseScreen(): React.ReactElement {
   const isLastStep = activeIndex === PROFESSIONAL_SHOWCASE_STEPS.length - 1;
 
   useWebPageMetadata({
-    title: 'Hera | Software de gestión para psicólogos/as',
+    title: 'HERA por dentro: recorrido del producto',
     description:
       'Conoce el software de HERA para gestionar tu consulta de psicología: pacientes, agenda, facturación y estadísticas. Explora el recorrido sin crear una cuenta.',
     canonicalPath: '/profesionales/recorrido',
@@ -93,7 +93,7 @@ export function ProfessionalShowcaseScreen(): React.ReactElement {
   }, []);
 
   const handleBackToLanding = useCallback(() => {
-    navigation.navigate('Landing', { section: 'forSpecialists' });
+    navigation.navigate('ProfessionalSoftware');
   }, [navigation]);
 
   return (
@@ -109,7 +109,7 @@ export function ProfessionalShowcaseScreen(): React.ReactElement {
         isScrolled
         accessLabel="Crear cuenta"
         onLogoPress={() => navigation.navigate('Landing')}
-        onExploreProfessionals={() => handleLandingSection('forSpecialists')}
+        onExploreProfessionals={() => navigation.navigate('ProfessionalSoftware')}
         onAccess={() => handleRegister('header')}
         onScrollToSection={handleLandingSection}
       />
@@ -305,7 +305,7 @@ export function ProfessionalShowcaseScreen(): React.ReactElement {
                         { color: theme.textPrimary, fontFamily: theme.fontDisplay },
                       ]}
                     >
-                      Un espacio, seis momentos
+                      Un recorrido por tu consulta
                     </Text>
                   </View>
 

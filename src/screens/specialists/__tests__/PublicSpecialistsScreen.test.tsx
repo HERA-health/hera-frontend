@@ -267,7 +267,7 @@ describe('PublicSpecialistsScreen', () => {
     fireEvent.press(screen.getByText('Para profesionales'));
 
     expect(navigate).toHaveBeenCalledWith('Landing', { section: 'about' });
-    expect(navigate).toHaveBeenCalledWith('Landing', { section: 'forSpecialists' });
+    expect(navigate).toHaveBeenCalledWith('ProfessionalSoftware');
   });
 
   it('applies a canonical navigation specialty to the public directory request', async () => {

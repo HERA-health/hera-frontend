@@ -223,7 +223,7 @@ export const PublicSpecialistProfileScreen: React.FC = () => {
       accessLabel={isAuthenticated ? 'Mi espacio' : 'Acceder'}
       onLogoPress={handleGoHome}
       onFindSpecialist={handleBrowseSpecialists}
-      onExploreProfessionals={canVisitLanding ? () => navigateToSection('forSpecialists') : undefined}
+      onExploreProfessionals={canVisitLanding ? () => navigation.navigate('ProfessionalSoftware') : undefined}
       onScrollToSection={canVisitLanding ? navigateToSection : undefined}
       onAccess={() => isAuthenticated ? handleGoHome() : navigation.navigate('Login', { userType: 'CLIENT' })}
     />

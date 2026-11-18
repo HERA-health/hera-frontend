@@ -14,7 +14,7 @@ import {
 import { RootStackParamList } from '../constants/types';
 import { useAuth } from '../contexts/AuthContext';
 import LoadingScreen from '../screens/LoadingScreen';
-import { LandingPage } from '../screens/landing';
+import { LandingPage } from '../screens/landing/LandingPage';
 import { LegalDocumentScreen } from '../screens/legal/LegalDocumentScreen';
 import { RequiredLegalAcceptanceScreen } from '../screens/legal/RequiredLegalAcceptanceScreen';
 import { GatedLegalDocumentScreen } from '../screens/legal/LegalGateLayout';
@@ -87,6 +87,23 @@ const GoogleCalendarSessionRoute = createDeferredLayoutRoute<'GoogleCalendarSess
 const ProfessionalLegalDocumentRoute = createDeferredLayoutRoute<'LegalDocument'>(
   () => Platform.OS === 'web' ? import('../screens/legal/LegalDocumentScreen') : require('../screens/legal/LegalDocumentScreen'),
   { displayName: 'ProfessionalLegalDocumentRoute', exportName: 'LegalDocumentScreen' },
+);
+
+const ProfessionalSoftwareRoute = createDeferredRoute<'ProfessionalSoftware'>(
+  () => Platform.OS === 'web' ? import('../screens/landing/ProfessionalMarketingScreen') : require('../screens/landing/ProfessionalMarketingScreen'),
+  { displayName: 'ProfessionalSoftwareRoute', exportName: 'ProfessionalMarketingScreen' },
+);
+const ProfessionalAgendaRoute = createDeferredRoute<'ProfessionalAgenda'>(
+  () => Platform.OS === 'web' ? import('../screens/landing/ProfessionalMarketingScreen') : require('../screens/landing/ProfessionalMarketingScreen'),
+  { displayName: 'ProfessionalAgendaRoute', exportName: 'ProfessionalMarketingScreen' },
+);
+const ProfessionalPatientsRoute = createDeferredRoute<'ProfessionalPatients'>(
+  () => Platform.OS === 'web' ? import('../screens/landing/ProfessionalMarketingScreen') : require('../screens/landing/ProfessionalMarketingScreen'),
+  { displayName: 'ProfessionalPatientsRoute', exportName: 'ProfessionalMarketingScreen' },
+);
+const ProfessionalBillingInfoRoute = createDeferredRoute<'ProfessionalBillingInfo'>(
+  () => Platform.OS === 'web' ? import('../screens/landing/ProfessionalMarketingScreen') : require('../screens/landing/ProfessionalMarketingScreen'),
+  { displayName: 'ProfessionalBillingInfoRoute', exportName: 'ProfessionalMarketingScreen' },
 );
 
 const PricingRoute = createDeferredRoute<'Pricing'>(
@@ -652,6 +669,11 @@ export function RootNavigator() {
       return;
     }
 
+    // Restored sessions may enter onboarding instead of the requested public page.
+    if (Platform.OS === 'web' && isAuthenticated) {
+      document.getElementById('pricing-first-paint')?.remove();
+    }
+
     if (isAuthenticated && legalStatusSnapshot) {
       setLegalStatus(legalStatusSnapshot);
       setLegalStatusError(false);
@@ -685,10 +707,11 @@ export function RootNavigator() {
           {SESSION_PAYMENTS_VISIBLE && <><Stack.Screen name="SessionPayment" component={SessionPaymentRoute} /><Stack.Screen name="PackagePayment" component={PackagePaymentRoute} /></>}
           <Stack.Screen name="GoogleCalendarIntegration" component={GoogleCalendarIntegrationRoute} />
           <Stack.Screen name="GoogleCalendarSession" component={GoogleCalendarSessionRoute} />
-          <Stack.Screen
-            name="ProfessionalShowcase"
-            component={ProfessionalShowcaseRoute}
-          />
+          <Stack.Screen name="ProfessionalSoftware" component={ProfessionalSoftwareRoute} />
+          <Stack.Screen name="ProfessionalAgenda" component={ProfessionalAgendaRoute} />
+          <Stack.Screen name="ProfessionalPatients" component={ProfessionalPatientsRoute} />
+          <Stack.Screen name="ProfessionalBillingInfo" component={ProfessionalBillingInfoRoute} />
+          <Stack.Screen name="ProfessionalShowcase" component={ProfessionalShowcaseRoute} />
           <Stack.Screen name="Pricing" component={PricingRoute} />
           <Stack.Screen name="PsychologyOnline" component={PsychologyPageRoute} />
           <Stack.Screen name="PsychologyTopic" component={PsychologyPageRoute} />
@@ -783,6 +806,11 @@ export function RootNavigator() {
               onAccepted={handleLegalAccepted}
             />}
           </Stack.Screen>
+          <Stack.Screen name="ProfessionalSoftware" component={ProfessionalSoftwareRoute} />
+          <Stack.Screen name="ProfessionalAgenda" component={ProfessionalAgendaRoute} />
+          <Stack.Screen name="ProfessionalPatients" component={ProfessionalPatientsRoute} />
+          <Stack.Screen name="ProfessionalBillingInfo" component={ProfessionalBillingInfoRoute} />
+          <Stack.Screen name="ProfessionalShowcase" component={ProfessionalShowcaseRoute} />
           <Stack.Screen name="Pricing" component={PricingRoute} />
           <Stack.Screen name="PsychologyOnline" component={PsychologyPageRoute} />
           <Stack.Screen name="PsychologyTopic" component={PsychologyPageRoute} />
@@ -822,6 +850,11 @@ export function RootNavigator() {
             component={ClinicDashboardRoute}
             options={{ headerTitle: 'Panel de clínica' }}
           />
+          <Stack.Screen name="ProfessionalSoftware" component={ProfessionalSoftwareRoute} />
+          <Stack.Screen name="ProfessionalAgenda" component={ProfessionalAgendaRoute} />
+          <Stack.Screen name="ProfessionalPatients" component={ProfessionalPatientsRoute} />
+          <Stack.Screen name="ProfessionalBillingInfo" component={ProfessionalBillingInfoRoute} />
+          <Stack.Screen name="ProfessionalShowcase" component={ProfessionalShowcaseRoute} />
           <Stack.Screen name="Pricing" component={PricingRoute} />
           <Stack.Screen name="PsychologyOnline" component={PsychologyPageRoute} />
           <Stack.Screen name="PsychologyTopic" component={PsychologyPageRoute} />
@@ -941,6 +974,11 @@ export function RootNavigator() {
             component={PublicSpecialistProfileRoute}
             options={{ headerShown: false }}
           />
+          <Stack.Screen name="ProfessionalSoftware" component={ProfessionalSoftwareRoute} />
+          <Stack.Screen name="ProfessionalAgenda" component={ProfessionalAgendaRoute} />
+          <Stack.Screen name="ProfessionalPatients" component={ProfessionalPatientsRoute} />
+          <Stack.Screen name="ProfessionalBillingInfo" component={ProfessionalBillingInfoRoute} />
+          <Stack.Screen name="ProfessionalShowcase" component={ProfessionalShowcaseRoute} />
           <Stack.Screen name="Pricing" component={PricingRoute} />
           <Stack.Screen name="PsychologyOnline" component={PsychologyPageRoute} />
           <Stack.Screen name="PsychologyTopic" component={PsychologyPageRoute} />
@@ -1009,6 +1047,11 @@ export function RootNavigator() {
           />
           {calendarIntent?.kind !== 'connect' ? <Stack.Screen name="GoogleCalendarIntegration" component={GoogleCalendarIntegrationRoute} /> : null}
           {calendarIntent?.kind !== 'session' ? <Stack.Screen name="GoogleCalendarSession" component={GoogleCalendarSessionRoute} /> : null}
+          <Stack.Screen name="ProfessionalSoftware" component={ProfessionalSoftwareRoute} />
+          <Stack.Screen name="ProfessionalAgenda" component={ProfessionalAgendaRoute} />
+          <Stack.Screen name="ProfessionalPatients" component={ProfessionalPatientsRoute} />
+          <Stack.Screen name="ProfessionalBillingInfo" component={ProfessionalBillingInfoRoute} />
+          <Stack.Screen name="ProfessionalShowcase" component={ProfessionalShowcaseRoute} />
           <Stack.Screen name="Pricing" component={PricingRoute} />
           <Stack.Screen name="PsychologyOnline" component={PsychologyPageRoute} />
           <Stack.Screen name="PsychologyTopic" component={PsychologyPageRoute} />
@@ -1310,7 +1353,12 @@ export function RootNavigator() {
           component={PublicSpecialistProfileRoute}
           options={{ headerShown: false }}
         />
-        <Stack.Screen name="Pricing" component={PricingRoute} />
+        <Stack.Screen name="ProfessionalSoftware" component={ProfessionalSoftwareRoute} />
+          <Stack.Screen name="ProfessionalAgenda" component={ProfessionalAgendaRoute} />
+          <Stack.Screen name="ProfessionalPatients" component={ProfessionalPatientsRoute} />
+          <Stack.Screen name="ProfessionalBillingInfo" component={ProfessionalBillingInfoRoute} />
+          <Stack.Screen name="ProfessionalShowcase" component={ProfessionalShowcaseRoute} />
+          <Stack.Screen name="Pricing" component={PricingRoute} />
         <Stack.Screen name="PsychologyOnline" component={PsychologyPageRoute} />
         <Stack.Screen name="PsychologyTopic" component={PsychologyPageRoute} />
         <Stack.Screen name="PublicSpecialists"

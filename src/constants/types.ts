@@ -121,6 +121,10 @@ export type RootStackParamList = {
   GoogleCalendarIntegration: { attempt?: string } | undefined;
   GoogleCalendarSession: { sessionId: string };
   Landing: { section?: LandingSectionAnchor } | undefined;
+  ProfessionalSoftware: undefined;
+  ProfessionalAgenda: undefined;
+  ProfessionalPatients: undefined;
+  ProfessionalBillingInfo: undefined;
   ProfessionalShowcase: undefined;
   PsychologyOnline: undefined;
   PsychologyTopic: { topic: 'ansiedad' | 'autoestima' | 'barcelona' | 'cataluna' };

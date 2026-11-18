@@ -75,7 +75,7 @@ function staticPaths() {
   return [...routes.values()].flat().concat(['clinic-consent/:requestId', 'clinical-consent/guest/:requestId']);
 }
 function compilePublicHtml() {
-  for (const file of ['seo/publicContent', 'seo/publicData', 'seo/publicHtml', 'seo/landingInitialHtml', 'seo/directoryInitialHtml', 'seo/directoryIcons', 'screens/specialist-profile/profilePresentation', 'constants/professionalMatchingOptions', 'seo/landingIcons', 'seo/psychologyPresentation', 'constants/theme', 'constants/publicHeaderLinks', 'constants/professionalMatchingCatalog']) {
+  for (const file of ['config/api', 'seo/initialPricingCatalog', 'seo/webPageSchema', 'seo/publicNavigation', 'seo/professionalContent', 'seo/professionalPresentation', 'seo/subscriptionCatalog', 'screens/landing/pricingContent', 'seo/publicContent', 'seo/publicData', 'seo/publicHtml', 'seo/landingProfessionalMenu', 'seo/landingInitialHtml', 'seo/directoryInitialHtml', 'seo/directoryIcons', 'screens/specialist-profile/profilePresentation', 'constants/professionalMatchingOptions', 'seo/landingIcons', 'seo/psychologyPresentation', 'constants/themeIconPaths', 'constants/theme', 'constants/publicHeaderLinks', 'constants/professionalNavigation', 'constants/professionalMatchingCatalog']) {
     const source = fs.readFileSync('src/' + file + '.ts', 'utf8');
     const result = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } });
     const destination = '.seo-build/' + file + '.js';
@@ -83,7 +83,9 @@ function compilePublicHtml() {
     fs.writeFileSync(destination, result.outputText);
   }
 }
-function prepare() {
+async function prepare() {
+  // Use the same public API origin as the Expo production export, including .env files.
+  require('@expo/env').loadProjectEnv(process.cwd(), { mode: process.env.NODE_ENV || 'production', silent: true });
   compilePublicHtml();
   const rewrites = JSON.parse(fs.readFileSync('vercel.json', 'utf8')).rewrites;
   const paths = staticPaths();
@@ -99,26 +101,34 @@ function prepare() {
     if (!file) throw new Error('Missing public font: ' + family);
     return '@font-face{font-family:"' + family + '";src:url("/assets/assets/fonts/' + file + '");font-display:swap}';
   }).join('');
-  const logo = fs.readdirSync('dist/assets/assets').find(name => name.startsWith('main-logo.') && name.endsWith('.png'));
+  const logo = fs.readdirSync('dist/assets/assets').find(name => name.startsWith('main-logo.') && name.endsWith('.webp'));
   if (!logo) throw new Error('Missing HERA public logo');
   const brandAsset = (prefix) => {
-    const file = fs.readdirSync('dist/assets/assets').find(name => name.startsWith(prefix + '.') && name.endsWith('.png'));
+    const file = fs.readdirSync('dist/assets/assets').find(name => name.startsWith(prefix + '.') && name.endsWith('.webp'));
     if (!file) throw new Error('Missing public brand asset: ' + prefix);
     return '/assets/assets/' + file;
   };
   const brandStyle = ':root{--hera-public-logo:url("/assets/assets/' + logo + '");--hera-public-logo-dark:url("' + brandAsset('Logo-Hera-beige-oscuro') + '");--hera-public-mark:url("' + brandAsset('Isotipo-Hera-Azul-oscuro-original') + '");--hera-public-mark-dark:url("' + brandAsset('Isotipo-Hera-beige-claro') + '")}';
-  const shell = fs.readFileSync('dist/index.html', 'utf8').replace('</head>', '<style>' + fonts + brandStyle + '</style></head>');
-  fs.writeFileSync('dist/app-shell.html', shell);
+  const icons = await require('./public-icon-font.cjs')();
+  const shell = fs.readFileSync('dist/index.html', 'utf8').replace('</head>',
+    '<style id="expo-generated-fonts">' + fonts + icons + '</style><style>' + brandStyle + '</style></head>');
+  const appShell = shell.replace(/(<meta name="robots" content=")[^"]*/, '$1noindex, follow');
+  fs.writeFileSync('dist/app-shell.html', appShell);
+  // A previous export must not shadow the runtime catalog route on Vercel.
   for (const route of paths.filter(route => route && !route.includes(':') && !['especialistas', 'psicologos-online'].includes(route))) {
     const destination = path.join('dist', route, 'index.html');
     fs.mkdirSync(path.dirname(destination), { recursive: true });
-    fs.writeFileSync(destination, shell);
+    fs.writeFileSync(destination, appShell);
   }
-  for (const file of ['landing/LandingPage.tsx', 'landing/PricingScreen.tsx', 'landing/ProfessionalShowcaseScreen.tsx']) {
+  const preloadFonts = ['Lustria-Regular', 'GlacialIndifference-Regular', 'GlacialIndifference-Bold'].map(prefix => {
+    const file = assets.find(name => name.startsWith(prefix + '.'));
+    return '<link rel="preload" as="font" href="/assets/assets/fonts/' + file + '" crossorigin>';
+  }).join('');
+  for (const file of ['landing/LandingPage.tsx', 'landing/PricingScreen.tsx']) {
     const metadata = pageMetadata(`src/screens/${file}`);
     const destination = path.join('dist', metadata.canonicalPath, 'index.html');
     fs.mkdirSync(path.dirname(destination), { recursive: true });
-    let page = renderMetadata(shell, metadata);
+    let page = renderMetadata(shell, metadata).replace('</head>', preloadFonts + '</head>');
     if (metadata.canonicalPath === '/') {
       const { injectPublicHtml, publicFooter } = require('../.seo-build/seo/publicHtml');
       const { landingInitialCss, landingInitialHtml } = require('../.seo-build/seo/landingInitialHtml');
@@ -128,16 +138,45 @@ function prepare() {
         if (!name) throw new Error('Missing landing photograph: ' + width);
         return '/assets/assets/landing/' + name;
       };
-      const preloadFonts = ['Lustria-Regular', 'GlacialIndifference-Regular', 'GlacialIndifference-Bold'].map(prefix => {
-        const file = assets.find(name => name.startsWith(prefix + '.'));
-        return '<link rel="preload" as="font" href="/assets/assets/fonts/' + file + '" crossorigin>';
-      }).join('');
       // Read only the existing public theme preference before first paint. This
       // build-only presentation never adds code to the application bundle.
-      const themeBoot = "<script>try{var m=localStorage.getItem('hera_theme_mode');if(m==='dark'||m==='light')document.documentElement.setAttribute('data-hera-theme',m)}catch(e){}</script>";
-      page = injectPublicHtml(page.replace('</head>', preloadFonts + themeBoot + '<style>' + landingInitialCss + '</style></head>'), landingInitialHtml({ photo: photo(1024), photos: { small: photo(640), large: photo(1536) }, icons: landingIcons }) + publicFooter);
+      const { publicThemeBoot: themeBoot, publicNavigationCss } = require('../.seo-build/seo/publicNavigation');
+      page = injectPublicHtml(page.replace('</head>', themeBoot + '<style>' + landingInitialCss + publicNavigationCss + '</style></head>'), landingInitialHtml({ photo: photo(1024), photos: { small: photo(640), large: photo(1536) }, icons: landingIcons }) + publicFooter);
+    }
+    if (metadata.canonicalPath === '/planes') {
+      const { apiEndpoints, isLocalWebHostname } = require('../.seo-build/config/api');
+      const { publicHeaderHtml, publicThemeBoot, publicNavigationCss } = require('../.seo-build/seo/publicNavigation');
+      const { DIRECTORY_OFFER, pricingIntro } = require('../.seo-build/screens/landing/pricingContent');
+      const { lightTheme, darkTheme } = require('../.seo-build/constants/theme');
+      page = page.replace(/<noscript>[\s\S]*?<\/noscript>/, `<noscript>
+        <style>body{overflow:auto;background:#faf8f3;color:#3e5c4f}.pricing-offline{max-width:42rem;margin:8vh auto;padding:24px;font:18px/1.6 HeraSans,sans-serif}.pricing-offline h1{font:36px/1.2 HeraDisplay,serif}.pricing-offline a{color:inherit}</style>
+        <main class="pricing-offline"><h1>Planes para tu consulta de psicología.</h1>
+        <p>Puedes recibir pacientes desde el directorio de HERA sin cuota mensual fija y con comisión por sesión. Los planes Calma, Crecimiento y Horizonte ofrecen distintas prestaciones para gestionar tu consulta.</p>
+        <p>Activa JavaScript para consultar los precios vigentes, comparar prestaciones y solicitar la prueba de un plan.</p>
+        <a href="/software-para-psicologos">Conocer HERA para profesionales</a> · <a href="/profesionales/recorrido">Explorar las pantallas</a></main>
+      </noscript>`);
+      page = require('./pricing-first-paint.cjs')(page, {
+        apiUrls: apiEndpoints, localHostname: isLocalWebHostname, header: publicHeaderHtml(),
+        themeBoot: publicThemeBoot, navigationCss: publicNavigationCss, offer: DIRECTORY_OFFER,
+        copy: pricingIntro, light: lightTheme, dark: darkTheme,
+      });
     }
     fs.writeFileSync(destination, page);
+  }
+  const { professionalPages } = require('../.seo-build/seo/professionalContent');
+  const { professionalHtml, professionalTourHtml, professionalCss, tourMetadata } = require('../.seo-build/seo/professionalPresentation');
+  const { publicThemeBoot } = require('../.seo-build/seo/publicNavigation');
+  const { injectPublicHtml } = require('../.seo-build/seo/publicHtml');
+  const { webPageSchema } = require('../.seo-build/seo/webPageSchema');
+  const pages = Object.entries(professionalPages).map(([id, page]) => ({ metadata: { ...page, canonicalPath: page.path }, body: professionalHtml(id) }));
+  pages.push({ metadata: tourMetadata, body: professionalTourHtml() });
+  for (const { metadata, body } of pages) {
+    const destination = path.join('dist', metadata.canonicalPath, 'index.html');
+    fs.mkdirSync(path.dirname(destination), { recursive: true });
+    const canonical = 'https://www.health-hera.com' + metadata.canonicalPath;
+    const schema = webPageSchema(metadata.title, metadata.description, canonical);
+    const initial = renderMetadata(shell, metadata).replace('</head>', publicThemeBoot + '<style>' + professionalCss + '</style><script id="hera-page-schema" type="application/ld+json">' + JSON.stringify(schema).replace(/</g, '\\u003c') + '</script></head>');
+    fs.writeFileSync(destination, injectPublicHtml(initial, body));
   }
 }
 if (require.main === module) prepare();

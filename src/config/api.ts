@@ -10,7 +10,7 @@ const readEnvUrl = (rawValue: string | undefined, fallback: string): string => {
   return value.length > 0 ? value : fallback;
 };
 
-const ENV = {
+export const apiEndpoints = {
   dev: {
     // Expo only embeds public variables referenced with static dot notation.
     apiUrl: readEnvUrl(process.env.EXPO_PUBLIC_API_URL_DEV, DEFAULT_DEV_API_URL),
@@ -20,7 +20,7 @@ const ENV = {
   },
 };
 
-const isLocalWebHostname = (hostname: string): boolean =>
+export const isLocalWebHostname = (hostname: string): boolean =>
   hostname === 'localhost'
   || hostname === '127.0.0.1'
   || hostname === '::1'
@@ -31,11 +31,11 @@ const isLocalWebHostname = (hostname: string): boolean =>
 
 const getEnvVars = () => {
   if (typeof window !== 'undefined') {
-    return isLocalWebHostname(window.location.hostname) ? ENV.dev : ENV.prod;
+    return isLocalWebHostname(window.location.hostname) ? apiEndpoints.dev : apiEndpoints.prod;
   }
 
   const isDev = process.env.NODE_ENV !== 'production';
-  return isDev ? ENV.dev : ENV.prod;
+  return isDev ? apiEndpoints.dev : apiEndpoints.prod;
 };
 
 export default getEnvVars;

@@ -13,6 +13,7 @@ export function renderPublicMetadata(html: string, metadata: { title: string; de
     .replace(/(<meta\s+(?:name|property)="(?:description|og:description|twitter:description)"\s+content=")[^"]*/g, (_match, prefix: string) => prefix + description)
     .replace(/(<meta\s+(?:name|property)="(?:og:title|twitter:title)"\s+content=")[^"]*/g, (_match, prefix: string) => prefix + title)
     .replace(/(<meta property="og:url" content=")[^"]*/, (_match, prefix: string) => prefix + canonical)
+    .replace(/(<meta name="robots" content=")[^"]*/, (_match, prefix: string) => prefix + (metadata.indexable === false ? 'noindex, follow' : 'index, follow'))
     .replace(/<link\s+rel="canonical"[^>]*>/g, '')
     .replace('</head>', () => `<link rel="canonical" href="${canonical}" /></head>`);
 }
@@ -34,7 +35,7 @@ export function cardsHtml(data: DirectoryPage, limit = 12, preferredSpecialty?: 
   }).join('')}</div>`;
 }
 
-const psychologyHeader = `<header class="psychology-initial-header"><div class="psychology-initial-header-inner"><a class="psychology-initial-brand" href="/" aria-label="HERA, inicio"></a><nav class="psychology-initial-nav" aria-label="Navegación principal">${PUBLIC_HEADER_LINKS.map(item => `<a href="/?section=${item.id}">${item.label}</a>${item.id === 'forSpecialists' ? '<a href="/planes"><span class="psychology-long-label">Planes y precios</span><span class="psychology-short-label">Planes</span></a>' : ''}`).join('')}</nav><div class="psychology-initial-actions">${link('/especialistas', 'Buscar psicólogo/a', true)}${link('/acceso', 'Acceder')}</div></div></header>`;
+const psychologyHeader = `<header class="psychology-initial-header"><div class="psychology-initial-header-inner"><a class="psychology-initial-brand" href="/" aria-label="HERA, inicio"></a><nav class="psychology-initial-nav" aria-label="Navegación principal">${PUBLIC_HEADER_LINKS.map(item => `<a href="${item.id === 'forSpecialists' ? '/software-para-psicologos' : `/?section=${item.id}`}">${item.label}</a>`).join('')}</nav><div class="psychology-initial-actions">${link('/especialistas', 'Buscar psicólogo/a', true)}${link('/acceso', 'Acceder')}</div></div></header>`;
 const psychologyFooter = `<footer class="psychology-initial-footer"><a class="psychology-initial-brand" href="/" aria-label="HERA, inicio"></a><nav aria-label="Explora HERA"><a href="/especialistas">Buscar psicólogo/a</a><a href="/cuestionario">Hacer el cuestionario</a><a href="/planes">Planes y precios</a><a href="/">Volver al inicio</a></nav></footer>`;
 
 function psychologyCardsHtml(data: DirectoryPage, page: PsychologyPage): string {

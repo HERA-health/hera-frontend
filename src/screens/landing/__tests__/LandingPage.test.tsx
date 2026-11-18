@@ -55,12 +55,11 @@ import React from 'react';
 import { Platform } from 'react-native';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { darkTheme, lightTheme } from '../../../constants/theme';
+import { lightTheme } from '../../../constants/theme';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { LandingPage } from '../LandingPage';
 import { LandingHeader } from '../components/LandingHeader';
 import { HeroSection } from '../components/HeroSection';
-import { PROFESSIONAL_PREVIEW_IMAGES } from '../professionalPreviewAssets';
 import * as analyticsService from '../../../services/analyticsService';
 
 jest.mock('../../../contexts/ThemeContext', () => ({
@@ -230,26 +229,23 @@ describe('LandingPage', () => {
     expect(screen.getByText('Explora perfiles verificados')).toBeTruthy();
     expect(screen.getByText('Conoce su forma de hacer terapia')).toBeTruthy();
     expect(screen.getByText('Reserva cuando lo tengas claro')).toBeTruthy();
-    expect(screen.getByText('Tu consulta de psicología, organizada.')).toBeTruthy();
-    expect(screen.getByText('VISIBILIDAD')).toBeTruthy();
-    expect(screen.getByText('GESTIÓN')).toBeTruthy();
-    expect(screen.getByText('Ver HERA por dentro')).toBeTruthy();
+    expect(screen.getByText('Tu consulta también tiene su espacio en HERA')).toBeTruthy();
     expect(screen.getByText('Privacidad por diseño')).toBeTruthy();
     expect(screen.getByText('Consentimientos y documentación')).toBeTruthy();
     expect(screen.getByText('Marco RGPD y LOPDGDD')).toBeTruthy();
     expect(screen.queryByText('Flujos reales que HERA ayuda a ordenar')).toBeNull();
-    expect(screen.getByText('Da el siguiente paso con HERA')).toBeTruthy();
+    expect(screen.getByText('El primer paso puede ser encontrar a alguien con quien hablar.')).toBeTruthy();
   });
 
   it('expands FAQ answers on press', () => {
     render(<LandingPage />);
 
     expect(
-      screen.queryByText(/Puedes organizar tu agenda, sesiones, pacientes/)
+      screen.queryByText(/Explora el directorio, consulta el perfil/)
     ).toBeNull();
-    fireEvent.press(screen.getByText('¿Cómo ayuda HERA a gestionar una consulta de psicología?'));
+    fireEvent.press(screen.getByText('¿Cómo reservan sesión los pacientes?'));
     expect(
-      screen.getByText(/Puedes organizar tu agenda, sesiones, pacientes/)
+      screen.getByText(/Explora el directorio, consulta el perfil/)
     ).toBeTruthy();
   });
 
@@ -278,16 +274,16 @@ describe('LandingPage', () => {
     expect(analyticsService.track).toHaveBeenCalledWith('landing_patient_cta_clicked', { placement: 'hero', audience: 'patient' });
   });
 
-  it('keeps mobile section navigation and plans directly reachable in the bar', () => {
+  it('keeps mobile section navigation and the professional page reachable in the bar', () => {
     mockWindowDimensions = { ...mockWindowDimensions, width: 320 };
     const onSection = jest.fn();
-    const onPlans = jest.fn();
-    render(<LandingHeader context="landing" isScrolled={false} onAccess={jest.fn()} onQuestionnaire={jest.fn()} onScrollToSection={onSection} onViewPlans={onPlans} />);
+    const onProfessionals = jest.fn();
+    render(<LandingHeader context="landing" isScrolled={false} onAccess={jest.fn()} onQuestionnaire={jest.fn()} onScrollToSection={onSection} onExploreProfessionals={onProfessionals} />);
     expect(screen.getByRole('link', { name: 'Hacer cuestionario' })).toBeTruthy();
     fireEvent.press(screen.getByText('Cómo funciona'));
     expect(onSection).toHaveBeenCalledWith('howItWorks');
-    fireEvent.press(screen.getByText('Planes y precios'));
-    expect(onPlans).toHaveBeenCalledTimes(1);
+    fireEvent.press(screen.getByText('Para profesionales'));
+    expect(onProfessionals).toHaveBeenCalledTimes(1);
   });
 
   it('maps every wide header label to its stable anchor', () => {
@@ -308,10 +304,7 @@ describe('LandingPage', () => {
     const targets = [
       ['Psicólogos/as', 'featuredSpecialists'],
       ['Cómo funciona', 'howItWorks'],
-      ['Para psicólogos/as', 'forSpecialists'],
       ['Especialidades', 'specializations'],
-      ['Quiénes somos', 'about'],
-      ['Dudas', 'faq'],
     ] as const;
 
     targets.forEach(([label]) => fireEvent.press(screen.getByText(label)));
@@ -320,22 +313,10 @@ describe('LandingPage', () => {
     });
   });
 
-  it('places pricing immediately after the professional link on desktop', () => {
-    const onViewPlans = jest.fn();
-    render(<LandingHeader context="landing" isScrolled={false} onAccess={jest.fn()}
-      onScrollToSection={jest.fn()} onViewPlans={onViewPlans} />);
-    const labels = screen.getAllByRole('link').map(link => link.props.accessibilityLabel);
-    expect(labels[labels.indexOf('Ir a Para psicólogos/as') + 1]).toBe('Ver planes para psicólogos/as');
-    fireEvent.press(screen.getByText('Planes y precios'));
-    expect(onViewPlans).toHaveBeenCalledTimes(1);
-  });
-
-  it('opens pricing from the hero and professional section without starting registration', () => {
+  it('links directly to pricing from the hero without starting registration', () => {
     render(<LandingPage />);
-    const links = screen.getAllByRole('link', { name: 'Ver planes y precios' });
-    expect(links).toHaveLength(2);
-    links.forEach(link => fireEvent.press(link));
-    expect(navigate).toHaveBeenCalledTimes(2);
+    fireEvent.press(screen.getByRole('link', { name: 'Ver planes y precios' }));
+    expect(navigate).toHaveBeenCalledTimes(1);
     expect(navigate).toHaveBeenCalledWith('Pricing');
   });
 
@@ -362,7 +343,7 @@ describe('LandingPage', () => {
 
     expect(screen.getByText('Cómo funciona')).toBeTruthy();
     expect(screen.getByRole('link', { name: 'Buscar psicólogo/a' })).toBeTruthy();
-    expect(screen.getByText('Para psicólogos/as')).toBeTruthy();
+    expect(screen.getByText('Para profesionales')).toBeTruthy();
     expect(screen.getByText('Acceder')).toBeTruthy();
     expect(screen.queryByText('Salud mental')).toBeNull();
     expect(screen.queryByText('Clínicas')).toBeNull();
@@ -398,18 +379,12 @@ describe('LandingPage', () => {
     expect(navigate).not.toHaveBeenCalledWith('Login', expect.anything());
   });
 
-  it.each([1440, 820, 390])('keeps one tools action linked to the professional anchor at width %i', (width) => {
+  it.each([1440, 820, 390])('keeps one tools action linked to the dedicated software page at width %i', (width) => {
     mockWindowDimensions = { ...mockWindowDimensions, width };
     render(<LandingPage />);
-    fireEvent(
-      screen.UNSAFE_getByProps({ nativeID: 'landing-section-for-specialists' }),
-      'layout',
-      { nativeEvent: { layout: { x: 0, y: 1700, width: 1000, height: 500 } } }
-    );
-
     fireEvent.press(screen.getByText('Conocer las herramientas'));
 
-    expect(mockScrollTo).toHaveBeenCalledWith({ y: 1690, animated: true });
+    expect(navigate).toHaveBeenCalledWith('ProfessionalSoftware');
   });
 
   it('opens professional registration directly from the hero and tracks its placement', () => {
@@ -454,8 +429,7 @@ describe('LandingPage', () => {
     expect(screen.getByText('Descubre HERA', { includeHiddenElements: true })).toBeTruthy();
     expect(screen.queryByLabelText('Descubrir especialistas')).toBeNull();
     const indicator = screen.getByTestId('hero-discovery-indicator', { includeHiddenElements: true });
-    expect(indicator.props.pointerEvents).toBe('none');
-    expect(indicator.props.style).toEqual({ opacity: 0 });
+    expect(indicator).toHaveStyle({ opacity: 0, pointerEvents: 'none' });
 
     rerender(<HeroSection {...props} showScrollIndicator />);
     expect(screen.getByLabelText('Descubrir especialistas')).toBeTruthy();
@@ -480,46 +454,25 @@ describe('LandingPage', () => {
     }
   });
 
-  it('routes professional registration, login and clinic access explicitly', () => {
+  it('routes professional registration and login explicitly', () => {
     render(<LandingPage />);
 
     fireEvent.press(screen.getAllByText('Crear cuenta profesional')[0]);
     fireEvent.press(screen.getAllByText('Iniciar sesión')[0]);
-    fireEvent.press(screen.getAllByText('Acceso para clínicas')[0]);
+    expect(screen.queryByText('Acceso para clínicas')).toBeNull();
 
     expect(navigate).toHaveBeenCalledWith('Register', { userType: 'PROFESSIONAL' });
     expect(navigate).toHaveBeenCalledWith('Login', { userType: 'PROFESSIONAL' });
-    expect(navigate).toHaveBeenCalledWith('Login', { userType: 'CLINIC' });
+
   });
 
-  it('opens the public professional product showcase without registration', () => {
+  it('opens the professional landing from the patient-facing introduction', () => {
     render(<LandingPage />);
 
-    fireEvent.press(screen.getByText('Ver HERA por dentro'));
+    fireEvent.press(screen.getByText('Conocer HERA para profesionales →'));
 
-    expect(navigate).toHaveBeenCalledWith('ProfessionalShowcase');
+    expect(navigate).toHaveBeenCalledWith('ProfessionalSoftware');
     expect(navigate).not.toHaveBeenCalledWith('Register', expect.anything());
-  });
-
-  it('matches the professional preview image to the landing theme', () => {
-    const { rerender } = render(<LandingPage />);
-    const imageLabel = 'Vista previa del inicio del espacio profesional de HERA';
-
-    expect(screen.getByLabelText(imageLabel).props.source).toBe(
-      PROFESSIONAL_PREVIEW_IMAGES.light,
-    );
-
-    mockedUseTheme.mockReturnValue({
-      theme: darkTheme,
-      mode: 'dark',
-      isDark: true,
-      setMode: jest.fn(),
-    } as unknown as ReturnType<typeof useTheme>);
-    rerender(<LandingPage />);
-
-    expect(screen.getByLabelText(imageLabel).props.source).toBe(
-      PROFESSIONAL_PREVIEW_IMAGES.dark,
-    );
   });
 
   it('opens the generic welcome selector from the access action', () => {
@@ -591,12 +544,12 @@ describe('LandingPage', () => {
   it('scrolls the current landing when a previous landing is retained in browser history', () => {
     const platform = jest.replaceProperty(Platform, 'OS', 'web');
     const hiddenLanding = document.createElement('div');
-    hiddenLanding.innerHTML = '<div id="landing-scroll-view"><div id="landing-section-for-specialists"></div><div id="landing-section-faq"></div></div>';
+    hiddenLanding.innerHTML = '<div id="landing-scroll-view"><div id="landing-section-how-it-works"></div><div id="landing-section-specializations"></div></div>';
     hiddenLanding.style.display = 'none';
     document.body.appendChild(hiddenLanding);
     const activeScroller = document.createElement('div');
     activeScroller.id = 'landing-scroll-view';
-    activeScroller.innerHTML = '<div id="landing-section-for-specialists"></div><div id="landing-section-faq"></div>';
+    activeScroller.innerHTML = '<div id="landing-section-how-it-works"></div><div id="landing-section-specializations"></div>';
     document.body.appendChild(activeScroller);
     mockScrollableNode = activeScroller;
     activeScroller.scrollTop = 300;
@@ -605,22 +558,22 @@ describe('LandingPage', () => {
       toJSON: () => ({}),
     });
     jest.spyOn(activeScroller, 'getBoundingClientRect').mockReturnValue(rect(0, 900));
-    const professionalSection = activeScroller.children[0];
-    const faqSection = activeScroller.children[1];
-    const professionalRect = jest.spyOn(professionalSection, 'getBoundingClientRect')
+    const howSection = activeScroller.children[0];
+    const specializationsSection = activeScroller.children[1];
+    const howRect = jest.spyOn(howSection, 'getBoundingClientRect')
       .mockReturnValue(rect(1700, 600));
-    jest.spyOn(faqSection, 'getBoundingClientRect').mockReturnValue(rect(4200, 600));
-    mockedUseRoute.mockReturnValue({ params: { section: 'forSpecialists' } } as ReturnType<typeof useRoute>);
+    jest.spyOn(specializationsSection, 'getBoundingClientRect').mockReturnValue(rect(4200, 600));
+    mockedUseRoute.mockReturnValue({ params: { section: 'howItWorks' } } as ReturnType<typeof useRoute>);
 
     try {
       render(<LandingPage />);
       expect(mockScrollTo).toHaveBeenLastCalledWith({ y: 1990, animated: true });
       expect(setParams).toHaveBeenCalledWith({ section: undefined });
-      fireEvent.press(screen.getByLabelText('Ir a Dudas'));
+      fireEvent.press(screen.getByLabelText('Ir a Especialidades'));
       expect(mockScrollTo).toHaveBeenLastCalledWith({ y: 4490, animated: true });
       // A later layout shift must be measured from the live section too.
-      professionalRect.mockReturnValue(rect(1850, 600));
-      fireEvent.press(screen.getByLabelText('Ir a Para psicólogos/as'));
+      howRect.mockReturnValue(rect(1850, 600));
+      fireEvent.press(screen.getByLabelText('Ir a Cómo funciona'));
       expect(mockScrollTo).toHaveBeenLastCalledWith({ y: 2140, animated: true });
       expect(mockScrollTo).toHaveBeenCalledTimes(3);
     } finally {

@@ -27,13 +27,6 @@ const FAQ_ITEMS: FAQItem[] = [
       'HERA te ayuda a encontrar un/a psicólogo/a y ofrece herramientas para gestionar una consulta de psicología. Puedes explorar perfiles verificados, comparar precios y modalidades y solicitar una reserva. Los profesionales reúnen agenda, pacientes, documentación y facturación en el mismo espacio.',
   },
   {
-    id: 'professional-tools',
-    audience: 'Profesionales',
-    question: '¿Cómo ayuda HERA a gestionar una consulta de psicología?',
-    answer:
-      'Puedes organizar tu agenda, sesiones, pacientes, tarifas y facturas. También puedes actualizar tu perfil público y gestionar documentación y consentimientos con acceso protegido.',
-  },
-  {
     id: 'patient-booking',
     audience: 'Pacientes',
     question: '¿Cómo reservan sesión los pacientes?',
@@ -48,13 +41,6 @@ const FAQ_ITEMS: FAQItem[] = [
       'La privacidad se trata como una parte central del producto. HERA trabaja con minimización de datos, accesos diferenciados para información sensible, documentación protegida y flujos de consentimiento alineados con RGPD y LOPDGDD.',
   },
   {
-    id: 'billing',
-    audience: 'Profesionales',
-    question: '¿La facturación está incluida?',
-    answer:
-      'Sí. HERA incluye herramientas para configurar tarifas, preparar facturas, revisar estados de pago y descargar documentación en PDF. No sustituye el asesoramiento fiscal, pero ayuda a que la parte administrativa de la consulta esté más ordenada.',
-  },
-  {
     id: 'modalities',
     audience: 'Pacientes',
     question: '¿Puedo hacer terapia online o presencial?',
@@ -63,17 +49,10 @@ const FAQ_ITEMS: FAQItem[] = [
   },
   {
     id: 'verification',
-    audience: 'Profesionales',
+    audience: 'Pacientes',
     question: '¿Los especialistas pasan verificación?',
     answer:
       'HERA contempla revisión de documentación profesional para reforzar la confianza y cuidar la calidad del acceso a la plataforma. Esta verificación ayuda a validar el uso profesional, aunque no sustituye las obligaciones legales, colegiales o clínicas de cada especialista.',
-  },
-  {
-    id: 'beta',
-    audience: 'Producto',
-    question: '¿Hay funciones en demo o beta?',
-    answer:
-      'Cuando una función esté en demo, beta o pendiente de revisión final, se mostrará identificada como tal. Preferimos explicar el estado real de cada herramienta antes que prometer una experiencia que todavía no esté disponible para todos los usuarios.',
   },
 ];
 
@@ -133,8 +112,7 @@ export const FAQSection: React.FC = () => {
               { color: theme.textSecondary, fontFamily: theme.fontSans },
             ]}
           >
-            Respuestas directas para entender qué ofrece HERA hoy, tanto para
-            profesionales como para pacientes.
+            Respuestas para encontrar un/a psicólogo/a y dar el primer paso con tranquilidad.
           </Text>
         </MotionView>
 

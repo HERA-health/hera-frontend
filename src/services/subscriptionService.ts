@@ -1,10 +1,11 @@
+import { catalogSchema, subscriptionPlanSchema, duration, monthlyPaymentSchema, type SubscriptionCatalog } from '../seo/subscriptionCatalog';
+export { storageLabel, trialLabel } from '../seo/subscriptionCatalog';
+export type { SubscriptionCatalog } from '../seo/subscriptionCatalog';
 import { z } from 'zod';
 import { api, publicApi } from './api';
 
-export const subscriptionPlanSchema = z.enum(['DIRECTORIO', 'CALMA', 'CRECIMIENTO', 'HORIZONTE']);
 export type SubscriptionPlan = z.infer<typeof subscriptionPlanSchema>;
 export type PaidSubscriptionPlan = Exclude<SubscriptionPlan, 'DIRECTORIO'>;
-const duration = z.object({ unit: z.enum(['month', 'day']), count: z.number().int().positive() });
 const paymentSchema = z.object({ amountCents: z.number(), currency: z.string(), paidAt: z.string(), method: z.string(), reference: z.string() });
 const periodSchema = z.object({ id: z.string(), plan: subscriptionPlanSchema, kind: z.enum(['TRIAL','PAID']),
   startsAt: z.string(), endsAt: z.string(), offerVersion: z.string(), voidedAt: z.string().nullable() });
@@ -12,15 +13,6 @@ const grantSchema = z.object({ plan: subscriptionPlanSchema, kind: z.string(), s
 const requestSchema = z.object({ id: z.string(), kind: z.enum(['TRIAL','CHANGE','RENEW','CANCEL']), plan: subscriptionPlanSchema.nullable(),
   status: z.enum(['PENDING','RESOLVED','REJECTED']), createdAt: z.string(), resolvedAt: z.string().nullable(), resolution: z.string().nullable() });
 export type SubscriptionRequestKind = z.infer<typeof requestSchema>['kind'];
-const monthlyPaymentSchema = z.object({ baseCents: z.number().int().nonnegative(), vatPercent: z.number(), vatCents: z.number().int().nonnegative(), totalCents: z.number().int().nonnegative() });
-const planSchema = z.object({ id: subscriptionPlanSchema, name: z.string(), monthlyCents: z.number(), ownPatientLimit: z.number().nullable(),
-  monthlyPayment: monthlyPaymentSchema.optional(),
-  storageBytes: z.number(), rank: z.number(), features: z.array(z.string()),
-  presentation: z.object({ description: z.string(), documents: z.string(), supervision: z.string(), templates: z.string(), directoryProfile: z.string(), publications: z.string(), support: z.string() }),
-});
-const catalogSchema = z.object({ version: z.string(), enforced: z.boolean(), currency: z.literal('EUR'), taxIncluded: z.literal(false), trial: duration,
-  activityDays: z.number(), timeZone: z.string(), directoryCommissionsIndependent: z.boolean(), plans: z.array(planSchema) });
-export type SubscriptionCatalog = z.infer<typeof catalogSchema>;
 const subscriptionSchema = z.object({ plan: subscriptionPlanSchema, name: z.string(), period: periodSchema.nullable(), revision: z.number(),
   trialEligible: z.boolean(), trialGrantedAt: z.string().nullable(), trialPolicy: duration, nextPlan: subscriptionPlanSchema.nullable(),
   cancelAtEnd: z.boolean(), invitationDismissed: z.boolean(), enforced: z.boolean(),
@@ -76,5 +68,3 @@ export const listSubscriptionAccounts = async (params: { search?: string; plan?:
   accountsSchema.parse((await api.get('/admin/subscriptions', { params, signal })).data);
 
 export const subscriptionDate = (value: string) => new Intl.DateTimeFormat('es-ES', { timeZone: 'Europe/Madrid', day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(value));
-export const storageLabel = (value: string | number) => { const bytes = Number(value); return bytes >= 1e12 ? `${Number((bytes / 1e12).toFixed(2))} TB` : bytes >= 1e9 ? `${Number((bytes / 1e9).toFixed(2))} GB` : `${Number((bytes / 1e6).toFixed(2))} MB`; };
-export const trialLabel = (trial: SubscriptionCatalog['trial']) => trial.unit === 'month' ? `${trial.count} mes${trial.count === 1 ? '' : 'es'} natural${trial.count === 1 ? '' : 'es'}` : `${trial.count} días`;

@@ -1,6 +1,7 @@
 import React, { useCallback } from 'react';
 import { Pressable, StyleSheet, Text, View, ViewStyle } from 'react-native';
-import Ionicons from '@expo/vector-icons/Ionicons';
+import Svg, { Path } from 'react-native-svg';
+import { themeIconPaths } from '../../constants/themeIconPaths';
 import { useTheme } from '../../contexts/ThemeContext';
 
 type ToggleSize = 'sm' | 'md';
@@ -74,11 +75,10 @@ export function ThemeToggleButton({
           },
         ]}
       >
-        <Ionicons
-          name={isDark ? 'sunny-outline' : 'moon-outline'}
-          size={tokens.icon}
-          color={theme.link}
-        />
+        <Svg width={tokens.icon} height={tokens.icon} viewBox="0 0 512 512" aria-hidden focusable={false}>
+          <Path d={themeIconPaths[isDark ? 'sunny-outline' : 'moon-outline']} fill="none"
+            stroke={theme.link} strokeWidth={32} strokeLinecap="round" strokeLinejoin="round" />
+        </Svg>
       </View>
       {showLabel && (
         <Text

@@ -1,4 +1,5 @@
-import { LocaleConfig } from 'react-native-calendars';
+// react-native-calendars re-exports this same XDate locale registry.
+import LocaleConfig from 'xdate';
 
 export const CALENDAR_LOCALE = 'es';
 

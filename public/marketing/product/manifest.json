@@ -1,0 +1,263 @@
+{
+  "synthetic": true,
+  "viewport": {
+    "width": 1600,
+    "height": 1000
+  },
+  "scenes": [
+    "home",
+    "agenda",
+    "patients",
+    "record",
+    "documents",
+    "billing",
+    "availability",
+    "statistics",
+    "clinic-agenda",
+    "clinic-team",
+    "clinic-services",
+    "clinic-billing"
+  ],
+  "files": [
+    {
+      "file": "home-light-960.webp",
+      "bytes": 29802,
+      "sha256": "64ec89b59129b42187daf265351e600f4b917d0af42a6780743e4f129de07bcd"
+    },
+    {
+      "file": "home-light-1600.webp",
+      "bytes": 57330,
+      "sha256": "82b3eb1fa23b0706a9d0c96689f8f1b1970f2d769d009e6253ca3cb528ed307e"
+    },
+    {
+      "file": "home-dark-960.webp",
+      "bytes": 29952,
+      "sha256": "ac0dd4b179e49492b5bf81d3cd096483651071335f8e3b318bd201d2a7fb1659"
+    },
+    {
+      "file": "home-dark-1600.webp",
+      "bytes": 55308,
+      "sha256": "a02ef1b0ffa457d70d9c7201dc6e8fe05361d7cd29e66be8fb42747ba8e6ee75"
+    },
+    {
+      "file": "agenda-light-960.webp",
+      "bytes": 29356,
+      "sha256": "01faccdd689bca836ddc56b1fce0720589f9ac693d6459deaf5ec5d52e1ca408"
+    },
+    {
+      "file": "agenda-light-1600.webp",
+      "bytes": 57694,
+      "sha256": "68a4f6241245a45703d1968160953f52d12333fca988c105ba2ca68173b5b871"
+    },
+    {
+      "file": "agenda-dark-960.webp",
+      "bytes": 29120,
+      "sha256": "c4444412b3a8d209f6cb871b6afa89e26b0cc1fa9468dbc0068ba230d6fa32cb"
+    },
+    {
+      "file": "agenda-dark-1600.webp",
+      "bytes": 55464,
+      "sha256": "9a8966a6c3db1c8ff710088ea5dc4e4cf3d15def42e3e9245e4358111a2fe461"
+    },
+    {
+      "file": "patients-light-960.webp",
+      "bytes": 58004,
+      "sha256": "3b0df44ab5d89222c31dbdae3dd60b10b669a8a01a5e0b16cfd37dc1972d5da5"
+    },
+    {
+      "file": "patients-light-1600.webp",
+      "bytes": 117914,
+      "sha256": "23fdac366ca2d4bdfeeea73382b1da4ddd45d7d1ef983865ce505e79b7147ac4"
+    },
+    {
+      "file": "patients-dark-960.webp",
+      "bytes": 62018,
+      "sha256": "8781b540bab39e7f390e775e435d031e8f36b41ee2490744130f3f943884b839"
+    },
+    {
+      "file": "patients-dark-1600.webp",
+      "bytes": 123078,
+      "sha256": "525c74894ced6250c072fba7d92715a8021f3d749bf1f275ab0ce09b12965615"
+    },
+    {
+      "file": "record-light-960.webp",
+      "bytes": 54014,
+      "sha256": "9a9aa1429ee7507f6f1693622bb8f603bc8ba99ae99016d19a24d21f2226f083"
+    },
+    {
+      "file": "record-light-1600.webp",
+      "bytes": 115112,
+      "sha256": "38aae0286dc2af3929dc1fa4f722a89ac941dcf03a7d66d9f9d2ba620483e5f3"
+    },
+    {
+      "file": "record-dark-960.webp",
+      "bytes": 57392,
+      "sha256": "d90e537dba297d24ee98ac9fe9dbde4909b463e10253e367860c5baddf2a8858"
+    },
+    {
+      "file": "record-dark-1600.webp",
+      "bytes": 116994,
+      "sha256": "93707171a4e5845bf15d54159a869e12d91e11f7eb55acce282e5f459f0cef56"
+    },
+    {
+      "file": "documents-light-960.webp",
+      "bytes": 41606,
+      "sha256": "697eb078d2e6a147250bbc39dddde84947ff6824941d5402cfb5e7c645e221a7"
+    },
+    {
+      "file": "documents-light-1600.webp",
+      "bytes": 82686,
+      "sha256": "e2907bad0802d45ae0657ed7e9b6749ae3050479b542db68df269e11422b4a59"
+    },
+    {
+      "file": "documents-dark-960.webp",
+      "bytes": 41500,
+      "sha256": "098fe89613ed43da00c5f91bd3c9b036337911cfced61c4531fc43f028aa4e09"
+    },
+    {
+      "file": "documents-dark-1600.webp",
+      "bytes": 84068,
+      "sha256": "24c974ccf643b749080b6724b60d9f76f0a2deaf439c197fbff696c48393a44c"
+    },
+    {
+      "file": "billing-light-960.webp",
+      "bytes": 56732,
+      "sha256": "ab7b1f796f173fec1e8a10f8cce0f684a3f32dec175e6fc2250e9445e6b31a99"
+    },
+    {
+      "file": "billing-light-1600.webp",
+      "bytes": 114290,
+      "sha256": "cdd94f7a44311156fea122c4c15d301a851d0770d32cc82521830c523965a209"
+    },
+    {
+      "file": "billing-dark-960.webp",
+      "bytes": 59278,
+      "sha256": "3fb912a81aa9f59349606b8a54233bce73c95e368f2e5aa4f7f809569c9b329a"
+    },
+    {
+      "file": "billing-dark-1600.webp",
+      "bytes": 112468,
+      "sha256": "20bf7fc5ab3fc1cd1aa2de842b201f427b6aa735896d8e87a9c4f414faa6b283"
+    },
+    {
+      "file": "availability-light-960.webp",
+      "bytes": 38236,
+      "sha256": "7612fdc33e6947c17e76959348380c36a4ec091044e7c4a5735158e6a45f7ce2"
+    },
+    {
+      "file": "availability-light-1600.webp",
+      "bytes": 76870,
+      "sha256": "f48636157f0cd88bdcecebafdb18268d8e65d52f3fd33807a5cfbb9b7c6371ec"
+    },
+    {
+      "file": "availability-dark-960.webp",
+      "bytes": 39020,
+      "sha256": "632f9b34a2f0fa5f1f837d386a670f1c3199ae32d5d871246532b76f5ce37871"
+    },
+    {
+      "file": "availability-dark-1600.webp",
+      "bytes": 73680,
+      "sha256": "d5f2a0ab5f4614c2df022788d75a74b494ed93b47ebf0638dec7e7a29d88971d"
+    },
+    {
+      "file": "statistics-light-960.webp",
+      "bytes": 42052,
+      "sha256": "95dfdaaa80d45fd7cc7da23402996504546ed2c0e79846937938e670eb33488e"
+    },
+    {
+      "file": "statistics-light-1600.webp",
+      "bytes": 86002,
+      "sha256": "9227cf2ee05b64e48101fd5c40150374be67c781c83c636bc865a82aa1692d0e"
+    },
+    {
+      "file": "statistics-dark-960.webp",
+      "bytes": 42890,
+      "sha256": "a73923124b12e63bfdf6fd17e6e0d78f319974aa4defc6653849ee9b76435c8f"
+    },
+    {
+      "file": "statistics-dark-1600.webp",
+      "bytes": 84186,
+      "sha256": "88bdec9915108ffdf9f8134abad9827b55ebad7837168af1cbca8d6301a33f91"
+    },
+    {
+      "file": "clinic-agenda-light-960.webp",
+      "bytes": 32990,
+      "sha256": "6a6fb47175f8c2a7ce630bacd6b9f6d96dd703333bb937051d804f9c6645348f"
+    },
+    {
+      "file": "clinic-agenda-light-1600.webp",
+      "bytes": 64884,
+      "sha256": "245cecf2e8e86b254a75e6757bb60e8498ea47e399953d54c6990c5153d63984"
+    },
+    {
+      "file": "clinic-agenda-dark-960.webp",
+      "bytes": 34032,
+      "sha256": "8cbd1095172a09863030ca01d88bca9da01a821ee4f2afacc08a5e4a5a57ee27"
+    },
+    {
+      "file": "clinic-agenda-dark-1600.webp",
+      "bytes": 64602,
+      "sha256": "f29dfba4935bfe1dee04c391d680a6ec6053d416108beae8615af7f72a684fba"
+    },
+    {
+      "file": "clinic-team-light-960.webp",
+      "bytes": 31614,
+      "sha256": "6f56e615d86e3a1ab23792ded548bd487929e185d88bf2b9d9e49608a0e160aa"
+    },
+    {
+      "file": "clinic-team-light-1600.webp",
+      "bytes": 63186,
+      "sha256": "83bc8608ef383bf382267f21c95117238f622f675cca0c7e69589c3de9107cec"
+    },
+    {
+      "file": "clinic-team-dark-960.webp",
+      "bytes": 32964,
+      "sha256": "23b2dd6d901760f78ce98b393b126a0232b32ec1fe9511cca58b1cbf3d5d55d4"
+    },
+    {
+      "file": "clinic-team-dark-1600.webp",
+      "bytes": 63576,
+      "sha256": "0ac7eefad5aa45531f5887f20af42d4124285d0f2016b7de5ef66ee17fef4f3e"
+    },
+    {
+      "file": "clinic-services-light-960.webp",
+      "bytes": 28378,
+      "sha256": "dab0af172d52892c85ac7c6f7e15c8314a21a2eab36ebee3a1a47b17bb112111"
+    },
+    {
+      "file": "clinic-services-light-1600.webp",
+      "bytes": 56986,
+      "sha256": "0f0034ac3ca7d51db2983efd633af4d1c186c6e3da91cb01c884715b896caf27"
+    },
+    {
+      "file": "clinic-services-dark-960.webp",
+      "bytes": 30224,
+      "sha256": "224266c2af1b8b02dd4b3c8f03ab24ff0826da01bdd14d3138475b834ba254b2"
+    },
+    {
+      "file": "clinic-services-dark-1600.webp",
+      "bytes": 58962,
+      "sha256": "ddf0547d30bd220da2327667ac3d398bb737b0e2fcf6910610ced2c64704c438"
+    },
+    {
+      "file": "clinic-billing-light-960.webp",
+      "bytes": 34094,
+      "sha256": "cffee7cc4bd398cfee6e6d307c8fdffa6a17a5babbf471d894403e04939df277"
+    },
+    {
+      "file": "clinic-billing-light-1600.webp",
+      "bytes": 68294,
+      "sha256": "e011728ebbf8dae9fd77b84e2f45e7bcdbf0d90c4c49f3a53278e09ba54fc027"
+    },
+    {
+      "file": "clinic-billing-dark-960.webp",
+      "bytes": 35474,
+      "sha256": "2a5698bb07bd5520440e549ae6c539e6855901105e564d3d7ebac9ce5f35c3ee"
+    },
+    {
+      "file": "clinic-billing-dark-1600.webp",
+      "bytes": 68340,
+      "sha256": "1ba261c2f574f92b7295f45dc008701df4c6aa94f17c20e1ccfb23498b320815"
+    }
+  ]
+}

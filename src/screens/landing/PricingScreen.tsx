@@ -1,3 +1,4 @@
+import { readInitialPricingCatalog, takeInitialPricingCatalog } from '../../seo/initialPricingCatalog';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   Image, Platform, Pressable, ScrollView, StatusBar, StyleSheet, Text, View,
@@ -6,6 +7,7 @@ import {
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
 import type { AppNavigationProp } from '../../constants/types';
+import { professionalHeaderLinks } from '../../constants/professionalNavigation';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useWebPageMetadata } from '../../hooks/useWebPageMetadata';
@@ -14,7 +16,7 @@ import { FooterSection } from './components/FooterSection';
 import { SubscriptionRequestModal } from './components/SubscriptionRequestModal';
 import type { LandingSectionAnchor } from './types';
 import {
-  DIRECTORY_OFFER, pricingAvailability, PRICING_COMMISSION_NOTE, pricingFaqs,
+  DIRECTORY_OFFER, pricingIntro, pricingAvailability, PRICING_COMMISSION_NOTE, pricingFaqs,
   pricingPlansFromCatalog, PRICING_STORAGE_NOTE, SUBSCRIPTION_ESSENTIALS, SUBSCRIPTION_TOOL_GROUPS, type PricingPlanId,
 } from './pricingContent';
 import { getSubscriptionCatalog, storageLabel, trialLabel, type SubscriptionCatalog } from '../../services/subscriptionService';
@@ -67,6 +69,9 @@ export function PricingScreen(): React.ReactElement {
   const { theme, isDark } = useTheme();
   const { isAuthenticated, user, verificationSubmitted } = useAuth();
   const { width } = useWindowDimensions();
+  React.useLayoutEffect(() => {
+    if (Platform.OS === 'web') document.getElementById('pricing-first-paint')?.remove();
+  }, []);
   const desktop = width >= DESKTOP_BREAKPOINT;
   const tablet = width >= TABLET_BREAKPOINT;
   const inlinePrice = width >= 1280;
@@ -83,12 +88,13 @@ export function PricingScreen(): React.ReactElement {
   const [requestPlanId, setRequestPlanId] = useState<PricingPlanId | null>(null);
   const [selectedId, setSelectedId] = useState<PricingPlanId | null>(null);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
-  const [catalog, setCatalog] = useState<SubscriptionCatalog | null>(null);
+  const [catalog, setCatalog] = useState<SubscriptionCatalog | null>(readInitialPricingCatalog);
   const [catalogError, setCatalogError] = useState('');
   const [catalogRevision, setCatalogRevision] = useState(0);
   useEffect(() => {
     const controller = new AbortController(); setCatalogError('');
-    void getSubscriptionCatalog(controller.signal).then(setCatalog).catch(error => { if (!controller.signal.aborted) setCatalogError(getErrorMessage(error)); });
+    const request = takeInitialPricingCatalog() ?? getSubscriptionCatalog(controller.signal);
+    void request.then(next => { if (!controller.signal.aborted) setCatalog(next); }).catch(error => { if (!controller.signal.aborted) setCatalogError(getErrorMessage(error)); });
     return () => controller.abort();
   }, [catalogRevision]);
   const PRICING_PLANS = catalog ? pricingPlansFromCatalog(catalog) : [];
@@ -106,8 +112,8 @@ export function PricingScreen(): React.ReactElement {
   const canVisitLanding = navigation.getState().routeNames.includes('Landing');
 
   useWebPageMetadata({
-    title: 'Hera | Planes y precios para psicólogos/as',
-    description: 'Compara los planes Calma, Crecimiento y Horizonte. Solicita la activación manual y continúa, si lo deseas, mediante pago externo.',
+    title: 'Planes y precios para psicólogos · HERA',
+    description: 'Compara los planes Calma, Crecimiento y Horizonte para tu consulta de psicología. Revisa precios, prestaciones y condiciones de la prueba gratuita.',
     canonicalPath: '/planes',
     indexable: true,
   });
@@ -168,22 +174,24 @@ export function PricingScreen(): React.ReactElement {
     <View style={[styles.root, { backgroundColor: theme.landingCanvas }]}>
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={theme.landingCanvas} />
       <LandingHeader
-        context="pricing" isScrolled
+        context="professional" isScrolled
         accessLabel={isAuthenticated ? 'Mi espacio' : 'Acceder'}
         onAccess={handleAccess}
         onLogoPress={canVisitLanding ? () => navigation.navigate('Landing') : handleAccess}
-        onFindSpecialist={() => navigation.navigate('PublicSpecialists')}
-        onExploreProfessionals={canVisitLanding ? () => handleSection('forSpecialists') : () => navigation.navigate('PublicSpecialists')}
-        onScrollToSection={canVisitLanding ? handleSection : undefined}
-        onViewPlans={() => scrollRef.current?.scrollTo({ y: 0, animated: false })}
+        navigationItems={professionalHeaderLinks.map(item => ({
+          ...item,
+          onPress: () => item.route === 'Pricing'
+            ? scrollRef.current?.scrollTo({ y: 0, animated: false })
+            : navigation.navigate(item.route),
+        }))}
       />
-      <ScrollView ref={scrollRef} contentContainerStyle={styles.scrollContent}>
+      <ScrollView ref={scrollRef} contentContainerStyle={[styles.scrollContent, width < 1280 && { paddingTop: width < 768 ? 124 : 132 }]}>
         <View style={[styles.content, !tablet && styles.contentMobile]}>
           <View style={[styles.hero, desktop && styles.horizontal]}>
             <View style={[styles.heroCopy, desktop && styles.flex]}>
-              <Text style={[styles.eyebrow, { color: theme.primary, fontFamily: theme.fontSansSemiBold }]}>PARA PSICÓLOGOS/AS</Text>
-              <Text accessibilityRole="header" aria-level={1} style={[styles.title, !tablet && styles.titleMobile, display]}>Planes para tu consulta de psicología.</Text>
-              <Text style={[styles.intro, body]}>Recibe pacientes desde HERA o reúne toda tu consulta en un mismo espacio.</Text>
+              <Text style={[styles.eyebrow, { color: theme.primary, fontFamily: theme.fontSansSemiBold }]}>{pricingIntro.eyebrow}</Text>
+              <Text accessibilityRole="header" aria-level={1} style={[styles.title, !tablet && styles.titleMobile, display]}>{pricingIntro.heading}</Text>
+              <Text style={[styles.intro, body]}>{pricingIntro.intro}</Text>
             </View>
             {desktop ? <Image
               source={Platform.OS === 'web' ? require('../../../assets/landing/psychologist-landscape-640.webp') : require('../../../assets/landing/psychologist-landscape-640.jpg')}
@@ -194,18 +202,18 @@ export function PricingScreen(): React.ReactElement {
           <View style={[styles.directory, { backgroundColor: theme.surface, borderColor: theme.borderLight }]}>
             <View style={[styles.directoryColumns, desktop && styles.horizontal]}>
               <View style={[styles.directoryCopy, desktop && styles.directoryCopyDesktop]}>
-                <Text style={[styles.eyebrow, { color: theme.primary, fontFamily: theme.fontSansSemiBold }]}>01 / DIRECTORIO</Text>
-                <Text accessibilityRole="header" aria-level={2} style={[styles.directoryTitle, display]}>Empieza en HERA sin suscripción.</Text>
-                <Text style={[styles.small, body]}>La modalidad de entrada para especialistas: recibe y atiende a pacientes que llegan desde HERA.</Text>
-                <Text style={[styles.small, strong]}>Sin cuota mensual fija. Comisión por sesión.</Text>
+                <Text style={[styles.eyebrow, { color: theme.primary, fontFamily: theme.fontSansSemiBold }]}>{pricingIntro.directoryLabel}</Text>
+                <Text accessibilityRole="header" aria-level={2} style={[styles.directoryTitle, display]}>{pricingIntro.directoryTitle}</Text>
+                <Text style={[styles.small, body]}>{pricingIntro.directoryIntro}</Text>
+                <Text style={[styles.small, strong]}>{pricingIntro.directoryTerms}</Text>
               </View>
               <View style={[styles.commissions, desktop && styles.flex]}>
-                <Text style={[styles.small, strong]}>Comisiones por sesión</Text>
+                <Text style={[styles.small, strong]}>{pricingIntro.commissionTitle}</Text>
                 <View style={styles.commissionScale}>{DIRECTORY_OFFER.commissions.map((item, index) => <View key={item.session} style={[styles.commissionStep, index > 0 && styles.commissionDivider, { borderColor: theme.borderLight }]}>
                   <Text style={[styles.rate, strong]}>{item.rate}</Text>
                   <Text style={[styles.caption, body]}>{item.session}</Text>
                 </View>)}</View>
-                <Text style={[styles.caption, body]}>La escala se cuenta para cada relación entre paciente y especialista.</Text>
+                <Text style={[styles.caption, body]}>{pricingIntro.commissionNote}</Text>
               </View>
             </View>
             <View style={[styles.directoryIncludes, tablet && styles.directoryIncludesRow, { backgroundColor: theme.landingProfessional }]}>
@@ -213,11 +221,11 @@ export function PricingScreen(): React.ReactElement {
                 <Text style={styles.directoryStorageIcon} accessible={false} aria-hidden>📁</Text>
                 <Text style={[styles.small, strong, styles.directoryStorageLabel]}>{directoryStorage} de almacenamiento{catalog?.enforced === false ? ' previsto en el plan' : ' total'}</Text>
               </View>
-              <Text style={[styles.caption, body, tablet && styles.flex]}>Agenda, historial, documentos, consentimientos, facturación, recordatorios, Google Meet y estadísticas completas.</Text>
+              <Text style={[styles.caption, body, tablet && styles.flex]}>{pricingIntro.includes}</Text>
             </View>
             {catalog && <Text style={[styles.directoryScope, styles.caption, body]}>{catalog.enforced
-              ? 'Herramientas para tus pacientes de HERA. Se conserva la gestión de tu cartera anterior protegida. Para incorporar nuevos pacientes propios necesitas una suscripción.'
-              : 'La suscripción es opcional en esta etapa. Puedes seguir incorporando pacientes propios y trabajando como hasta ahora. Los límites de pacientes y almacenamiento todavía no se aplican.'}</Text>}
+              ? pricingIntro.enforcedScope
+              : pricingIntro.optionalScope}</Text>}
           </View>
 
           <View style={styles.subscriptionHeading}>

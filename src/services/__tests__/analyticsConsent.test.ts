@@ -15,7 +15,7 @@ test('does not initialize or send analytics without explicit consent', () => {
   expect(mockConstructor).not.toHaveBeenCalled(); expect(mockCapture).not.toHaveBeenCalled();
 });
 test('consented telemetry strips arbitrary properties and excludes sensitive events', async () => {
-  configureAnalytics(true); await Promise.resolve();
+  await configureAnalytics(true);
   track('session_booked', { clientId: 'patient', price: 80 });
   trackScreen('clinical');
   expect(mockCapture).not.toHaveBeenCalled();
@@ -24,10 +24,10 @@ test('consented telemetry strips arbitrary properties and excludes sensitive eve
   expect(mockConstructor.mock.calls[0][1]).toMatchObject({ persistence: 'memory', captureAppLifecycleEvents: false, enableSessionReplay: false, disableRemoteConfig: true });
 });
 test('withdrawal clears pending events and stops capture; delayed opt-in cannot revive it', async () => {
-  configureAnalytics(true); await Promise.resolve();
+  await configureAnalytics(true);
   configureAnalytics(false); track('login_submitted');
   expect(mockQueue).toHaveBeenCalledWith('queue', []); expect(mockOptOut).toHaveBeenCalled();
   expect(mockCapture).not.toHaveBeenCalled();
-  configureAnalytics(true); reset(); await Promise.resolve(); track('login_submitted');
+  const pending = configureAnalytics(true); reset(); await pending; track('login_submitted');
   expect(mockCapture).not.toHaveBeenCalled();
 });

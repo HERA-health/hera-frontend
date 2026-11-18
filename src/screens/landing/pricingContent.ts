@@ -1,5 +1,5 @@
-import type { SubscriptionCatalog } from '../../services/subscriptionService';
-import { storageLabel, trialLabel } from '../../services/subscriptionService';
+import type { SubscriptionCatalog } from '../../seo/subscriptionCatalog';
+import { storageLabel, trialLabel } from '../../seo/subscriptionCatalog';
 // Presentation only. These values do not grant permissions or enforce quotas.
 export type PricingPlanId = 'calma' | 'crecimiento' | 'horizonte';
 
@@ -22,6 +22,21 @@ export interface PricingPlan {
 export const pricingAvailability = (trial: SubscriptionCatalog['trial']) => `Solicita tu plan con ${trialLabel(trial)} de prueba gratuita desde la activación. HERA te contactará para confirmarla; si después deseas continuar, podrás pagar externamente.`;
 export const PRICING_STORAGE_NOTE = 'El almacenamiento es el espacio total para tus archivos por especialista. No se suma entre modalidades ni se renueva cada mes.';
 export const PRICING_COMMISSION_NOTE = 'Las comisiones se aplican a los pacientes captados por HERA, también si tienes una suscripción. Tus pacientes propios no generan comisión de captación de HERA.';
+
+export const pricingIntro = {
+  optionalScope: 'La suscripción es opcional en esta etapa. Puedes seguir incorporando pacientes propios y trabajando como hasta ahora. Los límites de pacientes y almacenamiento todavía no se aplican.',
+  enforcedScope: 'Herramientas para tus pacientes de HERA. Se conserva la gestión de tu cartera anterior protegida. Para incorporar nuevos pacientes propios necesitas una suscripción.',
+  eyebrow: 'PARA PSICÓLOGOS/AS',
+  heading: 'Planes para tu consulta de psicología.',
+  intro: 'Recibe pacientes desde HERA o reúne toda tu consulta en un mismo espacio.',
+  directoryLabel: '01 / DIRECTORIO',
+  directoryTitle: 'Empieza en HERA sin suscripción.',
+  directoryIntro: 'La modalidad de entrada para especialistas: recibe y atiende a pacientes que llegan desde HERA.',
+  directoryTerms: 'Sin cuota mensual fija. Comisión por sesión.',
+  commissionTitle: 'Comisiones por sesión',
+  commissionNote: 'La escala se cuenta para cada relación entre paciente y especialista.',
+  includes: 'Agenda, historial, documentos, consentimientos, facturación, recordatorios, Google Meet y estadísticas completas.',
+} as const;
 
 export const DIRECTORY_OFFER = {
   storageLabel: '5 GB',

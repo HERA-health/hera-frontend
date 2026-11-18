@@ -20,6 +20,7 @@ export function PsychologyPageScreen() {
   const { theme } = useTheme();
   const { isAuthenticated, user, verificationSubmitted } = useAuth();
   const bodyRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
   const topic = route.name === 'PsychologyOnline' ? 'online' : route.params?.topic;
   const page = psychologyPages[topic === 'ansiedad' || topic === 'autoestima' || topic === 'barcelona' || topic === 'cataluna' ? topic : 'online'];
   const { data, loading, error, retry } = usePublicDirectory(page.filters);
@@ -29,7 +30,7 @@ export function PsychologyPageScreen() {
   const markup = useMemo(() => ({ __html: html }), [html]);
   const canVisitLanding = navigation.getState().routeNames.includes('Landing');
   useWebPageMetadata({ title: page.title, description: page.description, canonicalPath: page.path });
-  usePublicHtmlReady(!loading);
+  usePublicHtmlReady(!loading, scrollRef);
 
   // Enhance the same readable HTML served initially. Without JS, the carousel
   // still scrolls and every profile, FAQ and navigation link remains usable.
@@ -85,10 +86,10 @@ export function PsychologyPageScreen() {
       accessLabel={isAuthenticated ? 'Mi espacio' : 'Acceder'} onAccess={handleAccess}
       onLogoPress={canVisitLanding ? () => navigation.navigate('Landing') : handleAccess}
       onFindSpecialist={() => navigation.navigate('PublicSpecialists')}
-      onExploreProfessionals={canVisitLanding ? () => handleSection('forSpecialists') : () => navigation.navigate('PublicSpecialists')}
+      onExploreProfessionals={() => navigation.navigate('ProfessionalSoftware')}
       onScrollToSection={canVisitLanding ? handleSection : undefined}
       onViewPlans={() => navigation.navigate('Pricing')} />
-    <div className="psychology-page" style={{ ...psychologyThemeStyle(theme), flex: 1, minHeight: 0, overflowY: 'auto' }}>
+    <div ref={scrollRef} className="psychology-page" style={{ ...psychologyThemeStyle(theme), flex: 1, minHeight: 0, overflowY: 'auto' }}>
       <style>{psychologyPageCss}</style>
       <div ref={bodyRef} dangerouslySetInnerHTML={markup} onClick={event => {
         if (event.target instanceof Element && event.target.closest('[data-retry]')) void retry();

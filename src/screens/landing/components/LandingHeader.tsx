@@ -1,3 +1,4 @@
+import { LandingProfessionalMenu, type ProfessionalMenuRoute } from './LandingProfessionalMenu';
 import { PUBLIC_HEADER_LINKS } from '../../../constants/publicHeaderLinks';
 import React, { useEffect } from 'react';
 import {
@@ -25,9 +26,11 @@ import { ThemeToggleButton } from '../../../components/common/ThemeToggleButton'
 import { useTheme } from '../../../contexts/ThemeContext';
 import type { LandingSectionAnchor } from '../types';
 
-export type LandingHeaderContext = 'landing' | 'directory' | 'access' | 'pricing' | 'questionnaire' | 'psychology';
+export type LandingHeaderContext = 'landing' | 'directory' | 'access' | 'pricing' | 'questionnaire' | 'psychology' | 'professional';
 
 interface LandingHeaderProps {
+  onProfessionalMenuSelect?: (route: ProfessionalMenuRoute) => void;
+  navigationItems?: ReadonlyArray<{ label: string; href: string; onPress: () => void }>;
   onLayout?: (event: LayoutChangeEvent) => void;
   context: LandingHeaderContext;
   isScrolled: boolean;
@@ -50,6 +53,8 @@ const COMPACT_PROFESSIONAL_LINK_BREAKPOINT = 1024;
 const WORDMARK_BREAKPOINT = 360;
 
 export const LandingHeader: React.FC<LandingHeaderProps> = ({
+  navigationItems,
+  onProfessionalMenuSelect,
   onLayout,
   context,
   isScrolled,
@@ -66,13 +71,15 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
   const { width } = useWindowDimensions();
   const { theme, isDark } = useTheme();
   const isMobile = width < MOBILE_BREAKPOINT;
-  const landing = context === 'landing';
+  const professional = context === 'professional';
+  const landing = context === 'landing' || professional;
   const isWide = width >= (onViewPlans ? BRAND_DESCRIPTOR_BREAKPOINT : WIDE_HEADER_BREAKPOINT);
   const compactLanding = landing && width < 1600;
-  const scrollLanding = landing && width < 1280;
+  const professionalCompact = professional && width < 1280;
+  const scrollLanding = landing && !professional && width < 1280;
   const showBrandDescriptor = !landing && width >= BRAND_DESCRIPTOR_BREAKPOINT && (!onViewPlans || width >= 1600);
   const isDirectory = context === 'directory' || context === 'questionnaire';
-  const isAccess = context === 'access' || context === 'pricing' || context === 'psychology';
+  const isAccess = professional || context === 'access' || context === 'pricing' || context === 'psychology';
   const scrollProgress = useSharedValue(0);
 
   useEffect(() => {
@@ -87,7 +94,7 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
     if (context === 'questionnaire') {
       return { backgroundColor: 'transparent', borderBottomWidth: 0, borderBottomColor: 'transparent' };
     }
-    if (context === 'pricing' || context === 'psychology') {
+    if (context === 'pricing' || context === 'psychology' || professional) {
       return {
         backgroundColor: theme.landingCanvas,
         borderBottomWidth: 0,
@@ -134,11 +141,18 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
 
   const navigationLinks = (
     <View style={[styles.navLinks, landing && { flexGrow: scrollLanding ? 0 : 1, flexShrink: 0, flexBasis: scrollLanding ? 'auto' : 0 }]}>
-      {(onScrollToSection ? PUBLIC_HEADER_LINKS : []).map((item) => (
-        <React.Fragment key={item.id}>
+      {navigationItems?.map(item => (
+        <AnimatedPressable key={item.href} href={item.href} onPress={item.onPress} hoverLift={false} pressScale={0.96} accessibilityRole="link" style={[styles.navLink, { minHeight: 44, justifyContent: 'center' }]}>
+          <Text style={[styles.navLinkText, { color: theme.textSecondary, fontFamily: theme.fontSansMedium }]}>{item.label}</Text>
+        </AnimatedPressable>
+      ))}
+      {(!navigationItems && onScrollToSection ? PUBLIC_HEADER_LINKS : []).map((item) => (
+        context === 'landing' && item.id === 'forSpecialists' && onProfessionalMenuSelect && Platform.OS === 'web'
+          ? <LandingProfessionalMenu key={item.id} onSelect={onProfessionalMenuSelect} />
+          : <React.Fragment key={item.id}>
           <AnimatedPressable
-            onPress={() => onScrollToSection?.(item.id)}
-            href={`/?section=${item.id}`}
+            onPress={() => item.id === 'forSpecialists' && onExploreProfessionals ? onExploreProfessionals() : onScrollToSection?.(item.id)}
+            href={item.id === 'forSpecialists' ? '/software-para-psicologos' : `/?section=${item.id}`}
             hoverLift={false}
             pressScale={0.96}
             accessibilityRole="link"
@@ -149,10 +163,10 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
               {item.label}
             </Text>
           </AnimatedPressable>
-          {item.id === 'forSpecialists' ? plansLink : null}
+
         </React.Fragment>
       ))}
-      {!onScrollToSection ? plansLink : null}
+      {!navigationItems && !onScrollToSection ? plansLink : null}
     </View>
   );
 
@@ -198,11 +212,26 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
           ) : null}
         </View>
 
-        {!scrollLanding && (landing || isWide) ? navigationLinks : null}
+        {!professionalCompact && !scrollLanding && (landing || isWide) ? navigationLinks : null}
 
         <View style={[styles.actions, landing && isMobile && { gap: 6 }]}>
-          {!isWide && !landing ? plansLink : null}
-          {!landing || !isMobile ? <ThemeToggleButton size="sm" /> : null}
+          {!isWide && !landing && (
+            context === 'access' && onExploreProfessionals ? (
+              <AnimatedPressable
+                href="/software-para-psicologos"
+                onPress={onExploreProfessionals}
+                accessibilityRole="link"
+                accessibilityLabel="Para profesionales"
+                hoverLift={false}
+                style={[styles.navLink, { minHeight: 44, justifyContent: 'center' }]}
+              >
+                <Text style={[styles.navLinkText, { color: theme.textSecondary, fontFamily: theme.fontSansMedium }]}>
+                  {isMobile ? 'Profesionales' : 'Para profesionales'}
+                </Text>
+              </AnimatedPressable>
+            ) : plansLink
+          )}
+          {professional || !landing || !isMobile ? <ThemeToggleButton size="sm" /> : null}
           {landing && onQuestionnaire ? <AnimatedPressable onPress={onQuestionnaire} href="/cuestionario" accessibilityRole="link" accessibilityLabel="Hacer cuestionario" hoverLift={false} pressScale={1} style={[styles.secondaryAction, styles.landingAction, { paddingHorizontal: compactLanding ? 10 : 12, backgroundColor: theme.secondaryMuted, borderColor: theme.border }]}>
             <Text style={{ fontFamily: theme.fontSansSemiBold, fontSize: 14, color: theme.textPrimary }}>{compactLanding ? 'Cuestionario' : 'Hacer cuestionario'}</Text>
           </AnimatedPressable> : null}
@@ -244,7 +273,7 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
           {!isMobile && !isWide && !isAccess && onExploreProfessionals && !landing && width >= COMPACT_PROFESSIONAL_LINK_BREAKPOINT ? (
             <AnimatedPressable
               onPress={onExploreProfessionals}
-              href="/?section=forSpecialists"
+              href="/software-para-psicologos"
               hoverLift={false}
               pressScale={0.96}
               accessibilityRole="link"
@@ -289,7 +318,7 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
           ) : null}
         </View>
         {scrollLanding ? navigationLinks : null}
-        {landing && isMobile ? <ThemeToggleButton size="sm" /> : null}
+        {landing && !professional && isMobile ? <ThemeToggleButton size="sm" /> : null}
       </View>
   );
 
@@ -300,10 +329,10 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
         styles.container,
         Platform.OS === 'web' && !isMobile && styles.containerWeb,
         containerAnimStyle,
-        context !== 'landing' && context !== 'pricing' && context !== 'psychology' && context !== 'questionnaire' && webGlassStyle,
+        !landing && context !== 'pricing' && context !== 'psychology' && context !== 'questionnaire' && webGlassStyle,
       ]}
     >
-      {context !== 'landing' && context !== 'pricing' && context !== 'psychology' && context !== 'questionnaire' && Platform.OS !== 'web' && isScrolled ? (
+      {!landing && context !== 'pricing' && context !== 'psychology' && context !== 'questionnaire' && Platform.OS !== 'web' && isScrolled ? (
         <BlurView
           intensity={55}
           tint={isDark ? 'dark' : 'light'}
@@ -311,8 +340,15 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
         />
       ) : null}
 
-      {landing ? (
-        <ScrollView horizontal scrollEnabled={scrollLanding} showsHorizontalScrollIndicator={scrollLanding} style={{ flexGrow: 0 }} contentContainerStyle={{ flexGrow: 1, justifyContent: scrollLanding ? 'flex-start' : 'center' }}>
+      {professionalCompact ? (
+        <>
+          {headerContent}
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0 }} contentContainerStyle={{ paddingHorizontal: 16 }}>
+            {navigationLinks}
+          </ScrollView>
+        </>
+      ) : professional ? headerContent : landing ? (
+        <ScrollView nativeID="landing-header-scroll" horizontal scrollEnabled={scrollLanding} showsHorizontalScrollIndicator={scrollLanding} style={{ flexGrow: 0 }} contentContainerStyle={{ flexGrow: 1, justifyContent: scrollLanding ? 'flex-start' : 'center' }}>
           {headerContent}
         </ScrollView>
       ) : headerContent}

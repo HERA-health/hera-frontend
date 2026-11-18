@@ -12,7 +12,6 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { AmbientBackground } from '../../components/common/AmbientBackground';
 import { Button } from '../../components/common/Button';
-import { MotionView } from '../../components/common/MotionView';
 import { spacing } from '../../constants/colors';
 import type { RootStackParamList } from '../../constants/types';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -70,7 +69,7 @@ export function WelcomeScreen() {
   }, [navigation]);
 
   const handleExploreProfessionals = React.useCallback(() => {
-    navigation.navigate('Landing', { section: 'forSpecialists' });
+    navigation.navigate('ProfessionalSoftware');
   }, [navigation]);
 
   return (
@@ -98,7 +97,7 @@ export function WelcomeScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
-        <MotionView entering="fadeInUp" delay={0} style={styles.intro}>
+        <View style={styles.intro}>
           <View
             style={[
               styles.eyebrow,
@@ -124,6 +123,7 @@ export function WelcomeScreen() {
 
           <Text
             accessibilityRole="header"
+            aria-level={1}
             style={[
               styles.title,
               {
@@ -145,7 +145,7 @@ export function WelcomeScreen() {
           >
             Elige tu espacio para continuar como paciente, profesional o clínica.
           </Text>
-        </MotionView>
+        </View>
 
         <View
           style={[
@@ -153,9 +153,7 @@ export function WelcomeScreen() {
             useHorizontalLayout ? styles.cardGridHorizontal : styles.cardGridVertical,
           ]}
         >
-          <MotionView
-            entering="fadeInUp"
-            delay={80}
+          <View
             style={useHorizontalLayout ? styles.cardWrapperHorizontal : undefined}
           >
             <View
@@ -227,11 +225,9 @@ export function WelcomeScreen() {
                 Acceder como paciente
               </Button>
             </View>
-          </MotionView>
+          </View>
 
-          <MotionView
-            entering="fadeInUp"
-            delay={140}
+          <View
             style={useHorizontalLayout ? styles.cardWrapperHorizontal : undefined}
           >
             <View
@@ -303,11 +299,9 @@ export function WelcomeScreen() {
                 Acceder como profesional
               </Button>
             </View>
-          </MotionView>
+          </View>
 
-          <MotionView
-            entering="fadeInUp"
-            delay={200}
+          <View
             style={useHorizontalLayout ? styles.cardWrapperHorizontal : undefined}
           >
             <View
@@ -379,7 +373,7 @@ export function WelcomeScreen() {
                 Acceder como clínica
               </Button>
             </View>
-          </MotionView>
+          </View>
         </View>
 
         <Text

@@ -9,6 +9,7 @@ import { publicApi } from '../../../services/api';
 import { useWebPageMetadata } from '../../../hooks/useWebPageMetadata';
 
 const mockNavigate = jest.fn();
+const mockHeader = jest.fn();
 jest.mock('../../../services/api', () => ({ publicApi: { get: jest.fn(), post: jest.fn() } }));
 let mockRouteNames = ['Landing', 'Pricing', 'PublicSpecialists', 'Welcome'];
 let mockAuth = {
@@ -27,9 +28,11 @@ jest.mock('../../../contexts/ThemeContext', () => ({
 }));
 jest.mock('../../../hooks/useWebPageMetadata', () => ({ useWebPageMetadata: jest.fn() }));
 jest.mock('../components/LandingHeader', () => ({
-  LandingHeader: ({ onAccess, accessLabel }: { onAccess: () => void; accessLabel: string }) => {
+  LandingHeader: (props: { onAccess: () => void; accessLabel: string; context: string; navigationItems?: { label: string; onPress: () => void }[] }) => {
+    mockHeader(props);
+    const { onAccess, accessLabel, navigationItems } = props;
     const { Pressable, Text } = require('react-native');
-    return <Pressable onPress={onAccess} accessibilityLabel={accessLabel}><Text>{accessLabel}</Text></Pressable>;
+    return <><Pressable onPress={onAccess} accessibilityLabel={accessLabel}><Text>{accessLabel}</Text></Pressable>{navigationItems?.map(item => <Pressable key={item.label} accessibilityRole="link" onPress={item.onPress}><Text>{item.label}</Text></Pressable>)}</>;
   },
 }));
 jest.mock('../components/FooterSection', () => ({ FooterSection: () => null }));
@@ -43,6 +46,24 @@ describe('public pricing catalogue', () => {
     } }));
     mockRouteNames = ['Landing', 'Pricing', 'PublicSpecialists', 'Welcome'];
     mockAuth = { isAuthenticated: false, user: null, legalStatusSnapshot: { requiresAcceptance: false }, verificationSubmitted: true };
+  });
+
+  it('keeps pricing inside the professional navigation', async () => {
+    render(<PricingScreen />);
+    await screen.findByLabelText('Ver todas las prestaciones de Calma');
+    expect(mockHeader).toHaveBeenLastCalledWith(expect.objectContaining({ context: 'professional' }));
+    expect(mockHeader.mock.lastCall?.[0].onScrollToSection).toBeUndefined();
+    expect(screen.queryByRole('link', { name: 'Especialidades' })).toBeNull();
+    for (const [label, route] of [
+      ['Funcionalidades', 'ProfessionalSoftware'],
+      ['Agenda', 'ProfessionalAgenda'],
+      ['Pacientes e historia clínica', 'ProfessionalPatients'],
+      ['Facturación', 'ProfessionalBillingInfo'],
+      ['HERA por dentro', 'ProfessionalShowcase'],
+    ]) {
+      fireEvent.press(screen.getByRole('link', { name: label }));
+      expect(mockNavigate).toHaveBeenLastCalledWith(route);
+    }
   });
 
   it('opens the selected trial directly from every guest card', async () => {

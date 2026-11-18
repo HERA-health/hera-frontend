@@ -1,9 +1,11 @@
 export const PROFESSIONAL_SHOWCASE_STEP_IDS = [
   'home',
-  'patients',
   'agenda',
-  'availability',
+  'patients',
+  'record',
+  'documents',
   'billing',
+  'availability',
   'statistics',
 ] as const;
 

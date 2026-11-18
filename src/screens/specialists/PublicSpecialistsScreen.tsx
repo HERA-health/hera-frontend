@@ -11,6 +11,7 @@ import { useProfileOptions } from '../../hooks/useProfileOptions';
 import { optionLabel } from '../../utils/profileOptions';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  Platform,
   NativeScrollEvent,
   NativeSyntheticEvent,
   ScrollView,
@@ -93,6 +94,9 @@ type DirectoryFilters = {
   approaches: ProfessionalTherapeuticApproachValue[];
   minRating: RatingFilter | null;
   maxPrice: PriceFilter | null;
+  minAge?: number;
+  maxAge?: number;
+  minExperienceYears?: number;
   sort: specialistsService.PublicSpecialistDirectorySort;
 };
 
@@ -111,6 +115,9 @@ const createInitialFilters = (specialty: unknown): DirectoryFilters =>
   isProfessionalSpecialtyValue(specialty)
     ? { ...INITIAL_FILTERS, specialties: [specialty] }
     : INITIAL_FILTERS;
+
+// The fetched page belongs to this navigation entry only. Keep profile data out of URLs and history state.
+const pendingEntries = new WeakMap<object, specialistsService.PublicSpecialistDirectoryPage>();
 
 export const PublicSpecialistsScreen: React.FC = () => {
   const navigation = useNavigation<NavigationProp>();
@@ -132,7 +139,17 @@ export const PublicSpecialistsScreen: React.FC = () => {
   const [gridWidth, setGridWidth] = useState(0);
   const gridColumns = gridWidth >= 740 ? 2 : 1;
   const compactCards = (gridWidth - (gridColumns - 1) * 20) / gridColumns >= 460;
-  const [queryInput, setQueryInput] = useState(() => typeof window !== 'undefined' && window.location ? new URLSearchParams(window.location.search).get('q') || '' : '');
+  const [initialParams] = useState(() => {
+    if (!route.params) {
+      return new URLSearchParams(typeof window !== 'undefined' && window.location?.pathname === '/especialistas' ? window.location.search : '');
+    }
+    const params = new URLSearchParams();
+    for (const [key, value] of Object.entries(route.params)) {
+      for (const item of Array.isArray(value) ? value : [value]) params.append(key, String(item));
+    }
+    return params;
+  });
+  const [queryInput, setQueryInput] = useState(() => initialParams.get('q') || '');
   const [searchError, setSearchError] = useState<string | undefined>();
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [filters, setFilters] = useState<DirectoryFilters>(() =>
@@ -140,7 +157,7 @@ export const PublicSpecialistsScreen: React.FC = () => {
       const initial = createInitialFilters(route.params?.specialty);
       const topic = route.params?.topic;
       const preset = topic ? psychologyPages[topic].filters : undefined;
-      const params = typeof window !== 'undefined' && window.location ? new URLSearchParams(window.location.search) : new URLSearchParams();
+      const params = initialParams;
       const types = professionalTypeSchema.array().safeParse(params.get('professionalTypes')?.split(',') || preset?.professionalTypes);
       const single = professionalTypeSchema.safeParse(params.get('professionalType'));
       const modality = params.get('modality') || preset?.modality;
@@ -150,6 +167,9 @@ export const PublicSpecialistsScreen: React.FC = () => {
       return { ...initial, q: params.get('q') || '', language: params.get('language') || undefined,
         minRating: params.has('minRating') ? Number(params.get('minRating')) : null,
         maxPrice: params.has('maxPrice') ? Number(params.get('maxPrice')) : null,
+        minAge: params.has('minAge') ? Number(params.get('minAge')) : undefined,
+        maxAge: params.has('maxAge') ? Number(params.get('maxAge')) : undefined,
+        minExperienceYears: params.has('minExperienceYears') ? Number(params.get('minExperienceYears')) : undefined,
         approaches, sort, professionalTypes: types.success ? types.data : undefined,
         professionalType: single.success ? single.data : null,
         modality: modality === 'ONLINE' || modality === 'IN_PERSON' || modality === 'PHONE_CALL' ? modality : null,
@@ -164,15 +184,21 @@ export const PublicSpecialistsScreen: React.FC = () => {
     professionalType: filters.professionalType ?? undefined, modality: filters.modality ?? undefined,
     specialties: filters.specialties.length ? filters.specialties : undefined,
     approaches: filters.approaches.length ? filters.approaches : undefined,
+    ...(filters.minAge !== undefined && { minAge: filters.minAge }),
+    ...(filters.maxAge !== undefined && { maxAge: filters.maxAge }),
+    ...(filters.minExperienceYears !== undefined && { minExperienceYears: filters.minExperienceYears }),
     minRating: filters.minRating ?? undefined, maxPrice: filters.maxPrice ?? undefined, sort: filters.sort,
   }), [filters]);
   const [initialPage] = useState(() => {
-    const value = route.params?.page ?? (typeof window !== 'undefined' && window.location ? Number(new URLSearchParams(window.location.search).get('page')) : 1);
+    const value = Number(initialParams.get('page'));
     return Number.isInteger(value) && value > 0 && value <= 10000 ? value : 1;
   });
   const firstFilters = useRef(requestFilters);
   const pagedFilters = useMemo(() => ({ ...requestFilters, page: requestFilters === firstFilters.current ? initialPage : 1 }), [requestFilters, initialPage]);
-  const { data, loading, error, loadPage, retry } = usePublicDirectory(pagedFilters);
+  const [entryPage] = useState(() => route.params ? pendingEntries.get(route.params) : undefined);
+  useEffect(() => { if (route.params) pendingEntries.delete(route.params); }, [route.params]);
+  const { data, loading, error, loadPage, retry } = usePublicDirectory(pagedFilters, entryPage);
+  const scrollToNewResults = useRef(Boolean(entryPage));
   // Keep the first response visible until the measured grid has its final columns.
   usePublicHtmlReady(!loading && gridWidth > 0);
   const items = data?.items ?? [];
@@ -188,6 +214,17 @@ export const PublicSpecialistsScreen: React.FC = () => {
   }, [data]);
   const queryParams = buildPublicDirectoryQueryParams({ ...requestFilters, page });
   const isFiltered = [...queryParams.keys()].some(key => key !== 'page');
+  const openDirectoryPage = (response: specialistsService.PublicSpecialistDirectoryPage) => {
+    if (!navigation.isFocused()) return;
+    const next = response.page;
+    const query = buildPublicDirectoryQueryParams({ ...requestFilters, page: next });
+    // React Navigation serializes each query parameter as a string. Both the API
+    // and the directory accept comma-separated lists as well as repeated keys.
+    const params = Object.fromEntries(Array.from(new Set(query.keys()), key => [key, query.getAll(key).join(',')]));
+    const routeParams = { ...params, ...(next > 1 ? { page: next } : {}) };
+    pendingEntries.set(routeParams, response);
+    navigation.push('PublicSpecialists', routeParams);
+  };
   const directoryPageHref = (next: number) => {
     const query = buildPublicDirectoryQueryParams({ ...requestFilters, page: next });
     return '/especialistas' + (query.size ? '?' + query : '');
@@ -394,7 +431,7 @@ export const PublicSpecialistsScreen: React.FC = () => {
         isScrolled={headerScrolled}
         accessLabel={isAuthenticated ? 'Mi espacio' : 'Acceder'}
         onLogoPress={canVisitLanding ? navigateToLandingHome : handleAccess}
-        onExploreProfessionals={canVisitLanding ? () => navigateToLandingSection('forSpecialists') : undefined}
+        onExploreProfessionals={canVisitLanding ? () => navigation.navigate('ProfessionalSoftware') : undefined}
         onAccess={handleAccess}
         onScrollToSection={canVisitLanding ? navigateToLandingSection : undefined}
       />
@@ -442,7 +479,13 @@ export const PublicSpecialistsScreen: React.FC = () => {
           </View>
         </View>
 
-        <View onLayout={event => { resultsTop.current = event.nativeEvent.layout.y; }} style={[styles.bodyWrap, isMobile && styles.bodyWrapMobile, isDesktop && styles.desktopPadding]}>
+        <View onLayout={event => {
+          resultsTop.current = event.nativeEvent.layout.y;
+          if (scrollToNewResults.current) {
+            scrollToNewResults.current = false;
+            scrollRef.current?.scrollTo({ y: Math.max(0, resultsTop.current - 88), animated: false });
+          }
+        }} style={[styles.bodyWrap, isMobile && styles.bodyWrapMobile, isDesktop && styles.desktopPadding]}>
           <View style={[styles.body, isDesktop && styles.bodyDesktop]}>
             {isDesktop ? <View style={styles.sidebar}>{filterPanel}</View> : null}
             <View style={styles.results}>
@@ -500,7 +543,8 @@ export const PublicSpecialistsScreen: React.FC = () => {
                   </View>
                 )}
               </View>
-              {data ? <DirectoryPagination page={page} totalPages={totalPages} compact={isMobile} busy={loading} hrefForPage={directoryPageHref} onChange={next => void loadPage(next)} /> : null}
+              {data ? <DirectoryPagination page={page} totalPages={totalPages} compact={isMobile} busy={loading} hrefForPage={filters.religion ? undefined : directoryPageHref}
+                onChange={next => void loadPage(next, false, Platform.OS === 'web' && !filters.religion ? openDirectoryPage : undefined)} /> : null}
             </View>
           </View>
         </View>

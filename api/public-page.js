@@ -7,6 +7,7 @@ const { renderPublicMetadata: renderMetadata } = require('../.seo-build/seo/publ
 
 const { directoryInitialHtml, directoryInitialCss } = require('../.seo-build/seo/directoryInitialHtml');
 
+const { publicThemeBoot } = require('../.seo-build/seo/publicNavigation');
 let shell;
 const getShell = () => shell || (shell = fs.readFileSync(path.join(process.cwd(), 'dist/app-shell.html'), 'utf8'));
 const origin = 'https://www.health-hera.com';
@@ -30,12 +31,10 @@ async function handler(req, res) {
     res.statusCode = status;
     // Error documents stay useful independently of app/API recovery.
     const template = status >= 400 ? getShell().replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '') : getShell();
-    let html = renderMetadata(template, metadata);
+    let html = renderMetadata(template, metadata).replace('</head>', publicThemeBoot + '</head>');
     if (initialCss) {
-      const themeBoot = "<script>try{var m=localStorage.getItem('hera_theme_mode');if(m==='dark'||m==='light')document.documentElement.setAttribute('data-hera-theme',m)}catch(e){}</script>";
-      html = html.replace('</head>', themeBoot + '<style>' + initialCss + '</style></head>');
+      html = html.replace('</head>', '<style>' + initialCss + '</style></head>');
     }
-    if (metadata.indexable === false) html = html.replace(/(<meta name="robots" content=")[^"]*/, '$1noindex, follow');
     return res.end(req.method === 'HEAD' ? undefined : injectPublicHtml(html, body, key, data));
   };
   const failure = (status) => {

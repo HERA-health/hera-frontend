@@ -1,242 +1,90 @@
-import React from 'react';
-import { StyleSheet, Text, View, useWindowDimensions } from 'react-native';
-import Ionicons from '@expo/vector-icons/Ionicons';
-import { AnimatedPressable } from '../../../components/common/AnimatedPressable';
-import { useTheme } from '../../../contexts/ThemeContext';
-
+import React from "react";
+import { View, Text, useWindowDimensions } from "react-native";
+import { useTheme } from "../../../contexts/ThemeContext";
+import { AnimatedPressable } from "../../../components/common/AnimatedPressable";
 interface FinalCTASectionProps {
   onFindSpecialist: () => void;
   professionalActionLabel: string;
   onProfessionalAction: () => void;
 }
-
-export const FinalCTASection: React.FC<FinalCTASectionProps> = ({
+export function FinalCTASection({
   onFindSpecialist,
-  professionalActionLabel,
-  onProfessionalAction,
-}) => {
-  const { width } = useWindowDimensions();
+}: FinalCTASectionProps): React.ReactElement {
   const { theme } = useTheme();
-  const isDesktop = width >= 900;
-
+  const wide = useWindowDimensions().width >= 900;
   return (
     <View
-      style={[
-        styles.container,
-        isDesktop && styles.containerDesktop,
-        { backgroundColor: theme.landingCanvas },
-      ]}
+      style={{ padding: wide ? 48 : 20, backgroundColor: theme.landingCanvas }}
     >
       <View
-        style={[
-          styles.panel,
-          isDesktop && styles.panelDesktop,
-          {
-            backgroundColor: theme.landingCta,
-            borderColor: theme.landingPanelBorder,
-          },
-        ]}
+        style={{
+          maxWidth: 1280,
+          width: "100%",
+          alignSelf: "center",
+          padding: wide ? 54 : 30,
+          borderRadius: 20,
+          backgroundColor: theme.landingCta,
+          gap: 20,
+        }}
       >
-        <View style={styles.content}>
+        <Text
+          style={{
+            color: theme.landingCtaMutedText,
+            fontFamily: theme.fontSansSemiBold,
+            fontSize: 12,
+            letterSpacing: 1,
+          }}
+        >
+          A TU RITMO, CON ACOMPAÑAMIENTO
+        </Text>
+        <Text
+          accessibilityRole="header"
+          aria-level={2}
+          style={{
+            color: theme.landingCtaText,
+            fontFamily: theme.fontDisplay,
+            fontSize: wide ? 40 : 30,
+            maxWidth: 760,
+          }}
+        >
+          El primer paso puede ser encontrar a alguien con quien hablar.
+        </Text>
+        <Text
+          style={{
+            color: theme.landingCtaMutedText,
+            fontFamily: theme.fontSans,
+            fontSize: 17,
+            lineHeight: 27,
+            maxWidth: 670,
+          }}
+        >
+          Conoce a nuestros psicólogos y psicólogas, descubre su forma de
+          trabajar y elige con quién te gustaría empezar.
+        </Text>
+        <AnimatedPressable
+          href="/especialistas"
+          onPress={onFindSpecialist}
+          accessibilityRole="link"
+          hoverLift={false}
+          style={{
+            alignSelf: "flex-start",
+            paddingVertical: 15,
+            paddingHorizontal: 24,
+            borderRadius: 8,
+            backgroundColor: theme.bgCard,
+          }}
+        >
           <Text
-            style={[
-              styles.eyebrow,
-              { color: theme.landingCtaMutedText, fontFamily: theme.fontSansSemiBold },
-            ]}
+            style={{
+              color: theme.textPrimary,
+              fontFamily: theme.fontSansSemiBold,
+              fontSize: 16,
+            }}
           >
-            DOS FORMAS DE EMPEZAR
+            Buscar psicólogo/a →
           </Text>
-          <Text
-            accessibilityRole="header"
-            aria-level={2}
-            style={[
-              styles.title,
-              isDesktop && styles.titleDesktop,
-              { color: theme.landingCtaText, fontFamily: theme.fontDisplay },
-            ]}
-          >
-            Da el siguiente paso con HERA
-          </Text>
-          <Text
-            style={[
-              styles.subtitle,
-              { color: theme.landingCtaMutedText, fontFamily: theme.fontSans },
-            ]}
-          >
-            Encuentra un/a psicólogo/a o empieza a organizar tu consulta con HERA.
-          </Text>
-
-          <View style={[styles.doors, isDesktop && styles.doorsDesktop]}>
-            <AnimatedPressable
-              onPress={onFindSpecialist}
-              href="/especialistas"
-              pressScale={0.98}
-              hoverLift={false}
-              accessibilityRole="link"
-              accessibilityLabel="Buscar psicólogo/a"
-              style={[
-                styles.door,
-                {
-                  backgroundColor: theme.bgCard,
-                  borderColor: theme.borderLight,
-                },
-              ]}
-            >
-              <View style={[styles.icon, { backgroundColor: theme.primaryAlpha12 }]}>
-                <Ionicons name="search-outline" size={24} color={theme.primary} />
-              </View>
-              <View style={styles.doorCopy}>
-                <Text
-                  style={[
-                    styles.doorEyebrow,
-                    { color: theme.textSecondary, fontFamily: theme.fontSansSemiBold },
-                  ]}
-                >
-                  BUSCO PSICÓLOGO/A
-                </Text>
-                <Text
-                  style={[
-                    styles.doorTitle,
-                    { color: theme.textPrimary, fontFamily: theme.fontSansBold },
-                  ]}
-                >
-                  Buscar psicólogo/a
-                </Text>
-              </View>
-              <Ionicons name="arrow-forward" size={21} color={theme.primary} />
-            </AnimatedPressable>
-
-            <AnimatedPressable
-              onPress={onProfessionalAction}
-              pressScale={0.98}
-              hoverLift={false}
-              accessibilityRole="button"
-              accessibilityLabel={professionalActionLabel}
-              style={[
-                styles.door,
-                {
-                  backgroundColor: theme.bgCard,
-                  borderColor: theme.borderLight,
-                },
-              ]}
-            >
-              <View style={[styles.icon, { backgroundColor: theme.secondaryAlpha12 }]}>
-                <Ionicons name="briefcase-outline" size={24} color={theme.secondaryDark} />
-              </View>
-              <View style={styles.doorCopy}>
-                <Text
-                  style={[
-                    styles.doorEyebrow,
-                    { color: theme.textSecondary, fontFamily: theme.fontSansSemiBold },
-                  ]}
-                >
-                  SOY PSICÓLOGO/A
-                </Text>
-                <Text
-                  style={[
-                    styles.doorTitle,
-                    { color: theme.textPrimary, fontFamily: theme.fontSansBold },
-                  ]}
-                >
-                  {professionalActionLabel}
-                </Text>
-              </View>
-              <Ionicons name="arrow-forward" size={21} color={theme.secondaryDark} />
-            </AnimatedPressable>
-          </View>
-        </View>
+        </AnimatedPressable>
       </View>
     </View>
   );
-};
-
-const styles = StyleSheet.create({
-  container: {
-    paddingVertical: 34,
-    paddingHorizontal: 20,
-  },
-  containerDesktop: {
-    paddingTop: 40,
-    paddingBottom: 48,
-    paddingHorizontal: 60,
-  },
-  panel: {
-    width: '100%',
-    maxWidth: 1400,
-    alignSelf: 'center',
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingVertical: 64,
-    paddingHorizontal: 20,
-    overflow: 'hidden',
-  },
-  panelDesktop: {
-    borderRadius: 12,
-    paddingVertical: 84,
-    paddingHorizontal: 60,
-  },
-  content: {
-    width: '100%',
-    maxWidth: 1080,
-    alignSelf: 'center',
-    alignItems: 'center',
-  },
-  eyebrow: {
-    fontSize: 12,
-    letterSpacing: 1.5,
-    marginBottom: 12,
-  },
-  title: {
-    fontSize: 35,
-    lineHeight: 43,
-    textAlign: 'center',
-    marginBottom: 12,
-  },
-  titleDesktop: {
-    fontSize: 44,
-    lineHeight: 52,
-  },
-  subtitle: {
-    fontSize: 17,
-    lineHeight: 26,
-    textAlign: 'center',
-    marginBottom: 34,
-  },
-  doors: {
-    width: '100%',
-    gap: 14,
-  },
-  doorsDesktop: {
-    flexDirection: 'row',
-  },
-  door: {
-    flex: 1,
-    minHeight: 112,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 22,
-    paddingVertical: 20,
-    borderRadius: 12,
-    borderWidth: 1,
-    gap: 14,
-  },
-  icon: {
-    width: 50,
-    height: 50,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  doorCopy: {
-    flex: 1,
-  },
-  doorEyebrow: {
-    fontSize: 10,
-    letterSpacing: 1.2,
-    marginBottom: 5,
-  },
-  doorTitle: {
-    fontSize: 17,
-    lineHeight: 23,
-  },
-});
+}

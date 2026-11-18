@@ -39,20 +39,18 @@ import { GuestConsentPublicScreen } from './src/screens/consent/GuestConsentPubl
 import { getClinicGuestConsentRequestId } from './src/screens/clinic/clinicGuestConsentRoute';
 import { getClinicalGuestConsentRequestId } from './src/screens/clinical/clinicalGuestConsentRoute';
 
-const heraFonts: Record<string, FontSource> = {
-  HeraDisplay: {
-    uri: require('./assets/fonts/Lustria-Regular.ttf'),
-    display: FontDisplay.SWAP,
-  },
-  HeraSans: {
-    uri: require('./assets/fonts/GlacialIndifference-Regular.otf'),
-    display: FontDisplay.SWAP,
-  },
-  'HeraSans-Bold': {
-    uri: require('./assets/fonts/GlacialIndifference-Bold.otf'),
-    display: FontDisplay.SWAP,
-  },
+const heraFontAssets: Record<string, number> = {
+  HeraDisplay: require('./assets/fonts/Lustria-Regular.ttf'),
+  HeraSans: require('./assets/fonts/GlacialIndifference-Regular.otf'),
+  'HeraSans-Bold': require('./assets/fonts/GlacialIndifference-Bold.otf'),
 };
+const heraFonts: Record<string, FontSource> = Object.fromEntries(
+  Object.entries(heraFontAssets).map(([family, uri]) => [family, { uri, display: FontDisplay.SWAP }]),
+);
+
+if (__DEV__ && Platform.OS === 'web' && typeof document !== 'undefined') {
+  require('./src/config/developmentWebFonts').registerDevelopmentWebFonts(heraFontAssets);
+}
 
 // Deep linking configuration
 const prefix = Linking.createURL('/');
@@ -188,6 +186,10 @@ export const linking: LinkingOptions<RootStackParamList> = {
       Specialists: { path: 'paciente/especialistas', alias: ['Specialists'] },
       SpecialistsDirectory: 'paciente/especialistas/directorio',
       ProfessionalShowcase: 'profesionales/recorrido',
+      ProfessionalSoftware: 'software-para-psicologos',
+      ProfessionalAgenda: 'agenda-para-psicologos',
+      ProfessionalPatients: 'gestion-pacientes-psicologos',
+      ProfessionalBillingInfo: 'facturacion-para-psicologos',
       Pricing: 'planes',
       Landing: '',
       Welcome: { path: 'acceso', alias: ['Welcome'] },

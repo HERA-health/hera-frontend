@@ -1,4 +1,4 @@
-const publicRoutes = new Set(['Landing', 'PublicSpecialists', 'PublicSpecialistProfile', 'PsychologyOnline', 'PsychologyTopic']);
+const publicRoutes = new Set(['Landing', 'PublicSpecialists', 'PublicSpecialistProfile', 'PsychologyOnline', 'PsychologyTopic', 'ProfessionalSoftware', 'ProfessionalAgenda', 'ProfessionalPatients', 'ProfessionalBillingInfo', 'ProfessionalShowcase', 'Pricing']);
 
 /** React Navigation can update the title after a screen's metadata effect. */
 export function publicDocumentTitle(routeName?: string): string | undefined {

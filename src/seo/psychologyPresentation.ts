@@ -1,4 +1,4 @@
-import { lightTheme } from '../constants/theme';
+import { lightTheme, darkTheme } from '../constants/theme';
 
 // The initial document and the mounted screen use HERA's existing theme tokens.
 export const psychologyThemeStyle = (theme: typeof lightTheme) => ({
@@ -23,8 +23,11 @@ const defaults = Object.entries(psychologyThemeStyle(lightTheme)).map(([key, val
 export const publicArrowIcon = '<svg class="public-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 512 512" aria-hidden="true" focusable="false"><polyline points="268 112 412 256 268 400" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="48"/><line x1="392" y1="256" x2="100" y2="256" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="48"/></svg>';
 export const publicVerifiedIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 512 512" aria-hidden="true" focusable="false"><path fill="currentColor" d="M479.07,111.36a16,16,0,0,0-13.15-14.74c-86.5-15.52-122.61-26.74-203.33-63.2a16,16,0,0,0-13.18,0C168.69,69.88,132.58,81.1,46.08,96.62a16,16,0,0,0-13.15,14.74c-3.85,61.11,4.36,118.05,24.43,169.24A349.47,349.47,0,0,0,129,393.11c53.47,56.73,110.24,81.37,121.07,85.73a16,16,0,0,0,12,0c10.83-4.36,67.6-29,121.07-85.73A349.47,349.47,0,0,0,454.64,280.6C474.71,229.41,482.92,172.47,479.07,111.36Zm-131,75.11-110.8,128A16,16,0,0,1,225.86,320h-.66a16,16,0,0,1-11.2-4.57l-49.2-48.2a16,16,0,1,1,22.4-22.86l37,36.29L323.9,165.53a16,16,0,0,1,24.2,20.94Z"/></svg>';
 
+const darkDefaults = Object.entries(psychologyThemeStyle(darkTheme)).map(([key,value]) => `${key}:${value}`).join(';');
 export const psychologyPageCss = `
 .psychology-page{${defaults};background:var(--psychology-canvas);color:var(--psychology-text);font:15px/1.6 "HeraSans",sans-serif;min-height:100vh}
+html[data-hera-theme=dark] .psychology-page{${darkDefaults}}
+@media(prefers-color-scheme:dark){html:not([data-hera-theme=light]) .psychology-page{${darkDefaults}}}
 .psychology-page *{box-sizing:border-box}
 .psychology-page a{color:var(--psychology-accent);text-underline-offset:4px}
 .psychology-page a:focus-visible,.psychology-page button:focus-visible,.psychology-page summary:focus-visible,.psychology-carousel:focus-visible{outline:2px solid var(--psychology-accent);outline-offset:4px}

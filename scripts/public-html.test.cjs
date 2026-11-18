@@ -14,6 +14,9 @@ test('landing first paint retains the actual hero, readable copy and working ent
   const body = landingInitialHtml({ photo: '/photo-1024.webp', photos: { small: '/photo-640.webp', large: '/photo-1536.webp' }, icons: landingIcons });
   assert.equal((body.match(/<h1>/g) || []).length, 1);
   assert.ok(body.includes('Encuentra al <span>psicólogo</span> ideal para ti.'));
+  for (const symbol of ['pub-sun', 'pub-moon']) {
+    assert.equal(body.split(`class="${symbol}"><svg`).length - 1, 2);
+  }
   for (const href of ['/especialistas', '/cuestionario', '/planes', '/register?userType=PROFESSIONAL', '/acceso']) {
     assert.ok(body.includes(`href="${href}"`), href);
   }

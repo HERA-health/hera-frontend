@@ -102,16 +102,14 @@ export const FooterSection: React.FC<FooterSectionProps> = ({
         { label: professionalActionLabel, onPress: onProfessionalAction },
         { label: 'Iniciar sesión', onPress: onProfessionalLogin },
         ...(onViewPlans ? [{ label: 'Planes para psicólogos/as', onPress: onViewPlans, href: '/planes' }] : []),
-        { label: 'Visibilidad y gestión', section: 'forSpecialists' },
+        { label: 'Software para psicólogos', href: '/software-para-psicologos' },
+        { label: 'Agenda para psicólogos', href: '/agenda-para-psicologos' },
+        { label: 'Pacientes e historia clínica', href: '/gestion-pacientes-psicologos' },
+        { label: 'Facturación', href: '/facturacion-para-psicologos' },
+        { label: 'HERA por dentro', href: '/profesionales/recorrido' },
         { label: 'Especialistas destacados', section: 'featuredSpecialists' },
       ],
     },
-    ...(onClinicAccess ? [{
-      title: 'Clínicas',
-      links: [
-        { label: 'Acceso para clínicas', onPress: onClinicAccess },
-      ],
-    }] : []),
     {
       title: 'HERA',
       links: [

@@ -183,8 +183,8 @@ export const LandingPage: React.FC = () => {
 
   usePublicHtmlReady();
   useWebPageMetadata({
-    title: 'Hera | Psicólogos y psicólogas online y gestión de consultas',
-    description: 'Encuentra psicólogos y psicólogas online y presenciales, compara perfiles y precios. Si eres psicólogo/a, organiza tu consulta con agenda, pacientes y facturación en HERA.',
+    title: 'Encuentra psicólogo online o presencial · HERA',
+    description: 'Compara psicólogos por especialidad, modalidad y precio. Conoce cómo trabaja cada profesional y elige con quién empezar terapia online o presencial.',
     canonicalPath: '/',
   });
   const revealDeferredSections = useCallback(() => {
@@ -412,8 +412,8 @@ export const LandingPage: React.FC = () => {
       placement,
       audience: 'professional',
     });
-    handleScrollToSection('forSpecialists');
-  }, [handleScrollToSection]);
+    navigation.navigate('ProfessionalSoftware');
+  }, [navigation]);
 
   const handleAccess = useCallback(() => {
     if (!navigateToAuthenticatedWorkspace()) {
@@ -435,6 +435,7 @@ export const LandingPage: React.FC = () => {
       <LandingHeader
         onViewPlans={() => navigation.navigate('Pricing')}
         context="landing"
+        onProfessionalMenuSelect={route => route === 'ProfessionalSoftware' ? handleExploreProfessionals('header') : navigation.navigate(route)}
         onQuestionnaire={() => navigation.navigate('Questionnaire')}
         isScrolled={headerScrolled}
         accessLabel={isAuthenticated ? 'Mi espacio' : 'Acceder'}
@@ -496,7 +497,7 @@ export const LandingPage: React.FC = () => {
                 showLoginAction={!isAuthenticated}
                 onProductTour={handleProfessionalShowcase}
                 onViewPlans={() => navigation.navigate('Pricing')}
-                onPrimaryAction={() => handleProfessionalRegister('professional_section')}
+                onPrimaryAction={() => navigation.navigate('ProfessionalSoftware')}
                 onLogin={handleProfessionalLogin}
                 onClinicAccess={() => handleClinicAccess('professional_section')}
               />

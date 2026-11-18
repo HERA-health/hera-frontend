@@ -69,7 +69,7 @@ export function HeroSection({
   );
 
   const wave = (
-    <View testID="hero-bottom-wave" pointerEvents="none" aria-hidden importantForAccessibility="no-hide-descendants" style={styles.wave}>
+    <View testID="hero-bottom-wave" aria-hidden importantForAccessibility="no-hide-descendants" style={styles.wave}>
       <Svg width="100%" height="100%" viewBox="0 0 1440 110" preserveAspectRatio="none">
         <Defs>
           {/* Both waves fade into the shared section canvas, so their closing
@@ -162,10 +162,9 @@ export function HeroSection({
       <View style={[styles.footer, shortDesktop && styles.footerShort, isMobile && styles.footerMobile]}>
         <CanvasGradient
           colors={[theme.surfaceWarm, theme.landingCanvas]}
-          pointerEvents="none"
           aria-hidden
           importantForAccessibility="no-hide-descendants"
-          style={StyleSheet.absoluteFill}
+          style={[StyleSheet.absoluteFill, { pointerEvents: 'none' }]}
         />
         {wave}
         {!isMobile && (
@@ -173,7 +172,6 @@ export function HeroSection({
           // makes browser scroll anchoring jump around the visibility threshold.
           <View
             testID="hero-discovery-indicator"
-            pointerEvents={showScrollIndicator ? 'auto' : 'none'}
             aria-hidden={!showScrollIndicator}
             importantForAccessibility={showScrollIndicator ? 'auto' : 'no-hide-descendants'}
             style={!showScrollIndicator && styles.indicatorHidden}
@@ -261,9 +259,9 @@ const styles = StyleSheet.create({
   proofText: { fontSize: 13, lineHeight: 19 },
   visual: { width: '100%', maxWidth: 780, alignSelf: 'center' },
   visualDesktop: { flex: 0.54, minWidth: 0 },
-  wave: { position: 'absolute', bottom: -1, left: 0, right: 0, height: 96 },
+  wave: { pointerEvents: 'none', position: 'absolute', bottom: -1, left: 0, right: 0, height: 96 },
   scrollIndicator: { alignSelf: 'center', alignItems: 'center', gap: 4, paddingHorizontal: 18, paddingVertical: 12, marginTop: 15 },
   scrollIndicatorShort: { paddingVertical: 6, marginTop: 4 },
-  indicatorHidden: { opacity: 0 },
+  indicatorHidden: { opacity: 0, pointerEvents: 'none' },
   scrollText: { fontSize: 12, lineHeight: 18 },
 });

@@ -82,7 +82,7 @@ export function HeroArtwork({
           accessibilityRole="image"
           accessibilityLabel="Una mujer trabajando con su portátil en un espacio luminoso con plantas"
         />
-        <View pointerEvents="none" aria-hidden importantForAccessibility="no-hide-descendants" style={styles.photoBlend}>
+        <View aria-hidden importantForAccessibility="no-hide-descendants" style={styles.photoBlend}>
           {/* Blend primarily into the copy. The lower edge follows the room's
               composition instead of washing out the laptop and table. */}
           <LinearGradient
@@ -188,7 +188,7 @@ const styles = StyleSheet.create({
   photograph: { position: 'absolute', left: 0 },
   photo: { width: '100%', height: '100%' },
   // Cover fractional-pixel image edges too; otherwise web can expose a hairline.
-  photoBlend: { position: 'absolute', top: -1, bottom: -1, left: -1, right: -1 },
+  photoBlend: { pointerEvents: 'none', position: 'absolute', top: -1, bottom: -1, left: -1, right: -1 },
   photoBase: { position: 'absolute', bottom: -1, left: 0, right: 0, height: '16%' },
   panels: { width: 224, alignSelf: 'flex-end', gap: 12 },
   panelsCompact: { width: 208 },

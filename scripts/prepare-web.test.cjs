@@ -23,6 +23,17 @@ test('initial metadata matches each public screen, without loading React', () =>
     assert.equal((html.match(/rel="canonical"/g) || []).length, 1);
   }
 });
+test('cache rules are top-level and private routes retain their own headers', () => {
+  const {headers} = JSON.parse(fs.readFileSync('vercel.json', 'utf8'));
+  assert.equal(headers.filter(rule => rule.source.startsWith('/_expo/static/js/')).length, 1);
+  for (const rule of headers) for (const header of rule.headers) {
+    assert.deepEqual(Object.keys(header).sort(), ['key', 'value']);
+    assert.equal(typeof header.value, 'string');
+  }
+  assert.ok(headers.find(rule => rule.source === '/pagos/:path*').headers.some(
+    header => header.key === 'Cache-Control' && header.value.includes('no-store')
+  ));
+});
 test('unknown paths fall through to the static 404, not the application', () => {
   const config = JSON.parse(fs.readFileSync('vercel.json', 'utf8'));
   assert.ok(!config.rewrites.some(rule => rule.source === '/(.*)' || rule.source === '/:path*'));

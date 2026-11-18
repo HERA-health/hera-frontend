@@ -93,6 +93,18 @@ describe('WelcomeScreen', () => {
     expect(navigate).toHaveBeenNthCalledWith(3, 'Login', { userType: 'CLINIC' });
   });
 
+  it('opens the dedicated professional page from the access header', () => {
+    const native = require('react-native') as typeof import('react-native');
+    const dimensions = jest.spyOn(native, 'useWindowDimensions').mockReturnValue({ width: 1600, height: 900, scale: 1, fontScale: 1 });
+    try {
+      render(<WelcomeScreen />);
+      fireEvent.press(screen.getByLabelText('Ir a Para profesionales'));
+      expect(navigate).toHaveBeenCalledWith('ProfessionalSoftware');
+    } finally {
+      dimensions.mockRestore();
+    }
+  });
+
   it('returns to the previous screen when navigation history exists', () => {
     canGoBack.mockReturnValue(true);
     render(<WelcomeScreen />);
