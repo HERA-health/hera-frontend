@@ -1,8 +1,7 @@
 import { PrivacyControlsContext } from '../../../components/common/PrivacyPreferences';
-import React, { type CSSProperties } from 'react';
+import React from 'react';
 import {
   Linking,
-  Platform,
   StyleSheet,
   Text,
   View,
@@ -11,67 +10,17 @@ import {
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { AnimatedPressable } from '../../../components/common/AnimatedPressable';
 import { StyledLogo } from '../../../components/common/StyledLogo';
-import { getLegalDocumentUrl } from '../../../constants/legal';
+import { footerColumns, footerDescription, footerSocialLinks, footerTagline, type FooterLink, type FooterAction } from '../../../constants/publicFooter';
 import { useTheme } from '../../../contexts/ThemeContext';
-import type { LandingSectionAnchor } from '../types';
-
-const webAnchorStyle: CSSProperties = {
-  display: 'block',
-  textDecoration: 'none',
-};
-
-interface FooterLink {
-  label: string;
-  section?: LandingSectionAnchor;
-  href?: string;
-  onPress?: () => void;
-}
-
-interface FooterColumn {
-  title: string;
-  links: FooterLink[];
-}
-
-interface SocialLink {
-  label: string;
-  href: string;
-  icon: React.ComponentProps<typeof Ionicons>['name'];
-}
-
-interface FooterSectionProps {
-  onFindSpecialist: () => void;
-  professionalActionLabel: string;
-  onProfessionalAction: () => void;
-  onProfessionalLogin: () => void;
-  onClinicAccess?: () => void;
-  onScrollToSection?: (section: LandingSectionAnchor) => void;
-  onViewPlans?: () => void;
-}
-
-const socialLinks: SocialLink[] = [
-  {
-    label: 'HERA en LinkedIn',
-    href: 'https://www.linkedin.com/company/health-hera',
-    icon: 'logo-linkedin',
-  },
-  {
-    label: 'HERA en Instagram',
-    href: 'https://www.instagram.com/health.hera?igsh=MXdrb3h3Yjd2dWc3Zg==',
-    icon: 'logo-instagram',
-  },
-  {
-    label: 'HERA en TikTok',
-    href: 'https://www.tiktok.com/@hera.health.tech?_r=1&_t=ZN-98QojUsdfqo',
-    icon: 'logo-tiktok',
-  },
-];
+import type { FooterSectionProps } from '../types';
 
 export const FooterSection: React.FC<FooterSectionProps> = ({
   onFindSpecialist,
   professionalActionLabel,
+  professionalActionHref,
+  professionalLoginHref,
   onProfessionalAction,
   onProfessionalLogin,
-  onClinicAccess,
   onScrollToSection,
   onViewPlans,
 }) => {
@@ -81,56 +30,15 @@ export const FooterSection: React.FC<FooterSectionProps> = ({
   const isDesktop = width >= 1024;
   const isTablet = width >= 700;
 
-  const columns: FooterColumn[] = [
-    {
-      title: 'Pacientes',
-      links: [
-        { label: 'Buscar psicólogo/a', onPress: onFindSpecialist, href: '/especialistas' },
-        { label: 'Psicólogos/as online', href: '/psicologos-online' },
-        { label: 'Psicólogos/as para la ansiedad', href: '/psicologos/ansiedad' },
-        { label: 'Psicólogos/as para la autoestima', href: '/psicologos/autoestima' },
-        { label: 'Psicólogos/as en Barcelona', href: '/psicologos/barcelona' },
-        { label: 'Psicólogos/as en Cataluña', href: '/psicologos/cataluna' },
-        { label: 'Cómo funciona', section: 'howItWorks' },
-        { label: 'Especialidades', section: 'specializations' },
-        { label: 'Preguntas frecuentes', section: 'faq' },
-      ],
-    },
-    {
-      title: 'Profesionales',
-      links: [
-        { label: professionalActionLabel, onPress: onProfessionalAction },
-        { label: 'Iniciar sesión', onPress: onProfessionalLogin },
-        ...(onViewPlans ? [{ label: 'Planes para psicólogos/as', onPress: onViewPlans, href: '/planes' }] : []),
-        { label: 'Software para psicólogos', href: '/software-para-psicologos' },
-        { label: 'Agenda para psicólogos', href: '/agenda-para-psicologos' },
-        { label: 'Pacientes e historia clínica', href: '/gestion-pacientes-psicologos' },
-        { label: 'Facturación', href: '/facturacion-para-psicologos' },
-        { label: 'HERA por dentro', href: '/profesionales/recorrido' },
-        { label: 'Especialistas destacados', section: 'featuredSpecialists' },
-      ],
-    },
-    {
-      title: 'HERA',
-      links: [
-        { label: 'Quiénes somos', section: 'about' },
-        { label: 'Política de cookies', href: '/legal/cookies' },
-        { label: 'Política de privacidad', href: getLegalDocumentUrl('PRIVACY_POLICY') },
-        { label: 'Términos y condiciones', href: getLegalDocumentUrl('TERMS_OF_SERVICE') },
-        ...(openPrivacy ? [{ label: 'Preferencias de privacidad', onPress: openPrivacy }] : []),
-        { label: 'Contacto', href: 'mailto:herahealthtech@gmail.com' },
-      ],
-    },
-  ];
-
+  const columns = footerColumns(professionalActionLabel, professionalActionHref, professionalLoginHref);
+  const actions: Record<FooterAction, (() => void) | undefined> = {
+    directory: onFindSpecialist, professional: onProfessionalAction, access: onProfessionalLogin,
+    plans: onViewPlans, privacy: openPrivacy ?? undefined,
+  };
   const handleLinkPress = (link: FooterLink) => {
-    if (link.onPress) {
-      link.onPress();
-    } else if (link.section) {
-      onScrollToSection?.(link.section);
-    } else if (link.href) {
-      void Linking.openURL(link.href.startsWith('/') ? 'https://www.health-hera.com' + link.href : link.href);
-    }
+    if (link.action) actions[link.action]?.();
+    else if (link.section) onScrollToSection?.(link.section);
+    else void Linking.openURL(link.href.startsWith('/') ? 'https://www.health-hera.com' + link.href : link.href);
   };
 
   const renderLink = (link: FooterLink) => {
@@ -145,19 +53,11 @@ export const FooterSection: React.FC<FooterSectionProps> = ({
       </Text>
     );
 
-    if (Platform.OS === 'web' && link.href && !link.onPress && !link.section) {
-      return React.createElement(
-        'a',
-        { key: link.label, href: link.href, style: webAnchorStyle },
-        linkText
-      );
-    }
-
     return (
       <AnimatedPressable
         key={link.label}
         onPress={() => handleLinkPress(link)}
-        href={link.href ?? (link.section ? `/?section=${link.section}` : undefined)}
+        href={link.action === 'privacy' ? undefined : link.href}
         hoverLift={false}
         pressScale={0.98}
         accessibilityRole="link"
@@ -186,7 +86,7 @@ export const FooterSection: React.FC<FooterSectionProps> = ({
                 { color: theme.textPrimary, fontFamily: theme.fontDisplay },
               ]}
             >
-              Psicología y consulta, en un mismo lugar.
+              {footerTagline}
             </Text>
             <Text
               style={[
@@ -194,11 +94,10 @@ export const FooterSection: React.FC<FooterSectionProps> = ({
                 { color: theme.textSecondary, fontFamily: theme.fontSans },
               ]}
             >
-              Encuentra un/a psicólogo/a o gestiona tu consulta con agenda, pacientes
-              y facturación. Elige cómo empezar con HERA.
+              {footerDescription}
             </Text>
             <View style={styles.socialLinks}>
-              {socialLinks.map((socialLink) => (
+              {footerSocialLinks.map((socialLink) => (
                 <AnimatedPressable
                   key={socialLink.label}
                   onPress={() => {
@@ -220,6 +119,9 @@ export const FooterSection: React.FC<FooterSectionProps> = ({
                 </AnimatedPressable>
               ))}
             </View>
+            <Text style={[styles.copyright, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>
+              © {new Date().getFullYear()} HERA
+            </Text>
           </View>
 
           <View style={[styles.columns, isTablet && styles.columnsWide]}>
@@ -233,32 +135,12 @@ export const FooterSection: React.FC<FooterSectionProps> = ({
                 >
                   {column.title}
                 </Text>
-                {column.links.filter(link => !link.section || onScrollToSection).map(renderLink)}
+                {column.links.filter(link => (!link.action || actions[link.action]) && (!link.section || onScrollToSection)).map(renderLink)}
               </View>
             ))}
           </View>
         </View>
 
-        <View style={[styles.divider, { backgroundColor: theme.border }]} />
-
-        <View style={[styles.bottom, isTablet && styles.bottomWide]}>
-          <Text
-            style={[
-              styles.bottomText,
-              { color: theme.textSecondary, fontFamily: theme.fontSans },
-            ]}
-          >
-            © {new Date().getFullYear()} HERA
-          </Text>
-          <Text
-            style={[
-              styles.bottomText,
-              { color: theme.textSecondary, fontFamily: theme.fontSans },
-            ]}
-          >
-            Hecho con cuidado en España
-          </Text>
-        </View>
       </View>
     </View>
   );
@@ -337,19 +219,8 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     marginBottom: 11,
   },
-  divider: {
-    height: 1,
-    marginVertical: 30,
-  },
-  bottom: {
-    alignItems: 'center',
-    gap: 7,
-  },
-  bottomWide: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  bottomText: {
+  copyright: {
+    marginTop: 12,
     fontSize: 13,
   },
 });

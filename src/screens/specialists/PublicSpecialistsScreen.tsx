@@ -25,7 +25,7 @@ import {
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useTheme } from '../../contexts/ThemeContext';
+import { PublicAudienceProvider, useTheme } from '../../contexts/ThemeContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '../../components/common/Button';
 import LoadingState from '../../components/common/LoadingState';
@@ -119,7 +119,11 @@ const createInitialFilters = (specialty: unknown): DirectoryFilters =>
 // The fetched page belongs to this navigation entry only. Keep profile data out of URLs and history state.
 const pendingEntries = new WeakMap<object, specialistsService.PublicSpecialistDirectoryPage>();
 
-export const PublicSpecialistsScreen: React.FC = () => {
+export const PublicSpecialistsScreen: React.FC = () => Platform.OS === 'web'
+  ? <PublicAudienceProvider audience="directory"><DirectoryContent /></PublicAudienceProvider>
+  : <DirectoryContent />;
+
+const DirectoryContent: React.FC = () => {
   const navigation = useNavigation<NavigationProp>();
   const route = useRoute<AppRouteProp<'PublicSpecialists'>>();
   const {
@@ -363,7 +367,7 @@ export const PublicSpecialistsScreen: React.FC = () => {
   const filterPanel = (
     <View style={[styles.filtersPanel, !isDesktop && styles.sheetFields, { backgroundColor: theme.bgCard, borderColor: theme.borderLight }]}>
       {isDesktop ? <View style={[styles.filtersHeading, { borderBottomColor: theme.borderLight }]}>
-        <Text accessibilityRole="header" style={[styles.filtersTitle, { color: theme.textPrimary, fontFamily: theme.fontDisplay }]}>Filtros</Text>
+        <Text accessibilityRole="header" aria-level={2} style={[styles.filtersTitle, { color: theme.textPrimary, fontFamily: theme.fontDisplay }]}>Filtros</Text>
         {hasActiveFilters ? <Pressable accessibilityRole="button" accessibilityLabel="Limpiar filtros" onPress={clearFilters} style={styles.clearButton}>
           <Text style={{ color: theme.primary, fontFamily: theme.fontSansSemiBold, fontSize: 12 }}>Limpiar</Text>
         </Pressable> : null}
@@ -428,6 +432,7 @@ export const PublicSpecialistsScreen: React.FC = () => {
       <LandingHeader
         onViewPlans={() => navigation.navigate('Pricing')}
         context="directory"
+        surface="directory"
         isScrolled={headerScrolled}
         accessLabel={isAuthenticated ? 'Mi espacio' : 'Acceder'}
         onLogoPress={canVisitLanding ? navigateToLandingHome : handleAccess}

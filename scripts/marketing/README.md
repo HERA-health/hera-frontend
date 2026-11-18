@@ -1,16 +1,16 @@
-# Landings profesionales y capturas de ERA
+# Landings profesionales y capturas de HERA
 
 ## Páginas y publicación
 
-La portada conserva su primer bloque y orienta el resto de su contenido a pacientes. El enlace «Para profesionales» abre `/software-para-psicologos`. Las páginas `/agenda-para-psicologos`, `/gestion-pacientes-psicologos` y `/facturacion-para-psicologos` desarrollan cada necesidad. `/profesionales/recorrido` muestra ocho áreas reales del producto y `/planes` utiliza el catálogo vigente del backend y el formulario existente de solicitud.
+La portada conserva su primer bloque y orienta el resto de su contenido a pacientes. El menú «Para profesionales» reúne la portada profesional y sus páginas de detalle. La página `/perfil-en-el-directorio-para-psicologos` enseña cómo se presenta una ficha a los pacientes. Las páginas `/agenda-para-psicologos`, `/gestion-pacientes-psicologos` y `/facturacion-para-psicologos` desarrollan cada necesidad. `/profesionales/recorrido` muestra ocho áreas reales del producto y `/planes` utiliza el catálogo vigente del backend y el formulario existente de solicitud.
 
-El contenido está en `src/seo/professionalContent.ts`. El cuerpo de las páginas comparte el HTML y CSS de `professionalPresentation.ts` entre la respuesta inicial y la pantalla web. La cabecera montada reutiliza `LandingHeader`, `StyledLogo` y `ThemeToggleButton`, con una presentación inicial equivalente. No se debe crear una segunda maqueta para buscadores. La navegación nativa conserva pantallas compatibles con React Native.
+El contenido está en `src/seo/professionalContent.ts`. El cuerpo de las páginas comparte el HTML y CSS de `professionalPresentation.ts` entre la respuesta inicial y la pantalla web. La cabecera web y el HTML inicial comparten el marcado y los estilos de `src/seo/publicBar.ts`. No se debe crear una segunda maqueta para buscadores. La navegación nativa conserva pantallas compatibles con React Native.
 
-Las seis páginas profesionales, incluidos el recorrido y los planes, comparten los enlaces de `src/constants/professionalNavigation.ts`. El recorrido usa selector lateral en escritorio y selector horizontal en móvil/tablet. Cambiar de pantalla conserva la posición de lectura; los enlaces directos y recargar recuperan la selección. Atrás vuelve a la página anterior, sin pasar por cada pantalla del selector. Las capturas se pueden ampliar con el tema actual.
+Las siete páginas profesionales, incluidos el recorrido y los planes, comparten los enlaces de `src/constants/professionalNavigation.ts`. El recorrido usa selector lateral en escritorio y selector horizontal en móvil/tablet. Cambiar de pantalla conserva la posición de lectura; los enlaces directos y recargar recuperan la selección. Atrás vuelve a la página anterior, sin pasar por cada pantalla del selector. Las capturas se pueden ampliar con el tema actual.
 
-`npm run build:web` exporta Expo y prepara las páginas públicas. Las cuatro páginas nuevas y el recorrido son estáticos. `/planes` conserva la pantalla original y obtiene el catálogo con el servicio habitual de la aplicación. No hay una segunda maqueta de precios en el servidor. Los canonical usan `https://www.health-hera.com`.
+`npm run build:web` exporta Expo y prepara las páginas públicas. Las cinco páginas de producto y el recorrido son estáticos. `/planes` conserva la pantalla original y obtiene el catálogo con el servicio habitual de la aplicación. No hay una segunda maqueta de precios en el servidor. Los canonical usan `https://www.health-hera.com`.
 
-Publicar primero el frontend y después el backend, que incorpora las cuatro URL al sitemap. No hacen falta migraciones para las landings. El entorno de demostración descrito abajo es independiente del despliegue y no debe ejecutarse en producción. La configuración de campañas, conversiones y medición queda pendiente de una tarea posterior.
+Publicar primero el frontend y después el backend, que incorpora las URL profesionales al sitemap. No hacen falta migraciones para las landings. El entorno de demostración descrito abajo es independiente del despliegue y no debe ejecutarse en producción. La configuración de campañas, conversiones y medición queda pendiente de una tarea posterior.
 
 ## Preparar los datos de demostración
 
@@ -46,6 +46,10 @@ El seed crea la consulta de Elena García Vidal, doce pacientes ficticios y la c
 
 La primera ejecución guarda la fecha de referencia en `seed-owner.json`, tomando el día de Madrid. Las siguientes la conservan. Para renovar la semana de las capturas, utilizar una base vacía y otro directorio `HERA_MARKETING_OUTPUT`; no cambiar la fecha sobre datos ya emitidos. El seed rechaza una base poblada que no tenga su marcador. `verify.cjs` comprueba también el cifrado, los documentos y la integridad e idempotencia de la emisión de facturas.
 
+## Vista previa del directorio
+
+Con la exportación web disponible en localhost:8088, ejecuta desde el frontend el script de Playwright CLI `scripts/marketing/capture-directory.browser.js` con `run-code --filename`. Renderiza el directorio con dos perfiles ficticios y fotografías locales. Después ejecuta `python scripts/marketing/encode-captures.py --directory-only` para generar las seis imágenes de escritorio, móvil y detalle.
+
 ## Capturar y exportar imágenes
 
 Desde `hera-frontend`, crear una compilación destinada exclusivamente al entorno local. Estas variables pertenecen a la terminal; no modificar el `.env` del proyecto ni desplegar este `dist`:
@@ -72,7 +76,7 @@ npx --yes --package @playwright/cli playwright-cli -s=marketing-clinic run-code 
 python scripts/marketing/encode-captures.py
 ```
 
-Si se utiliza `HERA_MARKETING_OUTPUT`, establecer el mismo valor absoluto en ambas aplicaciones y adaptar las rutas de los comandos de navegador. Las plantillas guardan 24 PNG a 1600 × 1000 en `HERA/output/playwright/product`: doce pantallas en claro y oscuro. El codificador produce 48 WebP, en anchos de 960 y 1600, y un manifiesto con tamaños y hashes en `public/marketing/product`. Revisar visualmente los PNG antes de sustituir las imágenes publicadas. No modificar las capturas con ilustraciones o datos sobreimpresos.
+Si se utiliza `HERA_MARKETING_OUTPUT`, establecer el mismo valor absoluto en ambas aplicaciones y adaptar las rutas de los comandos de navegador. Las plantillas guardan 24 PNG a 1600 × 1000 en `HERA/output/playwright/product`: doce pantallas en claro y oscuro. El codificador produce 48 vistas completas en WebP, en anchos de 960 y 1600, diez recortes de detalle para las portadas profesionales y, junto con las seis imágenes del directorio, un manifiesto con tamaños y hashes en `public/marketing/product`. Revisar visualmente los PNG antes de sustituir las imágenes publicadas. No modificar las capturas con ilustraciones o datos sobreimpresos.
 
 Después de exportar las imágenes, repetir `npm run build:web` y reiniciar la vista previa para actualizar también el HTML del servidor. La compilación de producción debe ejecutarse en su entorno habitual, sin las variables locales anteriores.
 
@@ -81,7 +85,7 @@ Después de exportar las imágenes, repetir `npm run build:web` y reiniciar la v
 Ejecutar `npm run typecheck` y `npm run test:seo` en el frontend. Revisar en escritorio y móvil, en claro y oscuro:
 
 - Portada intacta en su primer vistazo; enlaces antiguos `?section=forSpecialists` funcionales.
-- Cuatro páginas comerciales, recorrido, planes y enlaces cruzados sin errores ni desbordamientos.
+- Cinco páginas comerciales, recorrido, planes y enlaces cruzados sin errores ni desbordamientos.
 - Primera respuesta con JavaScript retrasado y transición a la aplicación sin cambio de maqueta; conservar el desplazamiento y las preguntas abiertas.
 - Recorrido manual, ampliación de capturas, navegación por teclado y formulario real de solicitud.
 - Planes con catálogo disponible y no disponible, con el servicio original.

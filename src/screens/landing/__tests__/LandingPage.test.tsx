@@ -53,7 +53,7 @@ jest.mock('react-native', () => {
 
 import React from 'react';
 import { Platform } from 'react-native';
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { fireEvent, render, screen, within } from '@testing-library/react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { lightTheme } from '../../../constants/theme';
 import { useTheme } from '../../../contexts/ThemeContext';
@@ -269,7 +269,7 @@ describe('LandingPage', () => {
     expect(navigate).toHaveBeenLastCalledWith('Questionnaire');
     fireEvent.press(screen.getByRole('link', { name: 'Ayúdame a elegir: hacer el cuestionario' }));
     expect(navigate).toHaveBeenLastCalledWith('Questionnaire');
-    fireEvent.press(screen.getByRole('link', { name: 'Ver psicólogos/as' }));
+    fireEvent.press(within(screen.getByTestId('landing-hero')).getByRole('link', { name: 'Buscar psicólogo/a' }));
     expect(navigate).toHaveBeenLastCalledWith('PublicSpecialists');
     expect(analyticsService.track).toHaveBeenCalledWith('landing_patient_cta_clicked', { placement: 'hero', audience: 'patient' });
   });

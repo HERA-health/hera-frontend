@@ -9,7 +9,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { AppNavigationProp } from '../../constants/types';
 import { professionalHeaderLinks } from '../../constants/professionalNavigation';
 import { useAuth } from '../../contexts/AuthContext';
-import { useTheme } from '../../contexts/ThemeContext';
+import { PublicAudienceProvider, useTheme } from '../../contexts/ThemeContext';
 import { useWebPageMetadata } from '../../hooks/useWebPageMetadata';
 import { LandingHeader } from './components/LandingHeader';
 import { FooterSection } from './components/FooterSection';
@@ -65,6 +65,9 @@ function PricingAction({ children, label, onPress, selected, expanded, filled, q
 }
 
 export function PricingScreen(): React.ReactElement {
+  return Platform.OS === "web" ? <PublicAudienceProvider audience="professional"><PricingContent /></PublicAudienceProvider> : <PricingContent />;
+}
+function PricingContent(): React.ReactElement {
   const navigation = useNavigation<AppNavigationProp>();
   const { theme, isDark } = useTheme();
   const { isAuthenticated, user, verificationSubmitted } = useAuth();
@@ -185,8 +188,9 @@ export function PricingScreen(): React.ReactElement {
             : navigation.navigate(item.route),
         }))}
       />
-      <ScrollView ref={scrollRef} contentContainerStyle={[styles.scrollContent, width < 1280 && { paddingTop: width < 768 ? 124 : 132 }]}>
-        <View style={[styles.content, !tablet && styles.contentMobile]}>
+      <ScrollView nativeID="pricing-scroll-view" ref={scrollRef} contentContainerStyle={[styles.scrollContent, Platform.OS === "web" ? { paddingTop: width < 1040 ? 80 : 90 } : width < 1280 && { paddingTop: width < 768 ? 124 : 132 }]}>
+        <View style={[styles.content, Platform.OS === 'web' && styles.contentWeb,
+          (Platform.OS === 'web' ? width < 768 : !tablet) && styles.contentMobile]}>
           <View style={[styles.hero, desktop && styles.horizontal]}>
             <View style={[styles.heroCopy, desktop && styles.flex]}>
               <Text style={[styles.eyebrow, { color: theme.primary, fontFamily: theme.fontSansSemiBold }]}>{pricingIntro.eyebrow}</Text>
@@ -223,6 +227,8 @@ export function PricingScreen(): React.ReactElement {
               </View>
               <Text style={[styles.caption, body, tablet && styles.flex]}>{pricingIntro.includes}</Text>
             </View>
+            {!isAuthenticated && <PricingAction label="Crear mi cuenta profesional" filled style={styles.directoryAction}
+              onPress={() => navigation.navigate('Register', { userType: 'PROFESSIONAL' })}>Crear mi cuenta profesional</PricingAction>}
             {catalog && <Text style={[styles.directoryScope, styles.caption, body]}>{catalog.enforced
               ? pricingIntro.enforcedScope
               : pricingIntro.optionalScope}</Text>}
@@ -408,10 +414,12 @@ export function PricingScreen(): React.ReactElement {
           </View>
         </View>
         <FooterSection
+          professionalActionHref={isAuthenticated ? '/acceso' : undefined}
+          professionalLoginHref={isAuthenticated ? '/acceso' : undefined}
           onFindSpecialist={() => navigation.navigate('PublicSpecialists')}
-          professionalActionLabel={canVisitLanding ? 'Conocer las herramientas' : 'Mi espacio'}
-          onProfessionalAction={canVisitLanding ? () => navigation.navigate('ProfessionalShowcase') : handleAccess}
-          onProfessionalLogin={handleAccess}
+          professionalActionLabel={isAuthenticated ? 'Mi espacio' : 'Crear cuenta profesional'}
+          onProfessionalAction={isAuthenticated ? handleAccess : () => navigation.navigate('Register', { userType: 'PROFESSIONAL' })}
+          onProfessionalLogin={isAuthenticated ? handleAccess : () => navigation.navigate('Login', { userType: 'PROFESSIONAL' })}
           onScrollToSection={canVisitLanding ? handleSection : undefined}
           onViewPlans={() => scrollRef.current?.scrollTo({ y: 0, animated: false })}
         />
@@ -428,6 +436,7 @@ const styles = StyleSheet.create({
   root: { flex: 1 },
   scrollContent: { paddingTop: HEADER_OFFSET },
   content: { width: '100%', maxWidth: 1280, alignSelf: 'center', paddingHorizontal: 32 },
+  contentWeb: { maxWidth: 1500, paddingHorizontal: 40 },
   contentMobile: { paddingHorizontal: 20 },
   horizontal: { flexDirection: 'row' },
   flex: { flex: 1, minWidth: 0 },
@@ -459,6 +468,7 @@ const styles = StyleSheet.create({
   directoryStorage: { flexDirection: 'row', alignItems: 'center', gap: 8, maxWidth: '100%' },
   directoryStorageIcon: { fontSize: 16, lineHeight: 21, flexShrink: 0 },
   directoryStorageLabel: { flexShrink: 1 },
+  directoryAction: { marginTop: 12, alignSelf: 'flex-start' },
   directoryScope: { marginTop: 6 },
   checkRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
   subscriptionHeading: { paddingTop: 26, paddingBottom: 16, gap: 5 },

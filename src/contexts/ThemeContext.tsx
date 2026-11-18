@@ -1,3 +1,4 @@
+import { publicAudienceTheme, publicDirectoryTheme } from '../constants/publicAudienceTheme';
 /**
  * ThemeContext - HERA Design System v5.0
  *
@@ -66,3 +67,9 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 }
 
 export const useTheme = (): ThemeContextValue => useContext(ThemeContext);
+
+export function PublicAudienceProvider({ audience, children }: { audience: "patient" | "professional" | "directory"; children: React.ReactNode }) {
+  const context = useTheme();
+  const value = React.useMemo(() => ({ ...context, theme: audience === "directory" ? publicDirectoryTheme(context.theme) : publicAudienceTheme(context.theme, audience) }), [context, audience]);
+  return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
+}

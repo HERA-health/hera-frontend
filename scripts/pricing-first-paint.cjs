@@ -4,20 +4,14 @@ const previewCss = `
 #pricing-first-paint{display:none}
 @media(max-width:767px){
   body{margin:0}
-  #pricing-first-paint{display:block;position:fixed;inset:0;overflow:hidden}
+  #pricing-first-paint{display:block;position:fixed;inset:0;overflow:hidden;scrollbar-gutter:stable;scrollbar-width:thin}
   #root{position:relative;z-index:1}
   #root:empty,#root:has([data-testid="pricing-initial-load"]){visibility:hidden;pointer-events:none}
-  #pricing-first-paint .pub-header-inner{row-gap:0}
-  #pricing-first-paint .pub-nav{padding-inline:8px;gap:12px;margin-top:14px;color:var(--pub-muted)}
-  #pricing-first-paint .pub-nav a{display:flex;align-items:center;line-height:normal}
-  #pricing-first-paint .pub-theme{width:40px}
-  #pricing-first-paint .pub-theme span:not([hidden]) svg{vertical-align:middle}
-  #pricing-first-paint .pub-access{padding-inline:10px;min-height:42px;border:0}
-  #pricing-first-paint .pub-actions{gap:6px}
   #pricing-first-paint .price-capacity{display:flex;align-items:center;gap:8px}
   #pricing-first-paint .price-capacity>span{font:16px/21px HeraSans,sans-serif}
+  #pricing-first-paint .price-register{margin-top:12px;min-height:44px;padding:10px 14px;border:2px solid transparent;border-radius:9px;font-size:13px;line-height:20px}
   #pricing-first-paint p.price-scope{margin-top:6px}
-  #pricing-first-paint main{max-width:1280px;margin:auto;padding:16px 20px 0;color:var(--pub-muted);font:13px/21px HeraSans,sans-serif}
+  #pricing-first-paint main{max-width:1280px;margin:auto;padding:24px 20px 0;color:var(--pub-muted);font:13px/21px HeraSans,sans-serif}
   #pricing-first-paint h1,#pricing-first-paint h2{font:30px/37px HeraDisplay,Georgia,serif;color:var(--pub-text);margin:0}
   #pricing-first-paint h2{font-size:24px;line-height:30px}
   #pricing-first-paint p{margin:0}
@@ -35,7 +29,6 @@ const previewCss = `
   #pricing-first-paint .price-includes{background:var(--pub-sage);margin-top:12px;padding:9px 12px;display:grid;gap:14px;border-radius:8px}
 }
 @media(min-width:720px) and (max-width:767px){
-  #pricing-first-paint main{padding-inline:32px}
   #pricing-first-paint h1{font-size:36px;line-height:44px}
   #pricing-first-paint .price-includes{display:flex;align-items:center}
 }
@@ -61,7 +54,7 @@ module.exports = function pricingFirstPaint(shell, { apiUrls, localHostname, hea
     <section class="price-copy price-intro"><span class="price-label">${copy.eyebrow}</span><h1>${copy.heading}</h1><p>${copy.intro}</p></section>
     <section class="price-directory"><div class="price-copy"><span class="price-label">${copy.directoryLabel}</span><h2>${copy.directoryTitle}</h2><p>${copy.directoryIntro}</p><strong>${copy.directoryTerms}</strong></div>
     <div class="price-copy price-commissions"><strong>${copy.commissionTitle}</strong><div class="price-rates">${rates}</div><p class="price-note">${copy.commissionNote}</p></div>
-    <div class="price-includes"><div class="price-capacity"><span aria-hidden="true">📁</span><strong class="price-storage">Almacenamiento</strong></div><p class="price-note">${copy.includes}</p></div><p class="price-scope price-note"></p></section>
+    <div class="price-includes"><div class="price-capacity"><span aria-hidden="true">📁</span><strong class="price-storage">Almacenamiento</strong></div><p class="price-note">${copy.includes}</p></div><a class="pub-button price-register" href="/register?userType=PROFESSIONAL">Crear mi cuenta profesional</a><p class="price-scope price-note"></p></section>
     </main></div>`;
   return shell.replace('</head>', themeBoot + preload + '<style>' + navigationCss + previewCss +
     ':root{--price-border:' + light.borderLight + '}html[data-hera-theme=dark]{--price-border:' + dark.borderLight +

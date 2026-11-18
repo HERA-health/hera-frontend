@@ -1,7 +1,7 @@
 async page => {
-  const destinations = ['/software-para-psicologos', '/agenda-para-psicologos', '/gestion-pacientes-psicologos', '/facturacion-para-psicologos', '/profesionales/recorrido', '/planes'];
+  const destinations = ['/software-para-psicologos', '/agenda-para-psicologos', '/gestion-pacientes-psicologos', '/facturacion-para-psicologos', '/perfil-en-el-directorio-para-psicologos', '/profesionales/recorrido', '/planes'];
   const results = [];
-  for (const [width, colorScheme] of [[390,'dark'], [1440,'light']]) {
+  for (const [width, colorScheme] of [[390,'dark'], [1100,'light'], [1440,'light']]) {
     const ctx = await page.context().browser().newContext({ viewport: {width, height: 880}, colorScheme });
     let release;
     const gate = new Promise(resolve => { release = resolve; });
@@ -11,9 +11,14 @@ async page => {
       tab.on('pageerror', error => errors.push(error.message));
       await tab.route('**/_expo/static/js/web/**', async route => { await gate; await route.continue(); });
       await tab.goto('http://localhost:8088/', { waitUntil: 'commit' });
-      const summary = tab.locator('.hera-pro-menu summary:visible');
+      const bar = tab.locator('.sitebar:visible');
+      const summary = bar.locator('.sitebar-group > summary:visible');
+      async function openOuter() {
+        if (!await summary.isVisible()) await bar.locator('.sitebar-mobile > summary').click();
+      }
+      await openOuter();
       await summary.click();
-      const menu = tab.getByRole('navigation', { name: 'Menú para profesionales' });
+      const menu = bar.locator('.sitebar-group > .sitebar-sheet:visible');
       const hrefs = await menu.getByRole('link').evaluateAll(links => links.map(link => link.getAttribute('href')));
       if (hrefs.join() !== destinations.join()) throw Error('Enlaces iniciales incompletos');
       release();
@@ -23,6 +28,7 @@ async page => {
       await menu.waitFor({state:'hidden'});
       const origin = await tab.evaluate(() => performance.timeOrigin);
       for (const href of destinations) {
+        await openOuter();
         await summary.click();
         const link = menu.locator('a[href="'+href+'"]');
         const box = await menu.boundingBox();
@@ -31,8 +37,9 @@ async page => {
         await tab.waitForURL(url => url.pathname === href);
         await tab.getByRole('heading',{level:1}).first().waitFor();
         await tab.goBack();
-        await summary.waitFor();
+        await bar.waitFor();
       }
+      await openOuter();
       await summary.focus();
       await tab.keyboard.press('Enter');
       await menu.waitFor();

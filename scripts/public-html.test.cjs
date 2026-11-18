@@ -174,7 +174,7 @@ test('directory first response matches the actual screen with compact portraits 
   assert.equal(result.status, 200);
   assert.ok(result.html.includes(`<h1>${directoryPresentationCopy.heading}</h1>`));
   assert.ok(result.html.includes(directoryPresentationCopy.introduction));
-  assert.match(result.html, /class="di-logo" href="\/" aria-label="HERA, inicio"/);
+  assert.match(result.html, /class="sitebar-brand" href="\/" aria-label="HERA, inicio"/);
   assert.match(result.html, /class="di-card" href="\/especialista\/ana-ejemplo"/);
   assert.match(result.html, /width="112" height="128"/);
   assert.match(result.html, /c_fill,g_auto:faces,w_336,h_384,q_auto:good,f_auto/);

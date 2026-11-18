@@ -1,19 +1,23 @@
+import { publicAudienceTheme } from '../constants/publicAudienceTheme';
 import { lightTheme, darkTheme } from '../constants/theme';
 
 // The initial document and the mounted screen use HERA's existing theme tokens.
-export const psychologyThemeStyle = (theme: typeof lightTheme) => ({
-  '--psychology-canvas': theme.landingCanvas,
-  '--psychology-surface': theme.surface,
-  '--psychology-card-surface': theme.bgCard,
-  '--psychology-sage': theme.landingProfessional,
-  '--psychology-blue': theme.primaryMuted,
-  '--psychology-border': theme.landingPanelBorder,
-  '--psychology-text': theme.textPrimary,
-  '--psychology-muted': theme.textSecondary,
-  '--psychology-accent': theme.primary,
-  '--psychology-action': theme.actionPrimary,
-  '--psychology-on-action': theme.actionPrimaryText,
-});
+export const psychologyThemeStyle = (base: typeof lightTheme) => {
+  const theme = base.landingCanvas === darkTheme.landingCanvas ? publicAudienceTheme(base, 'patient') : base;
+  return {
+    '--psychology-canvas': theme.landingCanvas,
+    '--psychology-surface': theme.surface,
+    '--psychology-card-surface': theme.bgCard,
+    '--psychology-sage': theme.landingProfessional,
+    '--psychology-blue': theme.primaryMuted,
+    '--psychology-border': theme.landingPanelBorder,
+    '--psychology-text': theme.textPrimary,
+    '--psychology-muted': theme.textSecondary,
+    '--psychology-accent': theme.primary,
+    '--psychology-action': theme.actionPrimary,
+    '--psychology-on-action': theme.actionPrimaryText,
+  };
+};
 
 const defaults = Object.entries(psychologyThemeStyle(lightTheme)).map(([key, value]) => `${key}:${value}`).join(';');
 
@@ -92,13 +96,11 @@ html[data-hera-theme=dark] .psychology-page{${darkDefaults}}
 .psychology-short-label{display:none}
 .psychology-initial-actions{display:flex;gap:8px;align-items:center}
 .psychology-initial-actions .seo-button{min-height:42px;padding:8px 18px;font-size:14px;border-radius:12px}
-.psychology-initial-footer{border-top:1px solid var(--psychology-border);padding:30px 32px;max-width:1280px;margin:auto;display:flex;align-items:center;justify-content:space-between;gap:24px}
-.psychology-initial-footer nav{display:flex;gap:12px 24px;flex-wrap:wrap;font-size:14px}
 @media(min-width:1200px){.psychology-card{flex-basis:calc((100% - 64px)/5)}}
 @media(min-width:1600px){.psychology-initial-header-inner{max-width:1720px}}
 @media(max-width:1399px){.psychology-initial-nav a:not([href="/planes"]){display:none}.psychology-initial-nav{margin-left:auto}.psychology-initial-header-inner{padding:14px 24px}}
 @media(max-width:1000px){.psychology-hero{gap:28px;padding:26px}.psychology-start{padding-left:24px}.psychology-faq{gap:30px}}
-@media(max-width:720px){.psychology-main{padding:86px 20px 40px}.psychology-hero{grid-template-columns:1fr;padding:24px;gap:20px;border-radius:16px}.psychology-page h1{font-size:30px;line-height:1.25;margin:10px 0 14px}.psychology-hero-intro{font-size:15px}.psychology-start{padding:0;border:0}.psychology-start h2,.psychology-start p{display:none}.psychology-start a{min-height:36px}.psychology-short-label{display:inline}.psychology-long-label{display:none}.psychology-section-heading{gap:12px}.psychology-section-heading h2{font-size:24px}.psychology-profiles{margin-top:28px}.psychology-card{flex-basis:220px}.psychology-carousel{margin-right:-20px;padding-right:20px;scroll-padding-right:20px}.psychology-guidance{grid-template-columns:1fr;gap:22px;padding:24px;margin:32px 0}.psychology-guidance article+article{border-left:0;border-top:1px solid var(--psychology-border);padding:22px 0 0}.psychology-guidance h2{font-size:21px}.psychology-faq{grid-template-columns:1fr;gap:18px}.psychology-faq h2{max-width:none;font-size:25px}.psychology-faq-intro p{max-width:400px}.psychology-initial-header-inner{padding:11px 16px;gap:14px;min-height:64px}.psychology-initial-actions .secondary{display:none}.psychology-initial-footer{align-items:flex-start;padding:24px 20px}.psychology-initial-footer nav{flex-direction:column}.psychology-controls{gap:6px}.psychology-controls button{width:36px;height:36px}}
+@media(max-width:720px){.psychology-main{padding:86px 20px 40px}.psychology-hero{grid-template-columns:1fr;padding:24px;gap:20px;border-radius:16px}.psychology-page h1{font-size:30px;line-height:1.25;margin:10px 0 14px}.psychology-hero-intro{font-size:15px}.psychology-start{padding:0;border:0}.psychology-start h2,.psychology-start p{display:none}.psychology-start a{min-height:36px}.psychology-short-label{display:inline}.psychology-long-label{display:none}.psychology-section-heading{gap:12px}.psychology-section-heading h2{font-size:24px}.psychology-profiles{margin-top:28px}.psychology-card{flex-basis:220px}.psychology-carousel{margin-right:-20px;padding-right:20px;scroll-padding-right:20px}.psychology-guidance{grid-template-columns:1fr;gap:22px;padding:24px;margin:32px 0}.psychology-guidance article+article{border-left:0;border-top:1px solid var(--psychology-border);padding:22px 0 0}.psychology-guidance h2{font-size:21px}.psychology-faq{grid-template-columns:1fr;gap:18px}.psychology-faq h2{max-width:none;font-size:25px}.psychology-faq-intro p{max-width:400px}.psychology-initial-header-inner{padding:11px 16px;gap:14px;min-height:64px}.psychology-initial-actions .secondary{display:none}.psychology-controls{gap:6px}.psychology-controls button{width:36px;height:36px}}
 @media(max-width:440px){.psychology-actions{flex-direction:column}.psychology-actions .seo-button{width:100%}.psychology-hero{padding:22px}.psychology-section-heading h2{font-size:22px}.psychology-initial-nav{font-size:12px}}
 @media(prefers-reduced-motion:no-preference){.psychology-card img{transition:transform .2s ease}.psychology-card:hover img{transform:scale(1.025)}}
 `;

@@ -15,6 +15,7 @@ const ROUTE_TITLES: Record<keyof RootStackParamList, string> = {
   PsychologyOnline: 'Psicólogos online',
   PsychologyTopic: 'Apoyo psicológico',
   ProfessionalSoftware: 'Software para psicólogos',
+  ProfessionalDirectory: 'Tu perfil en el directorio',
   ProfessionalAgenda: 'Agenda para psicólogos',
   ProfessionalPatients: 'Gestión de pacientes e historia clínica',
   ProfessionalBillingInfo: 'Facturación para psicólogos',
@@ -122,6 +123,7 @@ export function getDocumentTitleForRoute(
 ): string {
   const publicTitles: Record<string, string> = {
     ProfessionalSoftware: professionalPages.software.title,
+    ProfessionalDirectory: professionalPages.directory.title,
     ProfessionalAgenda: professionalPages.agenda.title,
     ProfessionalPatients: professionalPages.patients.title,
     ProfessionalBillingInfo: professionalPages.billing.title,

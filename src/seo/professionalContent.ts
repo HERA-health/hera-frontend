@@ -1,4 +1,4 @@
-export type ProfessionalPageId = "software" | "agenda" | "patients" | "billing";
+export type ProfessionalPageId = "software" | "directory" | "agenda" | "patients" | "billing";
 export type MarketingCapture =
   | "home"
   | "agenda"
@@ -23,7 +23,7 @@ export interface ProfessionalPage {
   heading: string;
   eyebrow: string;
   intro: string;
-  image: MarketingCapture;
+  image: MarketingCapture | "directory";
   sections: readonly ProfessionalSection[];
   faqs: readonly { question: string; answer: string }[];
 }
@@ -32,16 +32,16 @@ export const professionalPages: Record<ProfessionalPageId, ProfessionalPage> = {
     path: "/software-para-psicologos",
     title: "Software para psicólogos: gestión de consultas · HERA",
     description:
-      "Organiza tu consulta de psicología con HERA: agenda, pacientes, historia clínica y facturación. Descubre la aplicación por dentro y solicita una prueba gratuita.",
-    heading: "Software para psicólogos, con tu consulta en orden",
-    eyebrow: "HERA para profesionales",
+      "Crea gratis tu perfil profesional en HERA. Descubre el directorio y el software para psicólogos con agenda, historia clínica y facturación.",
+    heading: "Publica tu perfil y gestiona tu consulta desde HERA.",
+    eyebrow: "Software para psicólogos",
     intro:
-      "Prepara tu próxima sesión, retoma la historia de cada paciente y revisa tus facturas desde un mismo lugar.",
+      "Muestra tus especialidades en el directorio y lleva al día tus citas, las fichas de tus pacientes y tus facturas.",
     image: "home",
     sections: [
       {
-        eyebrow: "01 · Tu día, en orden",
-        title: "Una agenda que te deja ver lo importante",
+        eyebrow: "Agenda",
+        title: "Abre tu agenda y prepara la siguiente cita",
         text: "Empieza por saber qué viene después. Consulta tus citas, organiza las sesiones y prepara tu semana desde un calendario conectado con tus pacientes.",
         points: [
           "Citas online y presenciales con su estado a la vista.",
@@ -55,8 +55,8 @@ export const professionalPages: Record<ProfessionalPageId, ProfessionalPage> = {
         },
       },
       {
-        eyebrow: "02 · Continuidad en cada sesión",
-        title: "Cada paciente, con su propio contexto",
+        eyebrow: "Pacientes e historia clínica",
+        title: "Recupera las notas de la última sesión",
         text: "Reúne la información que necesitas para dar continuidad al proceso: sesiones, historia clínica, notas y documentos. Un espacio claro, con acceso clínico protegido.",
         points: [
           "Ficha del paciente y seguimiento de su actividad.",
@@ -70,22 +70,8 @@ export const professionalPages: Record<ProfessionalPageId, ProfessionalPage> = {
         },
       },
       {
-        eyebrow: "Conoce tu próximo espacio de trabajo",
-        title: "Entra en HERA antes de crear tu cuenta",
-        text: "Recorre las pantallas de la aplicación y descubre cómo se conectan las tareas de tu día a día. A tu ritmo y sin registro.",
-        points: [
-          "Capturas de la aplicación actual.",
-          "Datos de demostración, sin información de pacientes reales.",
-        ],
-        image: "patients",
-        link: {
-          href: "/profesionales/recorrido",
-          label: "Ver HERA por dentro",
-        },
-      },
-      {
-        eyebrow: "03 · La gestión también merece calma",
-        title: "Facturas, cobros y actividad, con perspectiva",
+        eyebrow: "Facturación",
+        title: "Consulta qué facturas quedan por cobrar",
         text: "Ten a mano la parte administrativa de tu consulta. Revisa tus facturas, los cobros registrados y la evolución de tu actividad sin perder de vista las sesiones.",
         points: [
           "Facturación relacionada con tus pacientes y servicios.",
@@ -96,20 +82,6 @@ export const professionalPages: Record<ProfessionalPageId, ProfessionalPage> = {
         link: {
           href: "/facturacion-para-psicologos",
           label: "Explorar la facturación",
-        },
-      },
-      {
-        eyebrow: "Tu práctica, también hacia fuera",
-        title: "Tu consulta y tu presencia profesional",
-        text: "Gestionar tus pacientes propios y aparecer en el directorio son dos posibilidades diferentes. Puedes combinarlas cuando encajen con tu práctica.",
-        points: [
-          "Perfil público sujeto a verificación profesional.",
-          "Directorio para que las personas conozcan tu forma de trabajar.",
-          "Condiciones de captación diferenciadas de la suscripción.",
-        ],
-        link: {
-          href: "/planes",
-          label: "Entender las dos modalidades",
         },
       },
     ],
@@ -136,31 +108,34 @@ export const professionalPages: Record<ProfessionalPageId, ProfessionalPage> = {
       },
     ],
   },
+  directory: {
+    path: "/perfil-en-el-directorio-para-psicologos",
+    title: "Publica tu perfil en el directorio de psicólogos · HERA",
+    description: "Descubre cómo aparecer en el directorio de psicólogos de HERA sin contratar una suscripción. Muestra tus especialidades, modalidades de consulta y tarifas.",
+    heading: "Así ven tu perfil quienes buscan psicólogo.",
+    eyebrow: "Directorio para psicólogos",
+    intro: "Muestra a quién acompañas, cómo trabajas y cuánto cuesta una sesión. Crear tu perfil profesional es gratis.",
+    image: "directory",
+    sections: [],
+    faqs: [
+      { question: "¿Cuándo se publica mi perfil?", answer: "Para aparecer en el directorio, HERA verifica tu acreditación profesional y tú aceptas las condiciones de publicación." },
+      { question: "¿Necesito una suscripción?", answer: "Puedes crear tu perfil sin contratar una suscripción. Consulta en Planes y condiciones cómo funciona el directorio cuando atiendes a un paciente que llega por HERA." },
+    ],
+  },
   agenda: {
     path: "/agenda-para-psicologos",
     title: "Agenda online para psicólogos · HERA",
     description:
       "Organiza citas, sesiones y disponibilidad con la agenda online para psicólogos de HERA. Consulta tu semana y accede al contexto de cada paciente.",
-    heading: "Tu agenda de psicología, organizada con calma",
-    eyebrow: "Agenda para psicólogos",
+    heading: "Mira quién viene hoy y prepara tu próxima sesión.",
+    eyebrow: "Agenda online para psicólogos",
     intro:
-      "Una vista clara de tu semana, de quién viene y de lo que necesitas preparar. Organiza tus sesiones sin separar el calendario del resto de tu consulta.",
+      "Consulta la hora, la modalidad y el paciente de cada cita. Desde la agenda puedes abrir su ficha y repasar lo que trabajasteis.",
     image: "agenda",
     sections: [
       {
-        eyebrow: "Cada cita, en su lugar",
-        title: "Planifica la semana. Atiende el presente.",
-        text: "Consulta las sesiones de tu agenda y distingue sus estados. Abre una cita para revisar sus datos y continúa el trabajo desde el espacio del paciente.",
-        points: [
-          "Sesiones presenciales y por videollamada.",
-          "Información del paciente, horario y servicio.",
-          "Seguimiento de sesiones pendientes, confirmadas y realizadas.",
-        ],
-        image: "agenda",
-      },
-      {
-        eyebrow: "Tu tiempo tiene su propio ritmo",
-        title: "Una disponibilidad que refleja cómo trabajas",
+        eyebrow: "Disponibilidad",
+        title: "Decide qué horas ofreces para reservar",
         text: "Define tus horarios y organiza los servicios que ofreces. Mantén separados los huecos disponibles y las citas que ya forman parte de tu agenda.",
         points: [
           "Horarios de atención y disponibilidad.",
@@ -202,23 +177,12 @@ export const professionalPages: Record<ProfessionalPageId, ProfessionalPage> = {
     title: "Gestión de pacientes e historia clínica · HERA",
     description:
       "Gestiona pacientes, sesiones, historia clínica y documentos en HERA. Un espacio conectado para dar continuidad al trabajo en tu consulta de psicología.",
-    heading: "Pacientes e historia clínica, con el contexto que necesitas",
+    heading: "Retoma cada sesión donde la dejaste.",
     eyebrow: "Gestión de pacientes para psicólogos",
     intro:
-      "Cada proceso tiene su historia. Reúne la información del paciente, las sesiones y el trabajo clínico en un espacio que te ayuda a mantener el hilo.",
+      "Abre la ficha del paciente, consulta su última sesión y recupera tus notas en el área clínica protegida.",
     image: "patients",
     sections: [
-      {
-        eyebrow: "Una visión de conjunto",
-        title: "La ficha que conecta el día a día",
-        text: "Consulta los datos del paciente, sus citas y la actividad de su relación contigo. Pasa de una visión general al detalle que necesitas, sin mezclar los procesos.",
-        points: [
-          "Pacientes propios y relaciones de atención identificadas.",
-          "Historial de sesiones y próxima cita.",
-          "Acceso a la gestión administrativa desde su contexto.",
-        ],
-        image: "patients",
-      },
       {
         eyebrow: "Continuidad clínica",
         title: "Historia, notas y evolución, con un orden claro",
@@ -264,33 +228,22 @@ export const professionalPages: Record<ProfessionalPageId, ProfessionalPage> = {
     title: "Software de facturación para psicólogos · HERA",
     description:
       "Organiza la facturación de tu consulta de psicología: facturas, cobros registrados y seguimiento de actividad, conectados con tus pacientes en HERA.",
-    heading: "La facturación de tu consulta, en orden",
+    heading: "Ve qué has facturado y qué queda por cobrar.",
     eyebrow: "Facturación para psicólogos",
     intro:
-      "La parte administrativa también necesita un lugar claro. Reúne tus facturas y el seguimiento de los cobros junto al trabajo de tu consulta.",
+      "Localiza la factura de una sesión, comprueba su importe y distingue de un vistazo los cobros registrados de los pendientes.",
     image: "billing",
     sections: [
       {
-        eyebrow: "De la sesión a la gestión",
-        title: "Facturas conectadas con tu actividad",
-        text: "Trabaja con los datos de tus pacientes y servicios para organizar la facturación. Consulta las facturas y revisa su información sin perder la relación con la atención realizada.",
-        points: [
-          "Listado y detalle de facturas.",
-          "Conceptos e importes vinculados a la consulta.",
-          "Estado de cada factura a la vista.",
-        ],
-        image: "billing",
-      },
-      {
         eyebrow: "Seguimiento con claridad",
-        title: "Distingue lo registrado de lo pendiente",
+        title: "Haz seguimiento de los cobros",
         text: "Revisa los cobros registrados y la información administrativa del paciente. Una vista ordenada ayuda a detectar lo que aún necesita tu atención.",
         points: [
           "Seguimiento de estados y cobros.",
           "Información administrativa en el contexto del paciente.",
           "Consulta de la actividad de tu práctica.",
         ],
-        image: "statistics",
+        image: "billing",
       },
       {
         eyebrow: "Una consulta conectada",
@@ -334,7 +287,7 @@ export const marketingCaptures: readonly {
   {
     id: "home",
     label: "Tu día",
-    text: "Las próximas sesiones y la actividad de tu consulta, a primera vista.",
+    text: "Comprueba a quién atiendes después y qué necesita tu atención hoy.",
   },
   {
     id: "agenda",
@@ -349,12 +302,12 @@ export const marketingCaptures: readonly {
   {
     id: "record",
     label: "Historia clínica",
-    text: "Historia, evolución y notas para mantener el hilo de la atención.",
+    text: "Revisa lo que trabajasteis en la última sesión antes de empezar la siguiente.",
   },
   {
     id: "documents",
     label: "Documentos",
-    text: "Documentos y consentimiento dentro del contexto del paciente.",
+    text: "Localiza los documentos del paciente y comprueba el estado de su consentimiento.",
   },
   {
     id: "billing",
@@ -369,6 +322,6 @@ export const marketingCaptures: readonly {
   {
     id: "statistics",
     label: "Estadísticas",
-    text: "Una perspectiva de la actividad de tu práctica.",
+    text: "Consulta cuántas sesiones has atendido y cómo evoluciona tu actividad.",
   },
 ];

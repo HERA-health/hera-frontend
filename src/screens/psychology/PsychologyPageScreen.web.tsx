@@ -97,10 +97,13 @@ export function PsychologyPageScreen() {
       {error && data ? <div role="status" style={{ padding: '0 32px 24px', textAlign: 'center' }}>
         No hemos podido actualizar los perfiles. <button type="button" onClick={retry}>Volver a intentar</button>
       </div> : null}
-      <FooterSection onFindSpecialist={() => navigation.navigate('PublicSpecialists')}
-        professionalActionLabel={canVisitLanding ? 'Conocer las herramientas' : 'Mi espacio'}
-        onProfessionalAction={canVisitLanding ? () => navigation.navigate('ProfessionalShowcase') : handleAccess}
-        onProfessionalLogin={handleAccess} onScrollToSection={canVisitLanding ? handleSection : undefined}
+      <FooterSection professionalActionHref={isAuthenticated ? '/acceso' : undefined}
+        professionalLoginHref={isAuthenticated ? '/acceso' : undefined}
+        onFindSpecialist={() => navigation.navigate('PublicSpecialists')}
+        professionalActionLabel={isAuthenticated ? 'Mi espacio' : 'Crear cuenta profesional'}
+        onProfessionalAction={isAuthenticated ? handleAccess : () => navigation.navigate('Register', { userType: 'PROFESSIONAL' })}
+        onProfessionalLogin={isAuthenticated ? handleAccess : () => navigation.navigate('Login', { userType: 'PROFESSIONAL' })}
+        onScrollToSection={canVisitLanding ? handleSection : undefined}
         onViewPlans={() => navigation.navigate('Pricing')} />
     </div>
   </View>;

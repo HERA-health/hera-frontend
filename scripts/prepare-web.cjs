@@ -75,7 +75,7 @@ function staticPaths() {
   return [...routes.values()].flat().concat(['clinic-consent/:requestId', 'clinical-consent/guest/:requestId']);
 }
 function compilePublicHtml() {
-  for (const file of ['config/api', 'seo/initialPricingCatalog', 'seo/webPageSchema', 'seo/publicNavigation', 'seo/professionalContent', 'seo/professionalPresentation', 'seo/subscriptionCatalog', 'screens/landing/pricingContent', 'seo/publicContent', 'seo/publicData', 'seo/publicHtml', 'seo/landingProfessionalMenu', 'seo/landingInitialHtml', 'seo/directoryInitialHtml', 'seo/directoryIcons', 'screens/specialist-profile/profilePresentation', 'constants/professionalMatchingOptions', 'seo/landingIcons', 'seo/psychologyPresentation', 'constants/themeIconPaths', 'constants/theme', 'constants/publicHeaderLinks', 'constants/professionalNavigation', 'constants/professionalMatchingCatalog']) {
+  for (const file of ['config/api', 'seo/initialPricingCatalog', 'seo/webPageSchema', 'seo/publicNavigation', 'seo/publicBar', 'seo/publicFooter', 'constants/publicFooter', 'seo/professionalContent', 'seo/professionalPresentation', 'seo/subscriptionCatalog', 'screens/landing/pricingContent', 'seo/publicContent', 'seo/publicData', 'seo/publicHtml', 'seo/landingProfessionalMenu', 'seo/landingInitialHtml', 'seo/directoryInitialHtml', 'seo/directoryIcons', 'screens/specialist-profile/profilePresentation', 'constants/professionalMatchingOptions', 'seo/landingIcons', 'seo/psychologyPresentation', 'constants/themeIconPaths', 'constants/theme', 'constants/colors', 'constants/publicAudienceTheme', 'constants/publicHeaderLinks', 'constants/professionalNavigation', 'constants/professionalMatchingCatalog']) {
     const source = fs.readFileSync('src/' + file + '.ts', 'utf8');
     const result = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } });
     const destination = '.seo-build/' + file + '.js';
@@ -130,7 +130,8 @@ async function prepare() {
     fs.mkdirSync(path.dirname(destination), { recursive: true });
     let page = renderMetadata(shell, metadata).replace('</head>', preloadFonts + '</head>');
     if (metadata.canonicalPath === '/') {
-      const { injectPublicHtml, publicFooter } = require('../.seo-build/seo/publicHtml');
+      const { publicFooterHtml } = require('../.seo-build/seo/publicFooter');
+      const { injectPublicHtml } = require('../.seo-build/seo/publicHtml');
       const { landingInitialCss, landingInitialHtml } = require('../.seo-build/seo/landingInitialHtml');
       const { landingIcons } = require('../.seo-build/seo/landingIcons');
       const photo = (width) => {
@@ -140,12 +141,13 @@ async function prepare() {
       };
       // Read only the existing public theme preference before first paint. This
       // build-only presentation never adds code to the application bundle.
-      const { publicThemeBoot: themeBoot, publicNavigationCss } = require('../.seo-build/seo/publicNavigation');
-      page = injectPublicHtml(page.replace('</head>', themeBoot + '<style>' + landingInitialCss + publicNavigationCss + '</style></head>'), landingInitialHtml({ photo: photo(1024), photos: { small: photo(640), large: photo(1536) }, icons: landingIcons }) + publicFooter);
+      const { publicThemeBoot: themeBoot } = require('../.seo-build/seo/publicNavigation');
+      page = injectPublicHtml(page.replace('</head>', themeBoot + '<style>' + landingInitialCss + '</style></head>'), landingInitialHtml({ photo: photo(1024), photos: { small: photo(640), large: photo(1536) }, icons: landingIcons }) + publicFooterHtml());
     }
     if (metadata.canonicalPath === '/planes') {
       const { apiEndpoints, isLocalWebHostname } = require('../.seo-build/config/api');
       const { publicHeaderHtml, publicThemeBoot, publicNavigationCss } = require('../.seo-build/seo/publicNavigation');
+      const { publicBarCss } = require('../.seo-build/seo/publicBar');
       const { DIRECTORY_OFFER, pricingIntro } = require('../.seo-build/screens/landing/pricingContent');
       const { lightTheme, darkTheme } = require('../.seo-build/constants/theme');
       page = page.replace(/<noscript>[\s\S]*?<\/noscript>/, `<noscript>
@@ -157,18 +159,21 @@ async function prepare() {
       </noscript>`);
       page = require('./pricing-first-paint.cjs')(page, {
         apiUrls: apiEndpoints, localHostname: isLocalWebHostname, header: publicHeaderHtml(),
-        themeBoot: publicThemeBoot, navigationCss: publicNavigationCss, offer: DIRECTORY_OFFER,
+        themeBoot: publicThemeBoot, navigationCss: publicNavigationCss + publicBarCss, offer: DIRECTORY_OFFER,
         copy: pricingIntro, light: lightTheme, dark: darkTheme,
       });
     }
     fs.writeFileSync(destination, page);
   }
+  const { publicFooterHtml } = require('../.seo-build/seo/publicFooter');
   const { professionalPages } = require('../.seo-build/seo/professionalContent');
   const { professionalHtml, professionalTourHtml, professionalCss, tourMetadata } = require('../.seo-build/seo/professionalPresentation');
   const { publicThemeBoot } = require('../.seo-build/seo/publicNavigation');
   const { injectPublicHtml } = require('../.seo-build/seo/publicHtml');
   const { webPageSchema } = require('../.seo-build/seo/webPageSchema');
-  const pages = Object.entries(professionalPages).map(([id, page]) => ({ metadata: { ...page, canonicalPath: page.path }, body: professionalHtml(id) }));
+  const portrait = fs.readdirSync('dist/assets/assets/landing').find(file => file.startsWith('psychologist-portrait-480.') && file.endsWith('.webp'));
+  if (!portrait) throw new Error('Missing professional profile photograph');
+  const pages = Object.entries(professionalPages).map(([id, page]) => ({ metadata: { ...page, canonicalPath: page.path }, body: professionalHtml(id, '/assets/assets/landing/' + portrait) }));
   pages.push({ metadata: tourMetadata, body: professionalTourHtml() });
   for (const { metadata, body } of pages) {
     const destination = path.join('dist', metadata.canonicalPath, 'index.html');
@@ -176,7 +181,7 @@ async function prepare() {
     const canonical = 'https://www.health-hera.com' + metadata.canonicalPath;
     const schema = webPageSchema(metadata.title, metadata.description, canonical);
     const initial = renderMetadata(shell, metadata).replace('</head>', publicThemeBoot + '<style>' + professionalCss + '</style><script id="hera-page-schema" type="application/ld+json">' + JSON.stringify(schema).replace(/</g, '\\u003c') + '</script></head>');
-    fs.writeFileSync(destination, injectPublicHtml(initial, body));
+    fs.writeFileSync(destination, injectPublicHtml(initial, body + publicFooterHtml()));
   }
 }
 if (require.main === module) prepare();

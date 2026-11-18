@@ -1,3 +1,4 @@
+import { PublicAudienceProvider } from '../contexts/ThemeContext';
 import { useQuestionnaireDraft, QuestionnaireSaveGate, takeQuestionnaireDestination } from '../contexts/QuestionnaireDraftContext';
 import { SESSION_PAYMENTS_VISIBLE } from '../config/sessionPayments';
 import { RESOURCES_VISIBLE } from '../config/resources';
@@ -89,9 +90,17 @@ const ProfessionalLegalDocumentRoute = createDeferredLayoutRoute<'LegalDocument'
   { displayName: 'ProfessionalLegalDocumentRoute', exportName: 'LegalDocumentScreen' },
 );
 
+function PatientLandingRoute() {
+  return Platform.OS === 'web' ? <PublicAudienceProvider audience="patient"><LandingPage /></PublicAudienceProvider> : <LandingPage />;
+}
+
 const ProfessionalSoftwareRoute = createDeferredRoute<'ProfessionalSoftware'>(
   () => Platform.OS === 'web' ? import('../screens/landing/ProfessionalMarketingScreen') : require('../screens/landing/ProfessionalMarketingScreen'),
   { displayName: 'ProfessionalSoftwareRoute', exportName: 'ProfessionalMarketingScreen' },
+);
+const ProfessionalDirectoryRoute = createDeferredRoute<'ProfessionalDirectory'>(
+  () => Platform.OS === 'web' ? import('../screens/landing/ProfessionalMarketingScreen') : require('../screens/landing/ProfessionalMarketingScreen'),
+  { displayName: 'ProfessionalDirectoryRoute', exportName: 'ProfessionalMarketingScreen' },
 );
 const ProfessionalAgendaRoute = createDeferredRoute<'ProfessionalAgenda'>(
   () => Platform.OS === 'web' ? import('../screens/landing/ProfessionalMarketingScreen') : require('../screens/landing/ProfessionalMarketingScreen'),
@@ -702,12 +711,13 @@ export function RootNavigator() {
       >
         <Stack.Group navigationKey="guest">
           {pendingPinReset ? <Stack.Screen name="ClinicalPinReset" component={ClinicalPinResetRoute} /> : null}
-          <Stack.Screen name="Landing" component={LandingPage} />
+          <Stack.Screen name="Landing" component={PatientLandingRoute} />
           <Stack.Screen name="Questionnaire" component={QuestionnaireRoute} />
           {SESSION_PAYMENTS_VISIBLE && <><Stack.Screen name="SessionPayment" component={SessionPaymentRoute} /><Stack.Screen name="PackagePayment" component={PackagePaymentRoute} /></>}
           <Stack.Screen name="GoogleCalendarIntegration" component={GoogleCalendarIntegrationRoute} />
           <Stack.Screen name="GoogleCalendarSession" component={GoogleCalendarSessionRoute} />
           <Stack.Screen name="ProfessionalSoftware" component={ProfessionalSoftwareRoute} />
+          <Stack.Screen name="ProfessionalDirectory" component={ProfessionalDirectoryRoute} />
           <Stack.Screen name="ProfessionalAgenda" component={ProfessionalAgendaRoute} />
           <Stack.Screen name="ProfessionalPatients" component={ProfessionalPatientsRoute} />
           <Stack.Screen name="ProfessionalBillingInfo" component={ProfessionalBillingInfoRoute} />
@@ -807,6 +817,7 @@ export function RootNavigator() {
             />}
           </Stack.Screen>
           <Stack.Screen name="ProfessionalSoftware" component={ProfessionalSoftwareRoute} />
+          <Stack.Screen name="ProfessionalDirectory" component={ProfessionalDirectoryRoute} />
           <Stack.Screen name="ProfessionalAgenda" component={ProfessionalAgendaRoute} />
           <Stack.Screen name="ProfessionalPatients" component={ProfessionalPatientsRoute} />
           <Stack.Screen name="ProfessionalBillingInfo" component={ProfessionalBillingInfoRoute} />
@@ -851,6 +862,7 @@ export function RootNavigator() {
             options={{ headerTitle: 'Panel de clínica' }}
           />
           <Stack.Screen name="ProfessionalSoftware" component={ProfessionalSoftwareRoute} />
+          <Stack.Screen name="ProfessionalDirectory" component={ProfessionalDirectoryRoute} />
           <Stack.Screen name="ProfessionalAgenda" component={ProfessionalAgendaRoute} />
           <Stack.Screen name="ProfessionalPatients" component={ProfessionalPatientsRoute} />
           <Stack.Screen name="ProfessionalBillingInfo" component={ProfessionalBillingInfoRoute} />
@@ -975,6 +987,7 @@ export function RootNavigator() {
             options={{ headerShown: false }}
           />
           <Stack.Screen name="ProfessionalSoftware" component={ProfessionalSoftwareRoute} />
+          <Stack.Screen name="ProfessionalDirectory" component={ProfessionalDirectoryRoute} />
           <Stack.Screen name="ProfessionalAgenda" component={ProfessionalAgendaRoute} />
           <Stack.Screen name="ProfessionalPatients" component={ProfessionalPatientsRoute} />
           <Stack.Screen name="ProfessionalBillingInfo" component={ProfessionalBillingInfoRoute} />
@@ -1048,6 +1061,7 @@ export function RootNavigator() {
           {calendarIntent?.kind !== 'connect' ? <Stack.Screen name="GoogleCalendarIntegration" component={GoogleCalendarIntegrationRoute} /> : null}
           {calendarIntent?.kind !== 'session' ? <Stack.Screen name="GoogleCalendarSession" component={GoogleCalendarSessionRoute} /> : null}
           <Stack.Screen name="ProfessionalSoftware" component={ProfessionalSoftwareRoute} />
+          <Stack.Screen name="ProfessionalDirectory" component={ProfessionalDirectoryRoute} />
           <Stack.Screen name="ProfessionalAgenda" component={ProfessionalAgendaRoute} />
           <Stack.Screen name="ProfessionalPatients" component={ProfessionalPatientsRoute} />
           <Stack.Screen name="ProfessionalBillingInfo" component={ProfessionalBillingInfoRoute} />
@@ -1354,6 +1368,7 @@ export function RootNavigator() {
           options={{ headerShown: false }}
         />
         <Stack.Screen name="ProfessionalSoftware" component={ProfessionalSoftwareRoute} />
+        <Stack.Screen name="ProfessionalDirectory" component={ProfessionalDirectoryRoute} />
           <Stack.Screen name="ProfessionalAgenda" component={ProfessionalAgendaRoute} />
           <Stack.Screen name="ProfessionalPatients" component={ProfessionalPatientsRoute} />
           <Stack.Screen name="ProfessionalBillingInfo" component={ProfessionalBillingInfoRoute} />

@@ -1,3 +1,4 @@
+import type { FooterSectionProps } from './types';
 import { usePublicHtmlReady } from '../../seo/usePublicHtmlReady';
 /**
  * LandingPage - HERA Mental Health Platform
@@ -68,15 +69,6 @@ type FinalCTASectionProps = {
   onFindSpecialist: () => void;
   professionalActionLabel: string;
   onProfessionalAction: () => void;
-};
-type FooterSectionProps = {
-  onViewPlans?: () => void;
-  onFindSpecialist: () => void;
-  professionalActionLabel: string;
-  onProfessionalAction: () => void;
-  onProfessionalLogin: () => void;
-  onClinicAccess: () => void;
-  onScrollToSection: (section: LandingSectionAnchor) => void;
 };
 
 const HEADER_SCROLL_THRESHOLD = 50;
@@ -538,6 +530,8 @@ export const LandingPage: React.FC = () => {
             />
 
             <FooterSection
+              professionalActionHref={isAuthenticated ? '/acceso' : undefined}
+              professionalLoginHref={isAuthenticated ? '/acceso' : undefined}
               onViewPlans={() => navigation.navigate('Pricing')}
               onFindSpecialist={() => handlePatientCTA('footer')}
               professionalActionLabel={professionalActionLabel}

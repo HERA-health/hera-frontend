@@ -44,7 +44,7 @@ export function HeroSection({
       description: 'Compara perfiles, modalidades y precios antes de reservar.',
       benefits: ['Perfiles verificados', 'Sesiones online y presenciales', 'Modalidades y tarifas visibles'],
       compactBenefits: 'Perfiles verificados · Online y presencial',
-      label: 'Ver psicólogos/as', onPress: onFindSpecialist,
+      label: 'Buscar psicólogo/a', onPress: onFindSpecialist,
       background: theme.secondaryMuted, accent: theme.actionPrimary,
     },
     {
@@ -115,9 +115,9 @@ export function HeroSection({
                   <Text accessibilityRole="header" aria-level={2} style={[styles.doorTitle, shortDesktop && styles.doorTitleShort, { color: theme.textPrimary, fontFamily: theme.fontDisplay }]}>{door.title}</Text>
                 </View>
                 <Text style={[styles.doorDescription, shortDesktop && styles.doorDescriptionShort, isDesktop && width < 1200 && styles.doorDescriptionNarrow, { color: theme.textPrimary, fontFamily: theme.fontSans }]}>{door.description}</Text>
-                <AnimatedPressable onPress={door.onPress} href={Platform.OS === 'web' && index === 0 ? '/especialistas' : undefined} accessibilityRole={index === 0 ? 'link' : 'button'} accessibilityLabel={door.label} hoverLift={false} pressScale={1} style={[styles.action, compactDesktop && styles.actionCompactDesktop, shortDesktop && styles.actionShort, { backgroundColor: door.accent }]}>
-                  <Text style={[styles.actionText, shortDesktop && styles.actionTextShort, { color: theme.actionPrimaryText, fontFamily: theme.fontSansBold }]}>{door.label}</Text>
-                  <Ionicons name="arrow-forward" size={18} color={theme.actionPrimaryText} />
+                <AnimatedPressable onPress={door.onPress} href={Platform.OS === 'web' && index === 0 ? '/especialistas' : undefined} accessibilityRole={index === 0 ? 'link' : 'button'} accessibilityLabel={door.label} hoverLift={false} pressScale={1} style={[styles.action, compactDesktop && styles.actionCompactDesktop, shortDesktop && styles.actionShort, { backgroundColor: index === 0 ? door.accent : theme.bgCard, borderColor: theme.borderStrong, borderWidth: index === 0 ? 0 : 1 }]}>
+                  <Text style={[styles.actionText, shortDesktop && styles.actionTextShort, { color: index === 0 ? theme.actionPrimaryText : theme.primary, fontFamily: theme.fontSansBold }]}>{door.label}</Text>
+                  <Ionicons name="arrow-forward" size={18} color={index === 0 ? theme.actionPrimaryText : theme.primary} />
                 </AnimatedPressable>
                 {index === 0 && onQuestionnaire ? (
                   <AnimatedPressable onPress={onQuestionnaire} href="/cuestionario" accessibilityRole="link" accessibilityLabel="Ayúdame a elegir: hacer el cuestionario" hoverLift={false} pressScale={1} style={[styles.action, { minHeight: 44, marginTop: 6, paddingVertical: 8, borderWidth: 1, borderColor: theme.borderStrong }]}>

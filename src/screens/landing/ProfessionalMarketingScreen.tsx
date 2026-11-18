@@ -15,6 +15,7 @@ import { professionalPages } from "../../seo/professionalContent";
 
 const pages = {
   ProfessionalSoftware: "software",
+  ProfessionalDirectory: "directory",
   ProfessionalAgenda: "agenda",
   ProfessionalPatients: "patients",
   ProfessionalBillingInfo: "billing",
@@ -24,6 +25,9 @@ export function ProfessionalMarketingScreen(): React.ReactElement {
   const navigation = useNavigation<AppNavigationProp>();
   const { theme, isDark } = useTheme();
   const page = professionalPages[pages[route.name]];
+  const mode = isDark ? "dark" : "light";
+  const isDirectory = page.image === "directory";
+  const filename = isDirectory ? `directory-desktop-${mode}.webp` : `${page.image}-${mode}-1600.webp`;
   return (
     <ScrollView
       style={{ backgroundColor: theme.landingCanvas }}
@@ -59,14 +63,10 @@ export function ProfessionalMarketingScreen(): React.ReactElement {
       </Button>
       <Image
         source={{
-          uri:
-            "https://www.health-hera.com/marketing/product/" +
-            page.image +
-            (isDark ? "-dark" : "-light") +
-            "-1600.webp",
+          uri: "https://www.health-hera.com/marketing/product/" + filename,
         }}
         accessibilityLabel={page.eyebrow + " · Datos de demostración"}
-        style={{ width: "100%", aspectRatio: 1.6, borderRadius: 12 }}
+        style={{ width: "100%", aspectRatio: isDirectory ? 1440 / 526 : 1.6, borderRadius: 12 }}
         resizeMode="contain"
       />
       <Button onPress={() => navigation.navigate("ProfessionalShowcase")}>

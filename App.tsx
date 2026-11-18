@@ -187,6 +187,7 @@ export const linking: LinkingOptions<RootStackParamList> = {
       SpecialistsDirectory: 'paciente/especialistas/directorio',
       ProfessionalShowcase: 'profesionales/recorrido',
       ProfessionalSoftware: 'software-para-psicologos',
+      ProfessionalDirectory: 'perfil-en-el-directorio-para-psicologos',
       ProfessionalAgenda: 'agenda-para-psicologos',
       ProfessionalPatients: 'gestion-pacientes-psicologos',
       ProfessionalBillingInfo: 'facturacion-para-psicologos',

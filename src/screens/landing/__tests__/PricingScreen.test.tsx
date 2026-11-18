@@ -66,6 +66,13 @@ describe('public pricing catalogue', () => {
     }
   });
 
+  it('opens professional registration from the directory offer', async () => {
+    render(<PricingScreen />);
+    await screen.findByLabelText('Ver todas las prestaciones de Calma');
+    fireEvent.press(screen.getByRole('button', { name: 'Crear mi cuenta profesional' }));
+    expect(mockNavigate).toHaveBeenCalledWith('Register', { userType: 'PROFESSIONAL' });
+  });
+
   it('opens the selected trial directly from every guest card', async () => {
     render(<PricingScreen />);
     await screen.findByLabelText('Ver todas las prestaciones de Calma');

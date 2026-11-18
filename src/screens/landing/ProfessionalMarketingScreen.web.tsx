@@ -1,17 +1,25 @@
+import { FooterSection } from './components/FooterSection';
+import { useProfessionalDemo } from "./useProfessionalDemo.web";
 import React, { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { View } from "react-native";
 import { Asset } from "expo-asset";
 import { LandingHeader } from "./components/LandingHeader";
-import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
+import { CommonActions, useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import type { AppNavigationProp, RootStackParamList } from "../../constants/types";
+import { useAuth } from "../../contexts/AuthContext";
 import { useTheme } from "../../contexts/ThemeContext";
 import { useWebPageMetadata } from "../../hooks/useWebPageMetadata";
 import {
   professionalPages,
+  marketingCaptures,
+  type MarketingCapture,
   type ProfessionalPageId,
 } from "../../seo/professionalContent";
 import {
   professionalCss,
+  capturePath,
+  directoryCapturePath,
+  professionalRegisterHref,
   professionalHtml,
   professionalTourHtml,
   tourMetadata,
@@ -24,6 +32,7 @@ import { usePublicHtmlReady } from "../../seo/usePublicHtmlReady";
 
 export const professionalRoutePages = {
   ProfessionalSoftware: "software",
+  ProfessionalDirectory: "directory",
   ProfessionalAgenda: "agenda",
   ProfessionalPatients: "patients",
   ProfessionalBillingInfo: "billing",
@@ -32,16 +41,20 @@ export const professionalRoutePages = {
 /** The exported document and React mount share this markup, including breakpoints. */
 export function PublicMarketingDocument({
   html,
+  initialStep,
 }: {
   html: string;
+  initialStep?: MarketingCapture;
 }): React.ReactElement {
   const { theme, isDark } = useTheme();
+  const { isAuthenticated } = useAuth();
   const navigation = useNavigation<AppNavigationProp>();
   const container = useRef<HTMLDivElement>(null);
   const dialog = useRef<HTMLDialogElement>(null);
   const origin = useRef<HTMLElement | null>(null);
   const image = useRef<HTMLImageElement>(null);
   const [fullImageUrl, setFullImageUrl] = useState<string>();
+  useProfessionalDemo(container, html);
   const markup = useMemo(() => ({ __html: html }), [html]);
   useLayoutEffect(() => {
     const page = container.current?.querySelector<HTMLElement>(".pro-page");
@@ -52,7 +65,7 @@ export function PublicMarketingDocument({
     const selectStep = () => {
       const selected =
         steps.find((step) => `#${step.id}` === window.location.hash) ||
-        steps[0];
+        steps.find((step) => step.id === `tour-${initialStep}`) || steps[0];
       // :target still refers to the initial document's removed element after mount.
       // Keep the same selection explicitly, including reload and browser history.
       page.dataset.tourSelection = selected.id;
@@ -85,15 +98,33 @@ export function PublicMarketingDocument({
       selectStep();
     };
     selectStep();
+    // React Navigation serializes the incoming selection as a query. Keep the
+    // public hash URL so reloads select the same panel even before JS starts.
+    const frame = requestAnimationFrame(() => {
+      const url = new URL(window.location.href);
+      if (initialStep && steps.some(step => step.id === `tour-${initialStep}`) &&
+          url.pathname === "/profesionales/recorrido" && url.searchParams.has("vista")) {
+        url.searchParams.delete("vista");
+        if (!url.hash) url.hash = `tour-${initialStep}`;
+        window.history.replaceState(window.history.state, "", url);
+        selectStep();
+      }
+    });
     page.addEventListener("click", navigateStep);
     window.addEventListener("hashchange", selectStep);
     window.addEventListener("popstate", selectStep);
     return () => {
+      cancelAnimationFrame(frame);
       page.removeEventListener("click", navigateStep);
       window.removeEventListener("hashchange", selectStep);
       window.removeEventListener("popstate", selectStep);
     };
-  }, [html]);
+  }, [html, initialStep]);
+  const canVisitLanding = navigation.getState().routeNames.includes('Landing');
+  const handleAccess = () => {
+    if (!isAuthenticated) navigation.navigate('Welcome');
+    else navigation.dispatch(CommonActions.navigate(navigation.getState().routeNames[0]));
+  };
   usePublicHtmlReady(true, container);
   useLayoutEffect(() => {
     document.documentElement.dataset.heraTheme = isDark ? "dark" : "light";
@@ -103,8 +134,9 @@ export function PublicMarketingDocument({
       <LandingHeader
         context="professional"
         isScrolled={false}
-        onLogoPress={() => window.location.assign("/")}
-        onAccess={() => window.location.assign("/acceso")}
+        onLogoPress={isAuthenticated ? undefined : () => navigation.navigate("Landing")}
+        accessLabel={isAuthenticated ? "Mi espacio" : "Acceder"}
+        onAccess={handleAccess}
         navigationItems={professionalHeaderLinks.map((item) => ({
           ...item,
           onPress: () => navigation.navigate(item.route),
@@ -125,38 +157,59 @@ export function PublicMarketingDocument({
         }}
         onClick={(event) => {
           if (!(event.target instanceof Element)) return;
-          const target = event.target.closest<HTMLElement>("a,button");
-          if (!target) return;
-          // Keep normal internal links in the mounted app. Leave modified clicks,
-          // image downloads, legal documents and external URLs to the browser.
-          if (target instanceof HTMLAnchorElement && !event.defaultPrevented &&
-              event.button === 0 && !event.ctrlKey && !event.metaKey &&
-              !event.shiftKey && !event.altKey && !target.target && !target.hasAttribute("download")) {
-            const destination = professionalHeaderLinks.find(item => item.href === target.getAttribute("href"));
-            if (destination) {
-              event.preventDefault();
-              navigation.navigate(destination.route);
-              return;
-            }
+          const target = event.target.closest<HTMLAnchorElement>("a");
+          // Leave modified clicks and new-tab actions to the browser.
+          if (!target || event.defaultPrevented || event.button !== 0 || event.ctrlKey || event.metaKey ||
+              event.shiftKey || event.altKey || target.target || target.hasAttribute("download")) return;
+          const href = target.getAttribute("href");
+          if (href === professionalRegisterHref && navigation.getState().routeNames.includes("Register")) {
+            event.preventDefault();
+            navigation.navigate("Register", { userType: "PROFESSIONAL" });
+            return;
           }
-          const capture = target.dataset.capture;
-          if (capture && image.current && dialog.current) {
+          if (href === "/especialistas" && navigation.getState().routeNames.includes("PublicSpecialists")) {
+            event.preventDefault();
+            navigation.navigate("PublicSpecialists");
+            return;
+          }
+          const tourStep = marketingCaptures.find((shot) => href === `/profesionales/recorrido#tour-${shot.id}`);
+          if (tourStep) {
+            event.preventDefault();
+            navigation.navigate("ProfessionalShowcase", { vista: tourStep.id });
+            return;
+          }
+          const destination = professionalHeaderLinks.find(item => item.href === href);
+          if (destination) {
+            event.preventDefault();
+            navigation.navigate(destination.route);
+            return;
+          }
+          const capture = marketingCaptures.find((shot) => shot.id === target.dataset.capture);
+          const directory = target.dataset.capture === "directory";
+          if ((directory || capture) && image.current && dialog.current) {
             event.preventDefault();
             origin.current = target;
-            // Only renderer-authored image links can be enlarged.
-            const shot = target.querySelector<HTMLImageElement>(
-              isDark ? ".pro-shot-dark" : ".pro-shot-light",
-            );
-            if (!shot) return;
-            image.current.src = shot.src;
-            image.current.alt = shot.alt;
-            setFullImageUrl(shot.src);
+            const mode = isDark ? "dark" : "light";
+            const url = capture ? capturePath(capture.id, mode) : directoryCapturePath(window.matchMedia("(max-width:760px)").matches ? "mobile" : "desktop", mode);
+            image.current.src = url;
+            image.current.alt = `${capture?.label ?? "Directorio de psicólogos"} — HERA con datos de demostración`;
+            setFullImageUrl(url);
             dialog.current.showModal();
           }
         }}
       >
         <style>{professionalCss}</style>
         <div dangerouslySetInnerHTML={markup} />
+        <FooterSection
+          professionalActionLabel={isAuthenticated ? 'Mi espacio' : 'Crear cuenta profesional'}
+          professionalActionHref={isAuthenticated ? '/acceso' : professionalRegisterHref}
+          onProfessionalAction={isAuthenticated ? handleAccess : () => navigation.navigate('Register', { userType: 'PROFESSIONAL' })}
+          professionalLoginHref={isAuthenticated ? '/acceso' : undefined}
+          onProfessionalLogin={isAuthenticated ? handleAccess : () => navigation.navigate('Login', { userType: 'PROFESSIONAL' })}
+          onFindSpecialist={() => navigation.navigate('PublicSpecialists')}
+          onViewPlans={() => navigation.navigate('Pricing')}
+          onScrollToSection={canVisitLanding ? section => navigation.navigate('Landing', { section }) : undefined}
+        />
         <dialog
           ref={dialog}
           className="pro-dialog"
@@ -200,10 +253,16 @@ export function ProfessionalMarketingScreen(): React.ReactElement {
     indexable: true,
     structuredWebPage: true,
   });
-  const html = useMemo(() => professionalHtml(id), [id]);
+  const { isAuthenticated } = useAuth();
+  const html = useMemo(() => professionalHtml(id,
+    Asset.fromModule(require("../../../assets/landing/psychologist-portrait-480.webp")).uri,
+    !isAuthenticated,
+  ), [id, isAuthenticated]);
   return <PublicMarketingDocument html={html} />;
 }
 export function ProfessionalShowcaseScreen(): React.ReactElement {
   useWebPageMetadata({ ...tourMetadata, indexable: true, structuredWebPage: true });
-  return <PublicMarketingDocument html={professionalTourHtml()} />;
+  const route = useRoute<RouteProp<RootStackParamList, "ProfessionalShowcase">>();
+  const { isAuthenticated } = useAuth();
+  return <PublicMarketingDocument html={professionalTourHtml(!isAuthenticated)} initialStep={route.params?.vista} />;
 }

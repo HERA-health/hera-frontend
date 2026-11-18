@@ -1,3 +1,4 @@
+import type { MarketingCapture } from "../seo/professionalContent";
 /**
  * TypeScript type definitions for HERA - Health Era
  * Defines all core domain models and interfaces
@@ -122,10 +123,11 @@ export type RootStackParamList = {
   GoogleCalendarSession: { sessionId: string };
   Landing: { section?: LandingSectionAnchor } | undefined;
   ProfessionalSoftware: undefined;
+  ProfessionalDirectory: undefined;
   ProfessionalAgenda: undefined;
   ProfessionalPatients: undefined;
   ProfessionalBillingInfo: undefined;
-  ProfessionalShowcase: undefined;
+  ProfessionalShowcase: { vista?: MarketingCapture } | undefined;
   PsychologyOnline: undefined;
   PsychologyTopic: { topic: 'ansiedad' | 'autoestima' | 'barcelona' | 'cataluna' };
   Pricing: undefined;
