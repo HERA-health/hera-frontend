@@ -138,6 +138,7 @@ export function QuestionnaireScreen() {
   const [loading, setLoading] = useState(true);
   const [introDetailsOpen, setIntroDetailsOpen] = useState(false);
   const [headerHeight, setHeaderHeight] = useState(80);
+  const [headerScrolled, setHeaderScrolled] = useState(false);
   const alert = useAppAlert();
   const { width, height } = useWindowDimensions();
   const scroll = useRef<ScrollView>(null);
@@ -437,7 +438,7 @@ export function QuestionnaireScreen() {
       <QuestionnaireBackdrop />
       <LandingHeader
         context="questionnaire"
-        isScrolled
+        isScrolled={headerScrolled}
         onLayout={(event) => setHeaderHeight(event.nativeEvent.layout.height)}
         accessLabel={user ? 'Mi espacio' : 'Acceder'}
         onAccess={() =>
@@ -471,6 +472,7 @@ export function QuestionnaireScreen() {
         onFormLayout={(event) => setFormWidth(event.nativeEvent.layout.width)}
         scrollRef={scroll}
         headerHeight={headerHeight}
+        onScrollChange={setHeaderScrolled}
         footer={
           <View
             testID="questionnaire-navigation"

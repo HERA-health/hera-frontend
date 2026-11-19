@@ -27,7 +27,7 @@ function MarketingHeader(props: LandingHeaderProps) {
   const { isDark, setMode } = useTheme();
   const host = useRef<HTMLDivElement>(null);
   const pro = props.context === "professional";
-  const surface = props.context === "landing" ? "landing" : props.surface;
+  const surface = props.context === "landing" || props.context === "questionnaire" ? props.context : props.surface;
   const signedIn = props.accessLabel === "Mi espacio";
   const routes = nav.getState().routeNames;
   const hasLanding = routes.includes("Landing");

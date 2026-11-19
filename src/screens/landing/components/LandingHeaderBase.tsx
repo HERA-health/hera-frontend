@@ -1,6 +1,6 @@
 import { LandingProfessionalMenu, type ProfessionalMenuRoute } from './LandingProfessionalMenu';
 import { PUBLIC_HEADER_LINKS } from '../../../constants/publicHeaderLinks';
-import { layout, spacing } from '../../../constants/colors';
+import { layout, questionnaireLayout, spacing } from '../../../constants/colors';
 import React, { useEffect } from 'react';
 import {
   Platform,
@@ -75,6 +75,7 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
   const { theme, isDark } = useTheme();
   const isMobile = width < MOBILE_BREAKPOINT;
   const profileInset = isMobile ? spacing.lg : spacing.xxl;
+  const questionnaireInset = width < questionnaireLayout.compactBreakpoint ? questionnaireLayout.compactInset : questionnaireLayout.inset;
   const professional = context === 'professional';
   const landing = context === 'landing' || professional;
   const isWide = width >= (onViewPlans ? BRAND_DESCRIPTOR_BREAKPOINT : WIDE_HEADER_BREAKPOINT);
@@ -181,6 +182,7 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
   const headerContent = (
       <View style={[styles.content, isWide && styles.contentWide, isMobile && styles.contentMobile,
         surface === 'profile' && { maxWidth: layout.profileMaxWidth + 2 * profileInset, paddingHorizontal: profileInset },
+        context === 'questionnaire' && { maxWidth: questionnaireLayout.maxWidth + 2 * questionnaireInset, paddingHorizontal: questionnaireInset },
         landing && styles.landingContent, landing && width < 1400 && { gap: isMobile ? 6 : 12, paddingHorizontal: isMobile ? 8 : 16 }, scrollLanding && { width: 'auto', minWidth: '100%', justifyContent: 'flex-start' }]}>
         <View style={styles.brandCluster}>
           {onLogoPress ? (

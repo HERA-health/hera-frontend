@@ -1,6 +1,6 @@
 import { professionalHeaderLinks } from "../constants/professionalNavigation";
 import { lightTheme, darkTheme } from "../constants/theme";
-import { layout, spacing } from "../constants/colors";
+import { layout, questionnaireLayout, spacing } from "../constants/colors";
 import { publicDirectoryTheme } from "../constants/publicAudienceTheme";
 import { landingIcons } from "./landingIcons";
 
@@ -24,7 +24,7 @@ const menuLinks = (all: boolean) =>
 const group = (label: string, links: string) =>
   `<details class="sitebar-group"><summary>${label}</summary><div class="sitebar-sheet">${links}</div></details>`;
 
-export function publicBarHtml(audience: Audience, signedIn = false, surface?: "landing" | "directory" | "profile",
+export function publicBarHtml(audience: Audience, signedIn = false, surface?: "landing" | "directory" | "profile" | "questionnaire",
   { hasLanding = true, hasQuestionnaire = true } = {},
 ): string {
   const pro = audience === "professional";
@@ -73,6 +73,8 @@ export const publicBarCss = `
 .sitebar[data-surface]{box-shadow:none}
 .sitebar[data-surface=landing]{background:var(--bar-landing)}
 .sitebar[data-surface=directory]{background:var(--bar-directory)}
+.sitebar[data-surface=questionnaire]{background:transparent;--questionnaire-inset:${questionnaireLayout.inset}px}
+@media(width < ${questionnaireLayout.compactBreakpoint}px){.sitebar[data-surface=questionnaire]{--questionnaire-inset:${questionnaireLayout.compactInset}px}}
 .sitebar[data-surface=profile],.seo-page.profile-page{background:${lightTheme.bgMuted}}
 html[data-hera-theme=dark] :is(.sitebar[data-surface=profile],.seo-page.profile-page){background:${darkTheme.bgMuted}}
 @media(prefers-color-scheme:dark){html:not([data-hera-theme=light]) :is(.sitebar[data-surface=profile],.seo-page.profile-page){background:${darkTheme.bgMuted}}}
@@ -80,6 +82,7 @@ html[data-hera-theme=dark] :is(.sitebar[data-surface=profile],.seo-page.profile-
 .sitebar[data-surface] .sitebar-inner{max-width:none;padding-inline:0}
 .sitebar[data-surface=landing] .sitebar-inner,.sitebar.for-pro .sitebar-inner{max-width:none;padding-inline:var(--hera-landing-inset)}
 .sitebar[data-surface=directory] .sitebar-inner{width:min(calc(100% - 64px),1680px)}
+.sitebar[data-surface=questionnaire] .sitebar-inner{width:calc(100% - 2 * var(--questionnaire-inset));max-width:${questionnaireLayout.maxWidth}px}
 .sitebar[data-surface=profile] .sitebar-inner,.profile-page>.seo-main{width:calc(100% - 2 * var(--hera-profile-inset));max-width:${layout.profileMaxWidth}px;padding-inline:0}
 .profile-page>.sitebar{position:sticky;top:0}
 @media(max-width:1179px){.sitebar[data-surface=directory] .sitebar-inner{width:calc(100% - 40px)}}

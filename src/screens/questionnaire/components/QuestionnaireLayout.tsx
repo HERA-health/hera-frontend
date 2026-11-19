@@ -10,6 +10,7 @@ import {
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { AnimatedPressable } from '../../../components/common/AnimatedPressable';
+import { questionnaireLayout } from '../../../constants/colors';
 import type { QuestionnaireDefinition } from '../../../services/questionnaireService';
 
 export function QuestionnaireIntroduction({
@@ -98,6 +99,7 @@ interface Props {
   onFormLayout: (event: LayoutChangeEvent) => void;
   scrollRef: React.RefObject<ScrollView | null>;
   headerHeight: number;
+  onScrollChange: (scrolled: boolean) => void;
 }
 
 export function QuestionnaireLayout({
@@ -109,6 +111,7 @@ export function QuestionnaireLayout({
   onFormLayout,
   scrollRef,
   headerHeight,
+  onScrollChange,
 }: Props) {
   const { theme } = useTheme();
   const { width } = useWindowDimensions();
@@ -211,11 +214,13 @@ export function QuestionnaireLayout({
     <ScrollView
       testID="questionnaire-form-scroll"
       ref={scrollRef}
+      onScroll={event => onScrollChange(event.nativeEvent.contentOffset.y > 24)}
+      scrollEventThrottle={32}
       keyboardShouldPersistTaps="handled"
       style={{ flex: 1, marginTop: headerHeight }}
       contentContainerStyle={{
         flexGrow: 1,
-        paddingHorizontal: width < 600 ? 16 : 32,
+        paddingHorizontal: width < questionnaireLayout.compactBreakpoint ? questionnaireLayout.compactInset : questionnaireLayout.inset,
         paddingTop: desktop ? 14 : 12,
         paddingBottom: 18,
         alignItems: 'center',
@@ -225,7 +230,7 @@ export function QuestionnaireLayout({
         onLayout={(event) => setAvailableWidth(event.nativeEvent.layout.width)}
         style={{
           width: '100%',
-          maxWidth: 1600,
+          maxWidth: questionnaireLayout.maxWidth,
           flexDirection: wide ? 'row' : 'column',
           alignItems: 'flex-start',
           gap: 20,

@@ -309,6 +309,13 @@ export const touchTarget = {
   minWidth: 44,
 };
 
+export const questionnaireLayout = {
+  maxWidth: 1600,
+  compactBreakpoint: 600,
+  inset: spacing.xxl,
+  compactInset: spacing.md,
+};
+
 export const layout = {
   screenPadding: spacing.lg,
   cardMargin: spacing.md,
