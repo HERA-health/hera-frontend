@@ -22,7 +22,7 @@ export const publicThemeBoot = `<script>(function(){
     if (bar.dataset.surface) {
       const onScroll = function(){
         if (!bar.isConnected) { window.removeEventListener('scroll', onScroll); return; }
-        bar.dataset.scrolled = String(window.scrollY > (bar.dataset.surface === 'directory' ? 24 : 50));
+        bar.dataset.scrolled = String(window.scrollY > (bar.dataset.surface === 'landing' ? 50 : 24));
       };
       onScroll();
       window.addEventListener('scroll', onScroll, { passive:true });

@@ -90,12 +90,13 @@ jest.mock('../../specialist-profile/public/PublicSpecialistProfileLayout', () =>
   const ReactModule = require('react');
   const { Pressable, Text } = require('react-native');
   return {
-    PublicSpecialistProfileLayout: ({ onBookSession, onBrowseSpecialists, specialist: profile, notice }: {
+    PublicSpecialistProfileLayout: ({ onBookSession, onBrowseSpecialists, specialist: profile, notice, header }: {
       onBookSession: (slot?: SelectedProfileSlot, optionId?: string) => void;
-      onBrowseSpecialists: () => void; specialist: Specialist; notice?: React.ReactNode;
+      onBrowseSpecialists: () => void; specialist: Specialist; notice?: React.ReactNode; header?: React.ReactNode;
     }) => {
       const [selected, setSelected] = ReactModule.useState(false);
       return <>
+        {header}
         {notice}
         <Pressable onPress={onBookSession}><Text>Reservar en prueba</Text></Pressable>
         <Pressable onPress={() => onBookSession({ date: '2026-11-02', slot: { startTime: '10:00', endTime: '10:50', available: true } }, 'video-50')}><Text>Continuar con horario</Text></Pressable>

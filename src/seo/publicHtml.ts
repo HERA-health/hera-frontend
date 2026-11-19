@@ -32,7 +32,8 @@ html[data-hera-theme=dark] .seo-page{${seoDarkColors}}
 `;
 const header = publicBarHtml("patient");
 export const publicFooter = `<footer class="seo-footer"><nav class="seo-nav" aria-label="Explora HERA">${Object.values(psychologyPages).map(page => `<a href="${page.path}">${escapeHtml(page.linkLabel)}</a>`).join('')}<a href="/especialistas">Directorio</a><a href="/">Inicio</a></nav></footer>`;
-export const pageFrame = (body: string): string => `<div class="seo-page">${header}<main class="seo-main">${body}</main>${publicFooter}</div>`;
+export const pageFrame = (body: string, surface?: 'profile'): string =>
+  `<div class="seo-page${surface ? ' profile-page' : ''}">${surface ? publicBarHtml('patient', false, surface) : header}<main class="seo-main">${body}</main>${publicFooter}</div>`;
 export function cardsHtml(data: DirectoryPage, limit = 12, preferredSpecialty?: string): string {
   return `<div class="seo-cards">${data.items.slice(0, limit).map(item => {
     const from = item.publicOptions?.some(option => option.priceCents > Math.round(item.pricePerSession * 100));
@@ -70,7 +71,7 @@ export function psychologyHtml(page: PsychologyPage, data: DirectoryPage): strin
 }
 export function profileHtml(data: PublicProfile): string {
   const areas = [...data.matchingProfile.specialties || [], ...data.matchingProfile.customSpecialties || []];
-  return pageFrame(`<nav class="seo-breadcrumb"><a href="/">Inicio</a> / <a href="/especialistas">Psicólogos/as</a></nav><section class="seo-profile"><div>${safeImage(data.avatar || data.user.avatar) ? `<img src="${safeImage(data.avatar || data.user.avatar)}" alt="${escapeHtml(data.user.name)}" width="300" height="360">` : ''}</div><div><h1>${escapeHtml(data.user.name)}</h1><p>${escapeHtml(data.professionalTypeLabel)}</p><p>${escapeHtml(areas.map(specialtyLabel).join(' · '))}</p><p>${[data.offersOnline && 'Terapia online', data.offersInPerson && 'Presencial', data.offersPhone && 'Llamada'].filter(Boolean).join(' · ')}</p><p>Desde ${data.pricePerSession.toLocaleString('es-ES')} € / sesión</p></div></section><section><h2>Conoce su forma de trabajar</h2><p class="seo-bio">${escapeHtml(data.description)}</p></section>`);
+  return pageFrame(`<nav class="seo-breadcrumb"><a href="/">Inicio</a> / <a href="/especialistas">Psicólogos/as</a></nav><section class="seo-profile"><div>${safeImage(data.avatar || data.user.avatar) ? `<img src="${safeImage(data.avatar || data.user.avatar)}" alt="${escapeHtml(data.user.name)}" width="300" height="360">` : ''}</div><div><h1>${escapeHtml(data.user.name)}</h1><p>${escapeHtml(data.professionalTypeLabel)}</p><p>${escapeHtml(areas.map(specialtyLabel).join(' · '))}</p><p>${[data.offersOnline && 'Terapia online', data.offersInPerson && 'Presencial', data.offersPhone && 'Llamada'].filter(Boolean).join(' · ')}</p><p>Desde ${data.pricePerSession.toLocaleString('es-ES')} € / sesión</p></div></section><section><h2>Conoce su forma de trabajar</h2><p class="seo-bio">${escapeHtml(data.description)}</p></section>`, 'profile');
 }
 export const profilePageMetadata = (data: PublicProfile) => profileMetadata({ name: data.user.name, professionalType: data.professionalType, professionalTypeLabel: data.professionalTypeLabel, specializations: [...data.matchingProfile.specialties || [], ...data.matchingProfile.customSpecialties || []].map(specialtyLabel), offersOnline: data.offersOnline, offersInPerson: data.offersInPerson });
 export function injectPublicHtml(shell: string, body: string, key?: string, data?: unknown): string {

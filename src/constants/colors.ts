@@ -315,6 +315,7 @@ export const layout = {
   sectionSpacing: spacing.xl,
   elementSpacing: spacing.sm,
   contentMaxWidth: 1200,
+  profileMaxWidth: 1440,
   drawerWidth: 280,
   drawerWidthTablet: 320,
   rightPanelWidth: 230,

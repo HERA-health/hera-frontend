@@ -3,6 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } fr
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useTheme } from '../../../contexts/ThemeContext';
+import { layout, spacing } from '../../../constants/colors';
 import { Button } from '../../../components/common/Button';
 import { useSpecialistProfileActions } from '../useSpecialistProfileActions';
 import type { CertificateItem, Review, SelectedProfileSlot, Specialist } from '../types';
@@ -33,6 +34,7 @@ interface Props {
   initialOptionId?: string;
   renderPackageAction?: (onVisibilityChange: (visible: boolean) => void) => React.ReactNode;
   notice?: React.ReactNode;
+  header?: React.ReactNode;
   onBrowseSpecialists: () => void;
   onBookSession: (slot?: SelectedProfileSlot, optionId?: string) => void;
   onOpenCertificate: (certificate: CertificateItem) => void;
@@ -45,7 +47,7 @@ export function PublicSpecialistProfileLayout(props: Props) {
   return <ProfileContent key={props.specialist.id} {...props} />;
 }
 
-function ProfileContent({ specialist, reviews, reviewsVisible, canBook, isAuthenticated, isClient, initialOptionId, renderPackageAction, notice,
+function ProfileContent({ specialist, reviews, reviewsVisible, canBook, isAuthenticated, isClient, initialOptionId, renderPackageAction, notice, header,
   onBrowseSpecialists, onBookSession, onOpenCertificate, onReviewSubmitted, onScrollChange,
   presentationContext = 'public', assistedStart = false, continuity = false }: Props) {
   const { theme } = useTheme();
@@ -133,9 +135,10 @@ function ProfileContent({ specialist, reviews, reviewsVisible, canBook, isAuthen
   const location = specialist.offersInPerson && specialist.address ? <PublicProfileLocation specialist={specialist} /> : null;
   return <View testID="specialist-profile-layout" style={[styles.root, embedded && { backgroundColor: theme.bgMuted }]}
     onLayout={embedded ? event => setContainerWidth(event.nativeEvent.layout.width) : undefined}>
+    {header}
     <ScrollView ref={scrollRef} onLayout={event => setViewportHeight(event.nativeEvent.layout.height)}
       scrollEventThrottle={32} onScroll={event => { const y = event.nativeEvent.contentOffset.y; setScrollY(y); onScrollChange?.(y > 24); }}
-      contentContainerStyle={[styles.scrollContent, { paddingTop: contentTop, paddingHorizontal: mobile ? 20 : 32, paddingBottom: desktop ? 64 : barHeight + 32 }]}>
+      contentContainerStyle={[styles.scrollContent, { paddingTop: contentTop, paddingHorizontal: mobile ? spacing.lg : spacing.xxl, paddingBottom: desktop ? 64 : barHeight + 32 }]}>
       <View style={styles.container}>
         {notice}
         {continuity ? <View style={styles.continuityHeader}>
@@ -192,7 +195,7 @@ function ProfileContent({ specialist, reviews, reviewsVisible, canBook, isAuthen
 const styles = StyleSheet.create({
   root: { flex: 1 },
   scrollContent: { paddingTop: 78 },
-  container: { width: '100%', maxWidth: 1440, alignSelf: 'center' },
+  container: { width: '100%', maxWidth: layout.profileMaxWidth, alignSelf: 'center' },
   back: { minHeight: 44, flexDirection: 'row', gap: 8, alignItems: 'center', alignSelf: 'flex-start', marginBottom: 8 },
   continuityHeader: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 16, marginBottom: 32 },
   continuityCopy: { gap: 6, flexShrink: 1 },

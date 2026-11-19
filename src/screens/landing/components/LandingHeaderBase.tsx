@@ -1,5 +1,6 @@
 import { LandingProfessionalMenu, type ProfessionalMenuRoute } from './LandingProfessionalMenu';
 import { PUBLIC_HEADER_LINKS } from '../../../constants/publicHeaderLinks';
+import { layout, spacing } from '../../../constants/colors';
 import React, { useEffect } from 'react';
 import {
   Platform,
@@ -29,7 +30,7 @@ import type { LandingSectionAnchor } from '../types';
 export type LandingHeaderContext = 'landing' | 'directory' | 'access' | 'pricing' | 'questionnaire' | 'psychology' | 'professional';
 
 export interface LandingHeaderProps {
-  surface?: "directory";
+  surface?: "directory" | "profile";
   onProfessionalMenuSelect?: (route: ProfessionalMenuRoute) => void;
   navigationItems?: ReadonlyArray<{ label: string; href: string; onPress: () => void }>;
   onLayout?: (event: LayoutChangeEvent) => void;
@@ -54,6 +55,7 @@ const COMPACT_PROFESSIONAL_LINK_BREAKPOINT = 1024;
 const WORDMARK_BREAKPOINT = 360;
 
 export const LandingHeader: React.FC<LandingHeaderProps> = ({
+  surface,
   navigationItems,
   onProfessionalMenuSelect,
   onLayout,
@@ -72,6 +74,7 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
   const { width } = useWindowDimensions();
   const { theme, isDark } = useTheme();
   const isMobile = width < MOBILE_BREAKPOINT;
+  const profileInset = isMobile ? spacing.lg : spacing.xxl;
   const professional = context === 'professional';
   const landing = context === 'landing' || professional;
   const isWide = width >= (onViewPlans ? BRAND_DESCRIPTOR_BREAKPOINT : WIDE_HEADER_BREAKPOINT);
@@ -92,6 +95,9 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
   }, [isScrolled, scrollProgress]);
 
   const containerAnimStyle = useAnimatedStyle(() => {
+    if (surface === 'profile') {
+      return { backgroundColor: theme.bgMuted, borderBottomColor: isScrolled ? theme.borderLight : 'transparent' };
+    }
     // The questionnaire already paints a continuous background behind the header.
     if (context === 'questionnaire') {
       return { backgroundColor: 'transparent', borderBottomWidth: 0, borderBottomColor: 'transparent' };
@@ -173,7 +179,9 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
   );
 
   const headerContent = (
-      <View style={[styles.content, isWide && styles.contentWide, isMobile && styles.contentMobile, landing && styles.landingContent, landing && width < 1400 && { gap: isMobile ? 6 : 12, paddingHorizontal: isMobile ? 8 : 16 }, scrollLanding && { width: 'auto', minWidth: '100%', justifyContent: 'flex-start' }]}>
+      <View style={[styles.content, isWide && styles.contentWide, isMobile && styles.contentMobile,
+        surface === 'profile' && { maxWidth: layout.profileMaxWidth + 2 * profileInset, paddingHorizontal: profileInset },
+        landing && styles.landingContent, landing && width < 1400 && { gap: isMobile ? 6 : 12, paddingHorizontal: isMobile ? 8 : 16 }, scrollLanding && { width: 'auto', minWidth: '100%', justifyContent: 'flex-start' }]}>
         <View style={styles.brandCluster}>
           {onLogoPress ? (
             <AnimatedPressable
@@ -334,7 +342,7 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
         !landing && context !== 'pricing' && context !== 'psychology' && context !== 'questionnaire' && webGlassStyle,
       ]}
     >
-      {!landing && context !== 'pricing' && context !== 'psychology' && context !== 'questionnaire' && Platform.OS !== 'web' && isScrolled ? (
+      {surface !== 'profile' && !landing && context !== 'pricing' && context !== 'psychology' && context !== 'questionnaire' && Platform.OS !== 'web' && isScrolled ? (
         <BlurView
           intensity={55}
           tint={isDark ? 'dark' : 'light'}

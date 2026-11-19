@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ActivityIndicator, View, useWindowDimensions } from 'react-native';
 import { useTheme } from '../../../contexts/ThemeContext';
+import { layout, spacing } from '../../../constants/colors';
 
 export function PublicProfileSkeleton({ presentationContext = 'public' }: { presentationContext?: 'public' | 'patient' }) {
   const { theme } = useTheme();
@@ -12,8 +13,8 @@ export function PublicProfileSkeleton({ presentationContext = 'public' }: { pres
   const desktop = width >= 1200;
   return <View accessibilityLabel="Cargando perfil" accessibilityState={{ busy: true }}
     onLayout={embedded ? event => setContainerWidth(event.nativeEvent.layout.width) : undefined}
-    style={{ paddingTop: embedded ? 68 : 130, paddingHorizontal: mobile ? 20 : 32, ...(embedded ? { flex: 1, backgroundColor: theme.bgMuted } : {}) }}>
-    <View style={{ width: '100%', maxWidth: 1440, alignSelf: 'center', flexDirection: desktop ? 'row' : 'column', gap: 32 }}>
+    style={{ paddingTop: embedded ? 68 : 130, paddingHorizontal: mobile ? spacing.lg : spacing.xxl, ...(embedded ? { flex: 1, backgroundColor: theme.bgMuted } : {}) }}>
+    <View style={{ width: '100%', maxWidth: layout.profileMaxWidth, alignSelf: 'center', flexDirection: desktop ? 'row' : 'column', gap: 32 }}>
       <View style={{ flex: 1, minWidth: 0, gap: 24 }}>
         <View style={{ flexDirection: 'row', gap: mobile ? 16 : 28 }}>
           <View style={{ width: mobile ? 120 : desktop ? 240 : 200, height: mobile ? 150 : desktop ? 300 : 250, borderRadius: 20, backgroundColor: theme.secondaryMuted }} />

@@ -37,15 +37,15 @@ async function handler(req, res) {
     }
     return res.end(req.method === 'HEAD' ? undefined : injectPublicHtml(html, body, key, data));
   };
+  const profile = route.match(/^\/(?:especialista|e)\/([^/]{1,120})\/?$/);
   const failure = (status) => {
     const heading = status === 404 ? 'No encontramos esta página' : status === 400 ? 'Revisa los filtros de búsqueda' : 'No hemos podido cargar esta página';
     // Error responses stay usable even if the application cannot start.
     res.setHeader('X-Robots-Tag', 'noindex');
-    return send(status, { title: `${heading} · HERA`, description: heading, canonicalPath: route, indexable: false }, pageFrame(`<h1>${heading}</h1><p>${status === 503 ? 'Puedes volver a intentarlo en unos instantes.' : 'Puedes seguir buscando en el directorio.'}</p><a href="/especialistas">Explorar el directorio</a>${status === 503 ? ` · <a href="${escapeHtml(route)}">Volver a intentar</a>` : ''}`));
+    return send(status, { title: `${heading} · HERA`, description: heading, canonicalPath: route, indexable: false }, pageFrame(`<h1>${heading}</h1><p>${status === 503 ? 'Puedes volver a intentarlo en unos instantes.' : 'Puedes seguir buscando en el directorio.'}</p><a href="/especialistas">Explorar el directorio</a>${status === 503 ? ` · <a href="${escapeHtml(route)}">Volver a intentar</a>` : ''}`, profile ? 'profile' : undefined));
   };
   try {
     const topic = topicForPath(route);
-    const profile = route.match(/^\/(?:especialista|e)\/([^/]{1,120})\/?$/);
     if (!topic && !profile && route !== '/especialistas') return failure(404);
     let apiPath;
     let params = new URLSearchParams();

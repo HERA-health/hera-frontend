@@ -219,6 +219,7 @@ export const PublicSpecialistProfileScreen: React.FC = () => {
     <LandingHeader
       onViewPlans={() => navigation.navigate('Pricing')}
       context="directory"
+      surface="profile"
       isScrolled={headerScrolled}
       accessLabel={isAuthenticated ? 'Mi espacio' : 'Acceder'}
       onLogoPress={handleGoHome}
@@ -266,8 +267,8 @@ export const PublicSpecialistProfileScreen: React.FC = () => {
 
   return (
     <View style={styles.screen}>
-      {renderHeader()}
       <PublicSpecialistProfileLayout
+        header={renderHeader()}
         notice={<>{professionalBanner}{refreshError ? (
         <View style={{ padding: spacing.md, backgroundColor: theme.bgCard }} accessibilityRole="alert">
           <Text style={{ color: theme.textSecondary, fontFamily: theme.fontSans }}>

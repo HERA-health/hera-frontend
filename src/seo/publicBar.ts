@@ -1,5 +1,6 @@
 import { professionalHeaderLinks } from "../constants/professionalNavigation";
 import { lightTheme, darkTheme } from "../constants/theme";
+import { layout, spacing } from "../constants/colors";
 import { publicDirectoryTheme } from "../constants/publicAudienceTheme";
 import { landingIcons } from "./landingIcons";
 
@@ -23,7 +24,7 @@ const menuLinks = (all: boolean) =>
 const group = (label: string, links: string) =>
   `<details class="sitebar-group"><summary>${label}</summary><div class="sitebar-sheet">${links}</div></details>`;
 
-export function publicBarHtml(audience: Audience, signedIn = false, surface?: "landing" | "directory",
+export function publicBarHtml(audience: Audience, signedIn = false, surface?: "landing" | "directory" | "profile",
   { hasLanding = true, hasQuestionnaire = true } = {},
 ): string {
   const pro = audience === "professional";
@@ -64,17 +65,23 @@ const barColors = (dark: boolean) => {
   return `--bar-bg:${t.surface};--bar-landing:${t.surfaceWarm};--bar-directory:${patient.bgMuted};--bar-fg:${t.textPrimary};--bar-patient-ink:${dark ? t.textPrimary : t.primaryDark};--bar-line:${t.borderLight};--bar-pro:${dark ? t.secondaryLight : t.actionPrimary};--bar-blue:${patient.actionPrimary};--bar-on:${t.actionPrimaryText};--bar-shadow:${t.shadowNeutral}`;
 };
 export const publicBarCss = `
-:root{--hera-landing-inset:max(40px,calc((100% - 1420px)/2))}
+:root{--hera-landing-inset:max(40px,calc((100% - 1420px)/2));--hera-profile-inset:${spacing.xxl}px}
 #pricing-scroll-view{scrollbar-width:thin;scrollbar-gutter:stable}
+@media(width < 768px){:root{--hera-profile-inset:${spacing.lg}px}}
 @media(max-width:767px){:root{--hera-landing-inset:20px}}
 .sitebar{${barColors(false)};--bar-accent:var(--bar-blue);position:relative;z-index:31;background:var(--bar-bg);color:var(--bar-fg);box-shadow:0 5px 18px -10px var(--bar-shadow),0 1px 0 var(--bar-line);font:16px/1.3 HeraSans,sans-serif}
 .sitebar[data-surface]{box-shadow:none}
 .sitebar[data-surface=landing]{background:var(--bar-landing)}
 .sitebar[data-surface=directory]{background:var(--bar-directory)}
+.sitebar[data-surface=profile],.seo-page.profile-page{background:${lightTheme.bgMuted}}
+html[data-hera-theme=dark] :is(.sitebar[data-surface=profile],.seo-page.profile-page){background:${darkTheme.bgMuted}}
+@media(prefers-color-scheme:dark){html:not([data-hera-theme=light]) :is(.sitebar[data-surface=profile],.seo-page.profile-page){background:${darkTheme.bgMuted}}}
 [data-scrolled=true]>.sitebar[data-surface],.sitebar[data-surface][data-scrolled=true]{box-shadow:0 4px 14px -8px var(--bar-shadow),0 1px 0 var(--bar-line)}
 .sitebar[data-surface] .sitebar-inner{max-width:none;padding-inline:0}
 .sitebar[data-surface=landing] .sitebar-inner,.sitebar.for-pro .sitebar-inner{max-width:none;padding-inline:var(--hera-landing-inset)}
 .sitebar[data-surface=directory] .sitebar-inner{width:min(calc(100% - 64px),1680px)}
+.sitebar[data-surface=profile] .sitebar-inner,.profile-page>.seo-main{width:calc(100% - 2 * var(--hera-profile-inset));max-width:${layout.profileMaxWidth}px;padding-inline:0}
+.profile-page>.sitebar{position:sticky;top:0}
 @media(max-width:1179px){.sitebar[data-surface=directory] .sitebar-inner{width:calc(100% - 40px)}}
 .sitebar.for-pro{--bar-accent:var(--bar-pro)}
 .sitebar.for-patient{--bar-fg:var(--bar-patient-ink)}
