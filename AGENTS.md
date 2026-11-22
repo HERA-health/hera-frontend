@@ -34,7 +34,7 @@ Before investigating, classify the task as primarily:
 
 Do not apply the full functional workflow to a primarily visual task.
 
-For low-risk visual/public-product work, keep investigation narrow and delivery fast. For sensitive behavior, follow the shared high-risk rules in `../AGENTS.md`.
+For small visual changes with a clear direction, keep investigation narrow and delivery fast. For sensitive behavior, follow the shared high-risk rules in `../AGENTS.md`.
 
 ---
 
@@ -122,11 +122,11 @@ A visual task is not complete merely because the requested elements exist, funct
 For substantial visual work:
 
 1. inspect the current rendered surface;
-2. inspect 2-3 relevant high-quality HERA references;
+2. inspect relevant HERA references and identify what each does well. Use supplied external references to understand the design choices behind them;
 3. identify the intended focal point and primary action;
 4. identify the most important hierarchy/composition weaknesses;
-5. implement the change;
-6. inspect the rendered result;
+5. if the composition is still open and central to the feature, render two distinct approaches to the key view using the same realistic fictional content. Compare them at the relevant sizes and choose the one that best serves the user's task;
+6. implement the change and inspect the rendered result;
 7. perform at least one focused refinement pass.
 
 Before completion, verify:
@@ -164,7 +164,7 @@ Do not introduce elaborate state machinery for theoretical scenarios.
 
 Check the primary path and important recovery/failure path.
 
-For mixed work, establish correct behavior first, then evaluate and refine the rendered product surface. Functional correctness does not excuse poor presentation; visual polish does not excuse broken behavior.
+For mixed work, establish the behavioral constraints early. When the experience depends on an open design decision, resolve it using the visual workflow above before building the full flow. Verify the chosen design through the real interaction and refine the rendered result.
 
 ---
 
