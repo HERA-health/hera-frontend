@@ -34,6 +34,15 @@ const resolveUploadBlob = async (asset: UploadAsset): Promise<Blob> => {
   return response.blob();
 };
 
+type NativeFilePart = { uri: string; name: string; type: string };
+
+function usesNativeFileParts(data: FormData): data is FormData & {
+  append(field: string, part: NativeFilePart): void;
+} {
+  // React Native's networking layer serializes URI parts from getParts().
+  return 'getParts' in data && typeof data.getParts === 'function';
+}
+
 export const buildMultipartFormData = async (
   fieldName: string,
   asset: UploadAsset,
@@ -46,16 +55,23 @@ export const buildMultipartFormData = async (
     formData.append(key, value);
   });
 
+  const assetName = asset.fileName || asset.name || getFileNameFromUri(asset.uri);
+  if (usesNativeFileParts(formData)) {
+    const extension = assetName?.split('.').pop()?.toLowerCase();
+    const type = asset.mimeType
+      || Object.keys(MIME_TYPE_EXTENSIONS).find(mime => MIME_TYPE_EXTENSIONS[mime] === extension)
+      || 'application/octet-stream';
+    formData.append(fieldName, { uri: asset.uri, type, name: assetName || `${fallbackBaseName}.${getFileExtension(type)}` });
+    return formData;
+  }
+
   const originalBlob = await resolveUploadBlob(asset);
   const mimeType = asset.mimeType || originalBlob.type || 'image/jpeg';
   const normalizedBlob =
     originalBlob.type === mimeType
       ? originalBlob
       : originalBlob.slice(0, originalBlob.size, mimeType);
-  const fileName = asset.fileName
-    || asset.name
-    || getFileNameFromUri(asset.uri)
-    || `${fallbackBaseName}.${getFileExtension(mimeType)}`;
+  const fileName = assetName || `${fallbackBaseName}.${getFileExtension(mimeType)}`;
 
   formData.append(fieldName, normalizedBlob, fileName);
 

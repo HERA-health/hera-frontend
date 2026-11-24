@@ -243,7 +243,7 @@ export const PROFESSIONAL_TOUR_DEFINITIONS: Record<
         id: 'save',
         targetId: 'professional.profile.save',
         title: 'Guarda cambios',
-        body: 'Este botón se activa cuando hay cambios pendientes. Nada se publica hasta guardar.',
+        body: 'Al editar el perfil aparecerá Guardar en la cabecera o al pie de la pantalla. Los documentos se actualizan al subirlos.',
         placement: 'bottom',
       },
     ],

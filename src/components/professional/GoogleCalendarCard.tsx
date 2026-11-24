@@ -13,7 +13,8 @@ import { AnimatedPressable } from '../common/AnimatedPressable';
 import { AccountSettingsCard } from './AccountSettingsCard';
 import { connectGoogleCalendar, disconnectGoogleCalendar, getGoogleCalendarStatus, resyncGoogleCalendar, setVideoPreference, type GoogleCalendarStatus } from '../../services/googleCalendarService';
 
-export function GoogleCalendarCard({ videoSetup = false, hasUnsavedChanges = false, onBeforeConnect }: {
+export function GoogleCalendarCard({ plain = false, videoSetup = false, hasUnsavedChanges = false, onBeforeConnect }: {
+  plain?: boolean;
   videoSetup?: boolean;
   hasUnsavedChanges?: boolean;
   onBeforeConnect?: () => Promise<boolean>;
@@ -32,7 +33,7 @@ export function GoogleCalendarCard({ videoSetup = false, hasUnsavedChanges = fal
   const { width } = useWindowDimensions();
   const compact = width < 680;
   const [contentWidth, setContentWidth] = useState(0);
-  const twoColumns = contentWidth >= 640;
+  const twoColumns = !plain && contentWidth >= 640;
   const [confirmMeet, setConfirmMeet] = useState<{
     email: string; disclosureVersion: string; connection: { id: string; generation: number };
   } | null>(null);
@@ -143,78 +144,14 @@ export function GoogleCalendarCard({ videoSetup = false, hasUnsavedChanges = fal
   const dialogOpen = Boolean(privacyDialog || confirmMeet || confirmDisconnect);
   const dialogTitle = confirmMeet ? 'Activa Google Meet' : confirmDisconnect ? 'Desconectar Google Calendar' : privacyDialog === 'connect' ? needsReauthorization ? 'Renueva la autorización de Google' : 'Conecta tu calendario' : 'Datos compartidos y privacidad';
 
-  return <>
-    <AccountSettingsCard title={guidedSetup ? 'Prepara tus videollamadas con Google Meet' : 'Calendario y videollamadas'}>
-      {guidedSetup && <View style={styles.setupIntro}>
-        <Text accessibilityLiveRegion="polite" style={[styles.sectionTitle, { color: theme.primary, fontFamily: theme.fontSansSemiBold }]}>
-          {connected ? 'Paso 2 de 2 · Activa Google Meet' : 'Paso 1 de 2 · Conecta tu cuenta de Google'}
-        </Text>
-        <Text style={copy}>{connected
-          ? 'Calendar ya está conectado. Acepta la activación de Meet para preparar los enlaces de tus nuevas citas.'
-          : 'Primero sincroniza tus citas con Google Calendar. Después podrás activar un enlace de Meet para cada videollamada.'}</Text>
-      </View>}
-      <View onLayout={event => setContentWidth(event.nativeEvent.layout.width)} style={[styles.columns, twoColumns && styles.columnsWide]}>
-      <View style={[styles.section, styles.productPanel, styles.column, twoColumns && styles.calendarColumnWide, { backgroundColor: calendarActive ? theme.successLight : theme.bgMuted }]}>
-        <View style={styles.sectionHeader}>
-          <Image source={require('../../../assets/google-calendar.png')} style={styles.productLogo} resizeMode="contain" accessible={false} />
-          <View style={styles.headerCopy}>
-            <Text style={heading}>{guidedSetup ? '1. Google Calendar' : 'Google Calendar'}</Text>
-            {renderStatus('Google Calendar', label, calendarActive, needsAttention)}
-          </View>
-        </View>
-        {status?.email && <Text selectable style={[styles.account, { color: theme.textPrimary, fontFamily: theme.fontSansSemiBold }]}>{status.email}</Text>}
-        <Text style={copy}>{credentialStorageError
-          ? 'La integración necesita revisión técnica. Contacta con soporte para continuar con Calendar y Meet.'
-          : needsReauthorization && status?.privacyUpdateRequired
-          ? 'Hemos actualizado la información de privacidad. Reconecta la misma cuenta para continuar con Calendar y activar Meet.'
-          : needsReauthorization
-          ? 'Google necesita que renueves el permiso. Reconecta la misma cuenta para continuar sincronizando tus citas.'
-          : connected
-          ? 'Tus citas de HERA aparecen automáticamente en Google Calendar.'
-          : 'Envía tus citas de HERA a tu calendario principal de Google.'}</Text>
-        {!status && !error && <ActivityIndicator color={theme.primary} />}
-        {status?.enabled && (status.status === 'DISCONNECTED' || needsReauthorization) && <Button
-          style={compact ? styles.stretch : styles.start} loading={busy} disabled={!disclosureVersion}
-          onPress={() => setPrivacyDialog('connect')}>
-          {needsReauthorization ? 'Reconectar Google Calendar' : guidedSetup ? 'Conectar Google y continuar' : 'Conectar Google Calendar'}
-        </Button>}
-        {user && status?.import && <GoogleCalendarImportSettings userId={user.id} status={status.import} connected={connected}
+  const importSettings = user && status?.import && <GoogleCalendarImportSettings userId={user.id} status={status.import} connected={connected}
           onChanged={refresh} onAuthorize={async () => {
             if (!disclosureVersion || !status.activationConnection) return;
             if (onBeforeConnect && !await onBeforeConnect()) return;
             const attempt = await connectGoogleCalendar(user.id, disclosureVersion, 'IMPORT', status.activationConnection);
             if (attempt) navigation.navigate('GoogleCalendarIntegration', { attempt });
-          }} />}
-      </View>
-
-      <View style={[styles.section, styles.productPanel, styles.column, twoColumns && styles.columnWide, { backgroundColor: meetActive ? theme.successLight : theme.bgMuted }]}>
-        <View style={styles.sectionHeader}>
-          <Image source={require('../../../assets/google-meet.png')} style={styles.productLogo} resizeMode="contain" accessible={false} />
-          <View style={styles.headerCopy}>
-            <Text style={heading}>{guidedSetup ? '2. Google Meet' : 'Google Meet'}</Text>
-            {renderStatus('Google Meet', meetLabel, meetActive, needsAttention || (!meetActive && !canActivate && !meetNeedsCalendar && status?.videoProviderPreference === 'GOOGLE_MEET'), meetNeedsCalendar)}
-          </View>
-        </View>
-        {credentialStorageError ? <Text style={copy}>La preparación de enlaces está pausada mientras se revisa la integración. Las citas ya preparadas conservan su enlace.</Text> : meetNeedsCalendar ? <View style={[styles.dependencyHint, { backgroundColor: theme.bgCard }]}>
-          <Ionicons name="link-outline" size={18} color={theme.textSecondary} accessible={false} />
-          <Text style={[styles.dependencyCopy, { color: theme.textSecondary, fontFamily: theme.fontSansSemiBold }]}>Para activar Meet, primero conecta Google Calendar.</Text>
-        </View> : guidedSetup && !connected ? <Text style={copy}>El siguiente paso, cuando conectes Calendar. Podrás revisar la cuenta organizadora antes de activar Meet.</Text> : meetActive ? <>
-          <Text style={copy}>Un enlace por cita, en HERA y en los correos. Entra con tu cuenta de Google conectada.</Text>
-        </> : status?.videoProviderPreference === 'GOOGLE_MEET' && !canActivate ? <Text style={[...copy, { color: theme.warning }]}>
-          {meetUnavailable ? 'Google Meet no está disponible temporalmente para nuevas citas. Revisa la integración para continuar con Meet.' : 'Revisa la conexión y la activación de Meet para continuar con tus videollamadas.'}
-        </Text> : <>
-          <Text style={copy}>{status?.meetAssignmentsEnabled && status.enabled
-            ? connected || needsReauthorization ? 'Un enlace de Meet para cada cita, disponible en HERA y en los correos.' : 'Conecta Calendar y activa Meet para tus próximas videollamadas.'
-            : 'Las videollamadas de HERA siguen disponibles sin conectar Google.'}</Text>
-        </>}
-        {canActivate && <Button style={compact ? styles.stretch : styles.start} disabled={busy || status.privacyUpdateRequired || !status.activationConnection || !status.meetDisclosureVersion || !status.email} onPress={() => {
-          if (status.activationConnection && status.meetDisclosureVersion && status.email) setConfirmMeet({ email: status.email, disclosureVersion: status.meetDisclosureVersion, connection: { ...status.activationConnection } });
-        }}>Activar Google Meet</Button>}
-        <Text style={[styles.caption, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>Las citas ya preparadas conservan su enlace.</Text>
-        {!!status?.failedDeliveries && <Text style={[...copy, { color: theme.error }]}>Hay accesos por correo pendientes de entrega: {status.failedDeliveries}</Text>}
-      </View>
-      </View>
-
+          }} />;
+  const calendarOptions = <>
       <View style={styles.utilityActions}>
         {(connected || status?.status === 'REAUTH_REQUIRED') && <AnimatedPressable
           onPress={() => setShowOptions(value => !value)} disabled={busy} hoverLift={false}
@@ -245,6 +182,76 @@ export function GoogleCalendarCard({ videoSetup = false, hasUnsavedChanges = fal
             <Button variant="ghost" size="small" disabled={busy} onPress={() => setConfirmDisconnect(true)}>Desconectar</Button>
           </View>
         </View>}
+  </>;
+  return <>
+    <AccountSettingsCard plain={plain} title={guidedSetup ? 'Prepara tus videollamadas con Google Meet' : plain ? undefined : 'Calendario y videollamadas'}>
+      {guidedSetup && <View style={styles.setupIntro}>
+        <Text accessibilityLiveRegion="polite" style={[styles.sectionTitle, { color: theme.primary, fontFamily: theme.fontSansSemiBold }]}>
+          {connected ? 'Paso 2 de 2 · Activa Google Meet' : 'Paso 1 de 2 · Conecta tu cuenta de Google'}
+        </Text>
+        <Text style={copy}>{connected
+          ? 'Calendar ya está conectado. Acepta la activación de Meet para preparar los enlaces de tus nuevas citas.'
+          : 'Primero sincroniza tus citas con Google Calendar. Después podrás activar un enlace de Meet para cada videollamada.'}</Text>
+      </View>}
+      <View onLayout={event => setContentWidth(event.nativeEvent.layout.width)} style={[styles.columns, twoColumns && styles.columnsWide]}>
+      <View style={[styles.section, !plain && styles.productPanel, styles.column, twoColumns && styles.calendarColumnWide, { backgroundColor: plain ? 'transparent' : calendarActive ? theme.successLight : theme.bgMuted }]}>
+        <View style={styles.sectionHeader}>
+          <Image source={require('../../../assets/google-calendar.png')} style={styles.productLogo} resizeMode="contain" accessible={false} />
+          <View style={styles.headerCopy}>
+            <Text style={heading}>{guidedSetup ? '1. Google Calendar' : 'Google Calendar'}</Text>
+            {renderStatus('Google Calendar', label, calendarActive, needsAttention)}
+          </View>
+        </View>
+        {status?.email && <Text selectable style={[styles.account, { color: theme.textPrimary, fontFamily: theme.fontSansSemiBold }]}>{status.email}</Text>}
+        <Text style={copy}>{credentialStorageError
+          ? 'La integración necesita revisión técnica. Contacta con soporte para continuar con Calendar y Meet.'
+          : needsReauthorization && status?.privacyUpdateRequired
+          ? 'Hemos actualizado la información de privacidad. Reconecta la misma cuenta para continuar con Calendar y activar Meet.'
+          : needsReauthorization
+          ? 'Google necesita que renueves el permiso. Reconecta la misma cuenta para continuar sincronizando tus citas.'
+          : connected
+          ? 'Tus citas de HERA aparecen automáticamente en Google Calendar.'
+          : 'Envía tus citas de HERA a tu calendario principal de Google.'}</Text>
+        {!status && !error && <ActivityIndicator color={theme.primary} />}
+        {status?.enabled && (status.status === 'DISCONNECTED' || needsReauthorization) && <Button
+          style={compact ? styles.stretch : styles.start} loading={busy} disabled={!disclosureVersion}
+          onPress={() => setPrivacyDialog('connect')}>
+          {needsReauthorization ? 'Reconectar Google Calendar' : guidedSetup ? 'Conectar Google y continuar' : 'Conectar Google Calendar'}
+        </Button>}
+        {!plain && importSettings}
+        {plain && calendarOptions}
+      </View>
+
+      <View style={[styles.section, !plain && styles.productPanel, plain && [styles.plainSection, { borderColor: theme.navigationBorder }], styles.column, twoColumns && styles.columnWide, { backgroundColor: plain ? 'transparent' : meetActive ? theme.successLight : theme.bgMuted }]}>
+        <View style={styles.sectionHeader}>
+          <Image source={require('../../../assets/google-meet.png')} style={styles.productLogo} resizeMode="contain" accessible={false} />
+          <View style={styles.headerCopy}>
+            <Text style={heading}>{guidedSetup ? '2. Google Meet' : 'Google Meet'}</Text>
+            {renderStatus('Google Meet', meetLabel, meetActive, needsAttention || (!meetActive && !canActivate && !meetNeedsCalendar && status?.videoProviderPreference === 'GOOGLE_MEET'), meetNeedsCalendar)}
+          </View>
+        </View>
+        {credentialStorageError ? <Text style={copy}>La preparación de enlaces está pausada mientras se revisa la integración. Las citas ya preparadas conservan su enlace.</Text> : meetNeedsCalendar ? <View style={[styles.dependencyHint, { backgroundColor: theme.bgCard }]}>
+          <Ionicons name="link-outline" size={18} color={theme.textSecondary} accessible={false} />
+          <Text style={[styles.dependencyCopy, { color: theme.textSecondary, fontFamily: theme.fontSansSemiBold }]}>Para activar Meet, primero conecta Google Calendar.</Text>
+        </View> : guidedSetup && !connected ? <Text style={copy}>El siguiente paso, cuando conectes Calendar. Podrás revisar la cuenta organizadora antes de activar Meet.</Text> : meetActive ? <>
+          <Text style={copy}>Un enlace por cita, en HERA y en los correos. Entra con tu cuenta de Google conectada.</Text>
+        </> : status?.videoProviderPreference === 'GOOGLE_MEET' && !canActivate ? <Text style={[...copy, { color: theme.warning }]}>
+          {meetUnavailable ? 'Google Meet no está disponible temporalmente para nuevas citas. Revisa la integración para continuar con Meet.' : 'Revisa la conexión y la activación de Meet para continuar con tus videollamadas.'}
+        </Text> : <>
+          <Text style={copy}>{status?.meetAssignmentsEnabled && status.enabled
+            ? connected || needsReauthorization ? 'Un enlace de Meet para cada cita, disponible en HERA y en los correos.' : 'Conecta Calendar y activa Meet para tus próximas videollamadas.'
+            : 'Las videollamadas de HERA siguen disponibles sin conectar Google.'}</Text>
+        </>}
+        {canActivate && <Button style={compact ? styles.stretch : styles.start} disabled={busy || status.privacyUpdateRequired || !status.activationConnection || !status.meetDisclosureVersion || !status.email} onPress={() => {
+          if (status.activationConnection && status.meetDisclosureVersion && status.email) setConfirmMeet({ email: status.email, disclosureVersion: status.meetDisclosureVersion, connection: { ...status.activationConnection } });
+        }}>Activar Google Meet</Button>}
+        <Text style={[styles.caption, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>Las citas ya preparadas conservan su enlace.</Text>
+        {!!status?.failedDeliveries && <Text style={[...copy, { color: theme.error }]}>Hay accesos por correo pendientes de entrega: {status.failedDeliveries}</Text>}
+      </View>
+      </View>
+
+      {!plain && calendarOptions}
+      {plain && importSettings && <View style={[styles.plainSection, { borderColor: theme.navigationBorder }]}><Text style={heading}>Eventos de Google en HERA</Text>{importSettings}</View>}
       {pending && pollingPaused && !error && <Button variant="ghost" size="small" disabled={busy} style={styles.start} onPress={() => { void refresh(); }}>Actualizar estado</Button>}
       {status?.errorCode === 'REVOCATION_FAILED' && <View style={styles.section}>
         <Text style={copy}>HERA ha dejado de sincronizar. No se pudo retirar el permiso en Google; puedes hacerlo desde tu cuenta.</Text>
@@ -313,6 +320,7 @@ export function GoogleCalendarCard({ videoSetup = false, hasUnsavedChanges = fal
 }
 
 const styles = StyleSheet.create({
+  plainSection: { gap: 12, borderTopWidth: 1, paddingTop: 20 },
   setupIntro: { gap: 8 },
   section: { gap: 12 },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 12 },

@@ -149,6 +149,11 @@ export const PROFESSIONAL_SPECIALTY_OPTIONS = [
     "value": "psychosis",
     "label": "Psicosis y trastornos psicóticos",
     "aliases": []
+  },
+  {
+    "value": "forensic-psychology",
+    "label": "Psicología forense y pericial",
+    "aliases": []
   }
 ] as const;
 export const PROFESSIONAL_THERAPEUTIC_APPROACH_OPTIONS = [
@@ -237,15 +242,30 @@ export const PROFESSIONAL_THERAPEUTIC_APPROACH_OPTIONS = [
     "aliases": []
   }
 ] as const;
-export const SPECIALTY_VALUES = ["borderline","bipolar","adhd","autism","anxiety","depression","stress","ocd","sleep","trauma","grief","eating","couples","sexuality","self-esteem","addiction","personality","neurodivergence","neuropsychology","children-adolescents","parenting-family","burnout","health","chronic-pain","self-harm","psychosis"] as const;
+export const SPECIALTY_VALUES = ["borderline","bipolar","adhd","autism","anxiety","depression","stress","ocd","sleep","trauma","grief","eating","couples","sexuality","self-esteem","addiction","personality","neurodivergence","neuropsychology","children-adolescents","parenting-family","burnout","health","chronic-pain","self-harm","psychosis","forensic-psychology"] as const;
 export const THERAPEUTIC_APPROACH_VALUES = ["cbt","contextual","emdr","systemic","couple-therapy","psychodynamic","humanistic","existential","eft","ipt","mindfulness","integrative"] as const;
 export const matchingChoiceKey = (value: string): string => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().replace(/\s+/g, ' ').toLowerCase();
-export const resolveMatchingChoice = (value: string, options: readonly ProfessionalMatchingOption[]): string | undefined => {
-  const key = matchingChoiceKey(value);
-  return options.find(option => [option.value, option.label, ...option.aliases].some(alias => matchingChoiceKey(alias) === key))?.value;
-};
+const catalogIndexes = new WeakMap<readonly ProfessionalMatchingOption[], Map<string, ProfessionalMatchingOption>>();
+
+function findMatchingChoice(value: string, options: readonly ProfessionalMatchingOption[]): ProfessionalMatchingOption | undefined {
+  let index = catalogIndexes.get(options);
+  if (!index) {
+    index = new Map();
+    for (const option of options) {
+      for (const alias of [option.value, option.label, ...option.aliases]) {
+        const key = matchingChoiceKey(alias);
+        if (!index.has(key)) index.set(key, option);
+      }
+    }
+    catalogIndexes.set(options, index);
+  }
+  return index.get(matchingChoiceKey(value));
+}
+
+export const resolveMatchingChoice = (value: string, options: readonly ProfessionalMatchingOption[]): string | undefined =>
+  findMatchingChoice(value, options)?.value;
 export const matchingChoiceLabel = (value: string, options: readonly ProfessionalMatchingOption[]): string =>
-  options.find(option => option.value === resolveMatchingChoice(value, options))?.label ?? value;
+  findMatchingChoice(value, options)?.label ?? value;
 export const customChoiceKey = (value: string): string => matchingChoiceKey(value) === 'phobias' ? 'fobias' : matchingChoiceKey(value);
 export const customChoiceError = (value: string, custom: readonly string[], options: readonly ProfessionalMatchingOption[]): string | null => {
   if (!value.trim() || value.trim().length > 40) return 'Introduce entre 1 y 40 caracteres.';
@@ -253,3 +273,16 @@ export const customChoiceError = (value: string, custom: readonly string[], opti
   if (custom.some(entry => customChoiceKey(entry) === customChoiceKey(value))) return 'Ya has añadido esta opción.';
   return null;
 };
+
+export function customChoiceGroupErrors(values: readonly string[], options: readonly ProfessionalMatchingOption[]): string[] {
+  const errors: string[] = [];
+  const seen = new Set<string>();
+  for (const value of values) {
+    const error = customChoiceError(value, [], options);
+    const key = customChoiceKey(value);
+    if (error) errors.push(error);
+    else if (seen.has(key)) errors.push('Ya has añadido esta opción.');
+    seen.add(key);
+  }
+  return errors;
+}

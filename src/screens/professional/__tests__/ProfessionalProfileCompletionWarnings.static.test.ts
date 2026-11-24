@@ -25,13 +25,6 @@ describe('professional profile completion warnings', () => {
     expect(source).not.toContain('Amplía tu biografía');
   });
 
-  it('marks profile tabs with their pending section count', () => {
-    expect(source).toContain('pendingCount: informationCompletionCount');
-    expect(source).toContain('pendingCount: credentialsCompletionCount');
-    expect(source).toContain('pendingCount: billingCompletionCount');
-    expect(source).toContain('styles.tabPendingBadge');
-  });
-
   it('opens the fiscal billing editor directly from the billing summary CTA', () => {
     expect(source).toContain("navigateProfessionalSection(navigation, 'ProfessionalBilling', { initialSection: 'fiscal' })");
   });

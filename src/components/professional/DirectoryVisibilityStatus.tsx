@@ -12,9 +12,11 @@ interface Props {
   inPersonInsurancePending: boolean;
   onAction: (action: Action) => void;
   onRetry: () => void;
+  embedded?: boolean;
+  onInsurance?: () => void;
 }
 
-export const DirectoryVisibilityStatus = ({ status, hasChanges, inPersonInsurancePending, onAction, onRetry }: Props) => {
+export const DirectoryVisibilityStatus = ({ status, hasChanges, inPersonInsurancePending, onAction, onRetry, embedded, onInsurance }: Props) => {
   const { theme } = useTheme();
   const [expanded, setExpanded] = useState(false);
   const triggerRef = useRef<AnimatedPressableHandle>(null);
@@ -66,23 +68,7 @@ export const DirectoryVisibilityStatus = ({ status, hasChanges, inPersonInsuranc
     onAction(action);
   };
 
-  return (
-    <View>
-        <AnimatedPressable focusRef={triggerRef} accessibilityRole="button" accessibilityLabel={status ? 'Requisitos del directorio' : 'Reintentar'} accessibilityHint={title} accessibilityState={{ expanded }} onPress={() => status ? setExpanded(!expanded) : onRetry()} style={[styles.trigger, { backgroundColor: theme.bgCard, borderColor: expanded ? theme.primary : theme.border }]}>
-          <Ionicons name={status?.isListed ? 'checkmark-circle-outline' : hidden ? 'eye-off-outline' : 'information-circle-outline'} size={16} color={status?.isListed ? theme.success : hidden ? theme.textSecondary : theme.warningAmber} />
-          <Text style={linkStyle}>{!status ? 'Reintentar' : 'Requisitos'}</Text>
-          {status ? <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={14} color={theme.primary} /> : null}
-        </AnimatedPressable>
-      {expanded && status ? (
-        <Modal transparent visible animationType="fade" onRequestClose={close}>
-          <View style={styles.overlay}>
-          <Pressable testID="requirements-backdrop" accessibilityRole="button" accessibilityLabel="Cerrar requisitos" onPress={close} style={StyleSheet.absoluteFill} />
-          <View accessibilityViewIsModal style={[styles.panel, panelPosition, { backgroundColor: theme.bgCard, borderColor: theme.border, shadowColor: theme.shadowCard }]}>
-          <View style={styles.panelHeader}>
-            <Text accessibilityRole="header" style={[styles.title, { color: theme.textPrimary, fontFamily: theme.fontSansSemiBold }]}>Requisitos del directorio</Text>
-            <Pressable accessibilityRole="button" accessibilityLabel="Cerrar panel de requisitos" onPress={close} style={styles.close}><Ionicons name="close" size={20} color={theme.textSecondary} /></Pressable>
-          </View>
-          <ScrollView contentContainerStyle={styles.details} keyboardShouldPersistTaps="handled">
+  const details = <View style={styles.details}>
           <Text style={[styles.title, { color: theme.textPrimary, fontFamily: theme.fontSansSemiBold }]}>{title}</Text>
           {hasChanges ? <Text style={[styles.note, textStyle]}>Tienes cambios sin guardar. Este estado refleja tu perfil guardado.</Text> : null}
           {rows.map((row) => (
@@ -96,7 +82,34 @@ export const DirectoryVisibilityStatus = ({ status, hasChanges, inPersonInsuranc
             </View>
           ))}
           <Text style={[styles.note, textStyle]}>La foto es opcional. No necesitas reseñas ni completar todos los apartados para aparecer.</Text>
+          {inPersonInsurancePending && onInsurance && <Pressable accessibilityRole="button" style={styles.action} onPress={() => { setExpanded(false); onInsurance(); }}><Text style={linkStyle}>Revisar póliza en Credenciales</Text></Pressable>}
           {inPersonInsurancePending ? <Text style={[styles.note, textStyle]}>Para aparecer al filtrar por atención presencial, tu seguro debe estar subido y aprobado.</Text> : null}
+  </View>;
+  const content = status ? details : <View style={styles.details}>
+    <Text style={textStyle}>{title}</Text>
+    <Pressable accessibilityRole="button" onPress={onRetry} style={styles.action}><Text style={linkStyle}>Reintentar</Text></Pressable>
+  </View>;
+
+  if (embedded) return content;
+
+  return (
+    <View>
+        <AnimatedPressable focusRef={triggerRef} accessibilityRole="button" accessibilityLabel="Requisitos del directorio" accessibilityHint={title} accessibilityState={{ expanded }} onPress={() => setExpanded(!expanded)} style={[styles.trigger, { backgroundColor: theme.bgCard, borderColor: expanded ? theme.primary : theme.border }]}>
+          <Ionicons name={status?.isListed ? 'checkmark-circle-outline' : hidden ? 'eye-off-outline' : 'information-circle-outline'} size={16} color={status?.isListed ? theme.success : hidden ? theme.textSecondary : theme.warningAmber} />
+          <Text style={linkStyle}>Requisitos</Text>
+          {status ? <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={14} color={theme.primary} /> : null}
+        </AnimatedPressable>
+      {expanded ? (
+        <Modal transparent visible animationType="fade" onRequestClose={close}>
+          <View style={styles.overlay}>
+          <Pressable testID="requirements-backdrop" accessibilityRole="button" accessibilityLabel="Cerrar requisitos" onPress={close} style={StyleSheet.absoluteFill} />
+          <View accessibilityViewIsModal style={[styles.panel, panelPosition, { backgroundColor: theme.bgCard, borderColor: theme.border, shadowColor: theme.shadowCard }]}>
+          <View style={styles.panelHeader}>
+            <Text accessibilityRole="header" style={[styles.title, { color: theme.textPrimary, fontFamily: theme.fontSansSemiBold }]}>Requisitos del directorio</Text>
+            <Pressable accessibilityRole="button" accessibilityLabel="Cerrar panel de requisitos" onPress={close} style={styles.close}><Ionicons name="close" size={20} color={theme.textSecondary} /></Pressable>
+          </View>
+          <ScrollView contentContainerStyle={styles.details} keyboardShouldPersistTaps="handled">
+          {content}
           </ScrollView>
           </View>
           </View>

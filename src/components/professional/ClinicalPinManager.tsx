@@ -1,3 +1,4 @@
+import { ProfileEditorSheet } from './ProfileEditorSheet';
 import React, { useEffect, useState } from 'react';
 import { Modal, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Button } from '../common';
@@ -11,7 +12,7 @@ import { ClinicalPinForm, clinicalPinTitles, type ClinicalPinMode } from './Clin
 import { AccountSettingsCard } from './AccountSettingsCard';
 import { Ionicons } from '@expo/vector-icons';
 
-export function ClinicalPinManager({ compact = false, clientId }: { compact?: boolean; clientId?: string }) {
+export function ClinicalPinManager({ compact = false, clientId, plain = false }: { compact?: boolean; plain?: boolean; clientId?: string }) {
   const { theme } = useTheme();
   const { user } = useAuth();
   const focused = useIsFocused();
@@ -38,8 +39,12 @@ export function ClinicalPinManager({ compact = false, clientId }: { compact?: bo
       </View>
     {success ? <Text accessibilityLiveRegion="polite" style={[textStyle, { color: theme.success }]}>{success}</Text> : null}
   </>;
+  const form = mode && (<ClinicalPinForm key={mode} mode={mode} onForgot={() => setMode('request')} onCompleted={(message) => {
+                setMode(null); setSuccess(message); if (!compact) void load();
+              }} />);
   return <>
-    {compact ? <View>{content}</View> : <AccountSettingsCard title="PIN clínico" description="Tu PIN de 6 dígitos protege el acceso al área clínica de tus pacientes. Es el mismo para todos tus expedientes y es distinto de la contraseña de tu cuenta.">{content}</AccountSettingsCard>}
+    {compact ? <View>{content}</View> : <AccountSettingsCard plain={plain} title="PIN clínico" description="Tu PIN de 6 dígitos protege el acceso al área clínica de tus pacientes. Es el mismo para todos tus expedientes y es distinto de la contraseña de tu cuenta.">{content}</AccountSettingsCard>}
+    {plain ? (mode && focused && <ProfileEditorSheet title={clinicalPinTitles[mode]} onClose={() => setMode(null)}>{form}</ProfileEditorSheet>) :
     <Modal visible={mode !== null && focused} transparent animationType="fade" onRequestClose={() => setMode(null)}>
       <View style={styles.overlay}>
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
@@ -49,14 +54,12 @@ export function ClinicalPinManager({ compact = false, clientId }: { compact?: bo
                 <Text accessibilityRole="header" style={[styles.heading, { color: theme.textPrimary, fontFamily: theme.fontHeading }]}>{clinicalPinTitles[mode]}</Text>
                 <Button variant="ghost" size="small" accessibilityLabel="Cerrar" onPress={() => setMode(null)}><Ionicons name="close-outline" size={22} color={theme.textSecondary} /></Button>
               </View>
-              <ClinicalPinForm key={mode} mode={mode} onForgot={() => setMode('request')} onCompleted={(message) => {
-                setMode(null); setSuccess(message); if (!compact) void load();
-              }} />
+              {form}
             </> : null}
           </View>
         </ScrollView>
       </View>
-    </Modal>
+    </Modal>}
   </>;
 }
 const styles = StyleSheet.create({

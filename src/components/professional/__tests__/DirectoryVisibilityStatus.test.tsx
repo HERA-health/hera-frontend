@@ -56,6 +56,7 @@ it('offers retry when the server status is unavailable', () => {
   const onRetry = jest.fn();
   render(<DirectoryVisibilityStatus {...props} status={null} onRetry={onRetry} />);
   expect(screen.queryByText('Tu perfil aparece en el directorio')).toBeNull();
+  fireEvent.press(screen.getByRole('button', { name: 'Requisitos del directorio' }));
   fireEvent.press(screen.getByText('Reintentar'));
   expect(onRetry).toHaveBeenCalledTimes(1);
 });

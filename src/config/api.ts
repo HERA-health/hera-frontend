@@ -30,7 +30,7 @@ export const isLocalWebHostname = (hostname: string): boolean =>
   || /^172\.(1[6-9]|2\d|3[0-1])\.\d{1,3}\.\d{1,3}$/.test(hostname);
 
 const getEnvVars = () => {
-  if (typeof window !== 'undefined') {
+  if (typeof window !== 'undefined' && typeof window.location?.hostname === 'string') {
     return isLocalWebHostname(window.location.hostname) ? apiEndpoints.dev : apiEndpoints.prod;
   }
 

@@ -2,10 +2,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 
-const REFRESH_TOKEN_KEY = '@hera_refresh_token';
-
 const isNativeSecureStoreAvailable = Platform.OS === 'ios' || Platform.OS === 'android';
 const isWebPlatform = Platform.OS === 'web';
+// SecureStore restricts key names to letters, digits, periods, hyphens and underscores.
+const REFRESH_TOKEN_KEY = isNativeSecureStoreAvailable ? 'hera_refresh_token' : '@hera_refresh_token';
 
 const setPersistentValue = async (key: string, value: string): Promise<void> => {
   if (isWebPlatform) {

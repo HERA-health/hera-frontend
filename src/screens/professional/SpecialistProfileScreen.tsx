@@ -2,7 +2,7 @@ import { ProfessionalBirthdayEditor } from '../../components/professional/Profes
 import { PHONE_CONTACT_HELP, PHONE_FORMAT_HELP } from '../../utils/registrationPhone';
 import { emptyPerspective, type PerspectiveDraft } from '../../utils/perspective';
 import type {PerspectiveOperation} from '../../services/profileDiscoveryService';
-import { customChoiceError, PROFESSIONAL_SPECIALTY_OPTIONS, PROFESSIONAL_THERAPEUTIC_APPROACH_OPTIONS } from '../../constants/professionalMatchingOptions';
+import { customChoiceGroupErrors, PROFESSIONAL_SPECIALTY_OPTIONS, PROFESSIONAL_THERAPEUTIC_APPROACH_OPTIONS } from '../../constants/professionalMatchingOptions';
 import { PrivacyPreferencesButton } from '../../components/common/PrivacyPreferences';
 import { navigateProfessionalSection } from '../../navigation/professionalNavigation';
 import { useFocusedRateLimitRecovery } from '../../hooks/useGeneralRateLimit';
@@ -10,30 +10,9 @@ import { AccountSettingsCard } from '../../components/professional/AccountSettin
 import { GoogleCalendarCard } from '../../components/professional/GoogleCalendarCard';
 import { VideoCallSetupPrompt } from '../../components/professional/VideoCallSetupPrompt';
 import { ClinicalPinManager } from '../../components/professional/ClinicalPinManager';
-/**
- * SpecialistProfileScreen - Professional Profile Management
- *
- * A comprehensive professional identity management system for psychologists on HERA.
- * Designed to feel like LinkedIn meets Stripe Dashboard - professional, trustworthy,
- * and easy to maintain.
- *
- * Seven Essential Tabs:
- * 1. Información Profesional - Public profile info (what clients see)
- * 2. Mi Espacio - Public personalization
- * 3. Agenda y reservas - Booking confirmation preferences
- * 4. Credenciales y Verificación - Verification status and trust badges
- * 5. Facturación - Pricing and payment configuration
- * 6. Privacidad - Public visibility controls
- * 7. Cuenta - Account settings and security
- *
- * Features:
- * - Full-width tab workspace for faster profile editing
- * - Header actions for public preview, sharing and saving
- * - Verification badges and progress indicators
- * - Professional-grade form design
- * - Responsive for all devices
- */
-
+import { TrajectoryEntry } from '../../components/professional/TrajectoryEntry';
+import { ProfileEditorSheet, ProfileEditorItem } from '../../components/professional/ProfileEditorSheet';
+import { SafeAreaInsetsContext } from 'react-native-safe-area-context';
 import { ProfessionalMatchingEditor } from '../../components/professional/ProfessionalMatchingEditor';
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
@@ -46,7 +25,7 @@ import {
   Platform,
   useWindowDimensions,
   ActivityIndicator,
-  Modal,
+  KeyboardAvoidingView,
   Pressable,
   Image,
   Share,
@@ -65,11 +44,10 @@ import { shadows, spacing, borderRadius, typography, layout } from '../../consta
 import type { Theme } from '../../constants/theme';
 import * as professionalService from '../../services/professionalService';
 import * as authService from '../../services/authService';
-import { billingService, type FullBillingConfig, type TariffItem } from '../../services/billingService';
+import { billingService, type FullBillingConfig } from '../../services/billingService';
 import {
   SpecialistCertificate as ServiceCertificate,
   SpecialistProfileData as ServiceProfileData,
-  VerificationStatus,
   VerificationStatusResponse,
 } from '../../services/professionalService';
 import { AddressAutocomplete, LocationMapPreview } from '../../components/location';
@@ -81,7 +59,8 @@ import type {
 } from '../../constants/types';
 import { useProfileCompletion } from '../../contexts/ProfileCompletionContext';
 import { getWebAppUrl } from '../../config/api';
-import { AnimatedPressable, Button } from '../../components/common';
+import { Button } from '../../components/common';
+import type { AnimatedPressableHandle } from '../../components/common/AnimatedPressable';
 import { TourTarget } from '../../components/onboarding/TourTarget';
 import {
   useProfessionalTourAutoStart,
@@ -95,8 +74,6 @@ import {
   PROFESSIONAL_TYPE_OPTIONS,
   type ProfessionalType,
 } from '../../constants/professionalTypes';
-import {
-} from '../../constants/professionalMatchingOptions';
 import { PublicProfileSlugEditor } from '../../components/professional/PublicProfileSlugEditor';
 import { DirectoryVisibilityStatus } from '../../components/professional/DirectoryVisibilityStatus';
 import { PUBLIC_PROFILE_SLUG_MAX_CHANGES } from '../../utils/publicProfileSlug';
@@ -107,6 +84,40 @@ import { PUBLIC_PROFILE_SLUG_MAX_CHANGES } from '../../utils/publicProfileSlug';
 
 type ProfileTab = ProfessionalProfileTab;
 type ProfileSection = ProfessionalProfileSection | 'phone';
+const informationParts = {
+  identity: 'Identidad y presentación',
+  consultation: 'Consulta',
+  practice: 'Práctica e idiomas',
+  trajectory: 'Trayectoria',
+} as const;
+type InformationPart = keyof typeof informationParts;
+const partForAnchor: Partial<Record<ProfileSection, InformationPart>> = {
+  identity: 'identity', bio: 'identity', modality: 'consultation', location: 'consultation', matching: 'practice',
+};
+type EditorMenu = 'sections' | 'parts' | 'type' | 'requirements';
+const subtitles: Record<Exclude<ProfileTab, 'agenda'> | InformationPart, string> = {
+  information: 'Así te presentas a quienes buscan especialista.',
+  identity: 'Así te presentas a quienes buscan especialista.',
+  consultation: 'Elige cómo atiendes y dónde pueden encontrarte.',
+  practice: 'Elige los datos de tu práctica que verán los pacientes.',
+  trajectory: 'Añade tu formación y experiencia profesional.',
+  credentials: 'Verificación profesional y documentos de tu práctica.',
+  pricing: 'Consulta tus datos de facturación y accede a su configuración.',
+  privacy: 'Decide cómo pueden encontrar tu perfil.',
+  google: 'Preferencias de calendario y videollamadas.',
+  account: 'Tus datos de acceso, contacto y seguridad clínica.',
+  'mi-espacio': '',
+};
+
+// Keep edits made locally while a request was in flight.
+function reconcileProfile(base: SpecialistProfileData, draft: SpecialistProfileData, remote: SpecialistProfileData) {
+  const result = { ...remote };
+  function keepChange<K extends keyof SpecialistProfileData>(key: K) {
+    if (JSON.stringify(base[key]) !== JSON.stringify(draft[key])) result[key] = draft[key];
+  }
+  (Object.keys(draft) as (keyof SpecialistProfileData)[]).forEach(keepChange);
+  return result;
+}
 
 interface Education {
   id: string;
@@ -291,9 +302,9 @@ const STRINGS = {
 
 function createProfilePalette(theme: Theme): ProfilePalette {
   return {
-    background: theme.bg,
+    background: theme.bgElevated,
     backgroundMuted: theme.bgMuted,
-    border: theme.border,
+    border: theme.borderStrong,
     cardBackground: theme.surfaceMuted,
     inputBackground: theme.bgElevated,
     inputFocus: theme.focus,
@@ -301,7 +312,7 @@ function createProfilePalette(theme: Theme): ProfilePalette {
     cardBg: theme.bgCard,
     info: theme.info,
     overlay: theme.overlay,
-    primary: theme.primary,
+    primary: theme.actionPrimary,
     primaryAlpha12: theme.primaryAlpha12,
     primaryDark: theme.primaryDark,
     primaryMuted: theme.primaryMuted,
@@ -310,7 +321,7 @@ function createProfilePalette(theme: Theme): ProfilePalette {
     warning: theme.warning,
     warningAmber: theme.warningAmber,
     warningLight: theme.warningBg,
-    textMuted: theme.textMuted,
+    textMuted: theme.textSecondary,
     textOnCard: theme.textOnPrimary,
     textOnPrimary: theme.textOnPrimary,
     textPrimary: theme.textPrimary,
@@ -402,7 +413,7 @@ const mapServiceProfileToFormData = (profile: ServiceProfileData): SpecialistPro
   experience: (profile.experience as Experience[]) || [],
   identityVerified: profile.identityVerified || false,
   insuranceUploaded: profile.insuranceUploaded || false,
-  insuranceReviewStatus: profile.insuranceReviewStatus || 'NOT_UPLOADED',
+  insuranceReviewStatus: profile.insuranceReviewStatus ?? (profile.insuranceUploaded ? 'PENDING' : 'NOT_UPLOADED'),
   insuranceReviewedAt: profile.insuranceReviewedAt ?? null,
   insuranceRejectedReason: profile.insuranceRejectedReason ?? null,
   locationVisibleToPatients: profile.locationVisibleToPatients ?? false,
@@ -466,10 +477,9 @@ const getInsuranceReviewCopy = (
       return {
         icon: 'checkmark-circle',
         tone: 'success',
-        title: 'Póliza aprobada',
-        description: reviewedOn
-          ? `Tu cobertura presencial está aprobada desde el ${reviewedOn}. Los pacientes ya pueden ver tu ubicación si tienes activado presencial.`
-          : 'Tu cobertura presencial está aprobada. Los pacientes ya pueden ver tu ubicación si tienes activado presencial.',
+        title: 'Cobertura aprobada',
+        description: (reviewedOn ? 'HERA aprobó tu cobertura el ' + reviewedOn + '. ' : 'HERA ha aprobado tu cobertura. ')
+          + 'La ubicación depende de que la modalidad presencial esté guardada. El filtro del directorio también requiere una oferta presencial publicada.',
       };
     case 'REJECTED':
       return {
@@ -477,23 +487,23 @@ const getInsuranceReviewCopy = (
         tone: 'warning',
         title: 'Póliza rechazada',
         description: rejectionReason
-          ? `Hemos rechazado la póliza. Motivo: ${rejectionReason}. Mientras no la revisemos de nuevo, los pacientes no verán tu ubicación.`
-          : 'Hemos rechazado la póliza. Mientras no la revisemos de nuevo, los pacientes no verán tu ubicación.',
+          ? `Motivo: ${rejectionReason}. La ubicación permanece oculta y tu perfil queda fuera del filtro presencial.`
+          : 'Hemos rechazado la póliza. La ubicación permanece oculta y tu perfil queda fuera del filtro presencial.',
       };
     case 'PENDING':
       return {
         icon: 'time-outline',
         tone: 'info',
-        title: 'Póliza en revisión',
-        description: 'Ya has subido la póliza. Hasta que la aprobemos, los pacientes no podrán ver tu ubicación ni reservar presencial.',
+        title: 'Póliza subida · En revisión',
+        description: 'Puedes guardar la modalidad y la dirección. Hasta que HERA apruebe la cobertura, la ubicación permanece oculta y tu perfil queda fuera del filtro presencial.',
       };
     case 'NOT_UPLOADED':
     default:
       return {
         icon: 'alert-circle',
         tone: 'warning',
-        title: 'Póliza pendiente',
-        description: 'Sube tu póliza para que podamos revisar la cobertura presencial. Sin ella no mostraremos la ubicación a los pacientes.',
+        title: 'Falta subir la póliza',
+        description: 'Para guardar la atención presencial, sube tu póliza de responsabilidad civil en Credenciales. Puedes empezar la dirección ahora.',
       };
   }
 };
@@ -509,7 +519,20 @@ export function SpecialistProfileScreen() {
   const { isVisible: isAppAlertVisible } = useAppAlertState();
   const { theme, isDark } = useTheme();
   const { width: windowWidth } = useWindowDimensions();
-  const isDesktop = windowWidth >= 1024;
+  const [editorWidth, setEditorWidth] = useState(windowWidth);
+  const isDesktop = editorWidth >= 920;
+  const insets = React.useContext(SafeAreaInsetsContext);
+  const [part, setPart] = useState<InformationPart>('identity');
+  const [menu, setMenu] = useState<EditorMenu | null>(null);
+  const [returnToConsultation, setReturnToConsultation] = useState(false);
+  const addEducationRef = useRef<AnimatedPressableHandle>(null);
+  const addExperienceRef = useRef<AnimatedPressableHandle>(null);
+  const [expandedEntry, setExpandedEntry] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState('');
+  const [saved, setSaved] = useState(false);
+  const [verificationError, setVerificationError] = useState(false);
+  const [verificationKnown, setVerificationKnown] = useState(false);
+  const [deletingInsurance, setDeletingInsurance] = useState(false);
   const isMobile = windowWidth < 768;
   const palette = useMemo(() => createProfilePalette(theme), [theme, isDark]);
 
@@ -520,14 +543,16 @@ export function SpecialistProfileScreen() {
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
   const [isUploadingGalleryPhoto, setIsUploadingGalleryPhoto] = useState(false);
-  const [hasChanges, setHasChanges] = useState(false);
+  const loadVersion = useRef(0);
+  const loaded = useRef(false);
   const profileSaveRunning = useRef(false);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const styles = useMemo(() => createStyles(palette, isDesktop, isMobile), [palette, isDesktop, isMobile]);
   const miEspacioStyles = useMemo(() => createMiEspacioStyles(palette), [palette]);
+  const viewportRef = useRef<View>(null);
   const formScrollRef = useRef<ScrollView | null>(null);
-  const tabsScrollRef = useRef<ScrollView | null>(null);
+
   const formScrollOffsetRef = useRef(0);
   const sectionRefs = useRef<Record<ProfileSection, View | null>>({
     identity: null,
@@ -571,6 +596,7 @@ export function SpecialistProfileScreen() {
     'professional_profile_v1',
     !isLoading
       && !loadError
+      && !menu
       && !isShareModalVisible
       && !isCertificateModalVisible
       && !isUploadingAvatar
@@ -586,12 +612,6 @@ export function SpecialistProfileScreen() {
     formScrollRef.current?.scrollTo({ y: 0, animated: false });
   }, []);
 
-  useEffect(() => {
-    if (activeTab !== 'account' && activeTab !== 'google') return;
-    const frame = requestAnimationFrame(() => tabsScrollRef.current?.scrollToEnd({ animated: false }));
-    return () => cancelAnimationFrame(frame);
-  }, [activeTab]);
-
   useProfessionalTourStepPreparation('professional.profile.tabs', prepareProfileTopStep);
   useProfessionalTourStepPreparation('professional.profile.visibility', prepareProfileTopStep);
   useProfessionalTourStepPreparation('professional.profile.preview', prepareProfileTopStep);
@@ -601,17 +621,13 @@ export function SpecialistProfileScreen() {
     if (!pendingSection || isLoading) return undefined;
 
     const animationFrame = requestAnimationFrame(() => {
-      const target = sectionRefs.current[pendingSection];
+      const target = sectionRefs.current[pendingSection] ?? (pendingSection === 'location' ? sectionRefs.current.modality : null);
       const scrollView = formScrollRef.current;
       if (!target || !scrollView) return;
-      const measurableScrollView = scrollView as unknown as {
-        measureInWindow: (
-          callback: (x: number, y: number, width: number, height: number) => void
-        ) => void;
-      };
+      if (Platform.OS === 'web') target.focus?.();
 
       target.measureInWindow((_targetX, targetY) => {
-        measurableScrollView.measureInWindow((_scrollX, scrollY) => {
+        viewportRef.current?.measureInWindow((_scrollX, scrollY) => {
           scrollView.scrollTo({
             y: Math.max(0, formScrollOffsetRef.current + targetY - scrollY - spacing.md),
             animated: true,
@@ -623,7 +639,7 @@ export function SpecialistProfileScreen() {
     });
 
     return () => cancelAnimationFrame(animationFrame);
-  }, [activeTab, isLoading, pendingSection]);
+  }, [activeTab, part, isLoading, pendingSection]);
 
   useEffect(() => {
     if (!highlightedSection) return undefined;
@@ -719,6 +735,12 @@ export function SpecialistProfileScreen() {
   });
 
   const [originalData, setOriginalData] = useState<SpecialistProfileData>(profileData);
+  const baseline = useRef(originalData);
+  baseline.current = originalData;
+  const hasDraftChanges = JSON.stringify(profileData) !== JSON.stringify(originalData);
+  const confirmMatchingReview = profileData.matchingNeedsReview && !hasDraftChanges
+    && activeTab === 'information' && part === 'practice';
+  const hasChanges = hasDraftChanges || confirmMatchingReview;
   const showProfileAvatar = Boolean(profileData.avatar) && !avatarLoadFailed;
 
   useEffect(() => {
@@ -771,22 +793,9 @@ export function SpecialistProfileScreen() {
 
     return `${getWebAppUrl()}/especialista/${encodeURIComponent(profileRef)}`;
   }, [savedPublicSlug, specialistId]);
-  const isProfessionalVerified = verificationStatus.verificationStatus === 'VERIFIED';
+  const isProfessionalVerified = verificationKnown && verificationStatus.verificationStatus === 'VERIFIED';
   const canOpenPublicProfile =
     isProfessionalVerified && Boolean(specialistId);
-
-  const activeBillingTariffs = useMemo<TariffItem[]>(
-    () => billingConfig?.tariffs?.filter((tariff) => tariff.isActive) ?? [],
-    [billingConfig]
-  );
-
-  const defaultBillingTariff = useMemo<TariffItem | null>(
-    () =>
-      activeBillingTariffs.find((tariff) => tariff.isDefault)
-      ?? activeBillingTariffs[0]
-      ?? null,
-    [activeBillingTariffs]
-  );
 
   const billingFiscalReady = useMemo(
     () =>
@@ -799,10 +808,6 @@ export function SpecialistProfileScreen() {
   );
 
   const billingBankReady = Boolean(billingConfig?.bankIban?.trim());
-  const parsedProfilePrice = Number(profileData.priceStandard);
-  const publicSessionPrice =
-    billingConfig?.pricePerSession ?? (Number.isFinite(parsedProfilePrice) ? parsedProfilePrice : null);
-
   const actionableCompletionItems = useMemo(
     () => completionSnapshot?.role === 'PROFESSIONAL'
       ? completionSnapshot.items.filter((item) => item.state === 'ACTION_REQUIRED')
@@ -819,41 +824,29 @@ export function SpecialistProfileScreen() {
     (code: ProfileCompletionCode): boolean => actionableCompletionCodes.has(code),
     [actionableCompletionCodes],
   );
-  const getCompletionCount = useCallback(
-    (codes: ProfileCompletionCode[]): number => codes.reduce(
-      (count, code) => count + (actionableCompletionCodes.has(code) ? 1 : 0),
-      0,
-    ),
-    [actionableCompletionCodes],
-  );
-  const informationCompletionCount = getCompletionCount([
-    'PROFILE_IDENTITY',
-    'PROFILE_BIO',
-    'PROFILE_MATCHING',
-    'PROFILE_MODALITY',
-    'PROFILE_LOCATION',
-  ]);
-  const credentialsCompletionCount = getCompletionCount([
-    'PROFESSIONAL_VERIFICATION',
-    'PROFESSIONAL_INSURANCE',
-  ]);
-  const billingCompletionCount = getCompletionCount(['PROFESSIONAL_BILLING']);
+  const pendingParts: Record<InformationPart, boolean> = {
+    identity: hasCompletionIssue('PROFILE_IDENTITY') || hasCompletionIssue('PROFILE_BIO'),
+    consultation: hasCompletionIssue('PROFILE_MODALITY') || hasCompletionIssue('PROFILE_LOCATION'),
+    practice: hasCompletionIssue('PROFILE_MATCHING'),
+    trajectory: false,
+  };
 
-  // Check for changes
   useEffect(() => {
-    const changed = profileData.matchingNeedsReview || JSON.stringify(profileData) !== JSON.stringify(originalData);
-    setHasChanges(changed);
-  }, [profileData, originalData]);
+    if (hasChanges) setSaved(false);
+    setSaveError('');
+  }, [profileData, hasChanges]);
 
   // Load profile data on mount and on every screen focus
   const loadProfile = useCallback(async () => {
+    if (profileSaveRunning.current) return;
+    const version = ++loadVersion.current;
+    const loadedBefore = loaded.current;
     try {
-      setIsLoading(true);
+      if (!loaded.current) setIsLoading(true);
       setLoadError(false);
-      setDirectoryStatus(null);
       const profile = await professionalService.getComprehensiveProfile();
-      if (profile) {
-        setDirectoryStatus(profile.directoryStatus ?? null);
+      if (!profile) throw new Error('Perfil no disponible');
+      if (version === loadVersion.current) {
         const mappedData = {
           ...mapServiceProfileToFormData(profile),
           avatar: profile.avatar ?? user?.avatar ?? null,
@@ -867,8 +860,12 @@ export function SpecialistProfileScreen() {
           resolvedPublicSlug = summary?.publicSlug ?? resolvedPublicSlug;
         }
 
-        setProfileData(mappedData);
+        if (version !== loadVersion.current) return;
+        const previous = baseline.current;
+        setProfileData(draft => loadedBefore ? reconcileProfile(previous, draft, mappedData) : mappedData);
         setOriginalData(mappedData);
+        setDirectoryStatus(profile.directoryStatus ?? null);
+        loaded.current = true;
         setSpecialistId(resolvedSpecialistId);
         setSavedPublicSlug(resolvedPublicSlug);
         setPublicSlugChangesRemaining(
@@ -876,11 +873,9 @@ export function SpecialistProfileScreen() {
         );
       }
     } catch (error) {
-      console.error('Error loading profile:', error);
-      setLoadError(true);
-      // Keep default values on error
+      if (version === loadVersion.current) setLoadError(true);
     } finally {
-      setIsLoading(false);
+      if (version === loadVersion.current) setIsLoading(false);
     }
   }, [user?.avatar]);
 
@@ -889,8 +884,7 @@ export function SpecialistProfileScreen() {
       setIsBillingConfigLoading(true);
       const config = await billingService.getConfig();
       setBillingConfig(config);
-    } catch (error) {
-      console.error('Error loading billing config:', error);
+    } catch {
       setBillingConfig(null);
     } finally {
       setIsBillingConfigLoading(false);
@@ -904,7 +898,18 @@ export function SpecialistProfileScreen() {
     }
   });
 
-  // Reload both profile data and verification status on every screen focus
+  const loadVerification = useCallback(async () => {
+    try {
+      const status = await professionalService.getVerificationStatus();
+      setVerificationStatus(status);
+      setVerificationKnown(true);
+      setVerificationError(false);
+    } catch {
+      setVerificationKnown(false);
+      setVerificationError(true);
+    }
+  }, []);
+
   useFocusEffect(
     useCallback(() => {
       if (route.params?.initialTab === 'agenda') {
@@ -916,7 +921,15 @@ export function SpecialistProfileScreen() {
         setActiveTab(route.params.initialTab);
       }
       if (route.params?.initialSection) {
-        setPendingSection(route.params.initialSection);
+        const anchor = route.params.initialSection;
+        const informationPart = partForAnchor[anchor];
+        if (informationPart) {
+          setActiveTab('information');
+          setPart(informationPart);
+        } else {
+          setActiveTab('credentials');
+        }
+        setPendingSection(anchor);
       }
       if (route.params?.initialTab || route.params?.initialSection) {
         navigation.setParams({ initialTab: undefined, initialSection: undefined });
@@ -924,18 +937,11 @@ export function SpecialistProfileScreen() {
 
       loadProfile();
       loadBillingConfig();
-      const loadVerificationStatus = async () => {
-        try {
-          const status = await professionalService.getVerificationStatus();
-          setVerificationStatus(status);
-        } catch (error) {
-          console.error('Error loading verification status:', error);
-        }
-      };
-      loadVerificationStatus();
+      void loadVerification();
 
     }, [
       loadBillingConfig,
+      loadVerification,
       loadProfile,
       navigation,
       route.params?.initialSection,
@@ -954,6 +960,10 @@ export function SpecialistProfileScreen() {
     setProfileData(prev => ({ ...prev, [field]: value }));
   }, []);
 
+  const editOfficeAddress = (field: 'officeAddress' | 'officeCity' | 'officePostalCode' | 'officeCountry', value: string) => {
+    setProfileData(prev => prev[field] === value ? prev : { ...prev, [field]: value, officeLat: null, officeLng: null });
+  };
+
   const toggleMultiSelect = useCallback((
     field: 'specialties' | 'therapeuticApproaches' | 'languages' | 'sessionTypes',
     value: string
@@ -966,6 +976,12 @@ export function SpecialistProfileScreen() {
         return { ...prev, [field]: [...current, value] };
       }
     });
+  }, []);
+
+  const openConsultationInsurance = useCallback(() => {
+    setReturnToConsultation(true);
+    setActiveTab('credentials');
+    setPendingSection('insurance');
   }, []);
 
   const handleSave = useCallback(async (notifySuccess = true): Promise<boolean> => {
@@ -981,7 +997,7 @@ export function SpecialistProfileScreen() {
 
     const phoneOnly = Object.keys(profileData).every(key => key === 'phone'
       || JSON.stringify(profileData[key as keyof SpecialistProfileData]) === JSON.stringify(originalData[key as keyof SpecialistProfileData]));
-    const requiresProfessionalValidation = !withdrawalOnly && !phoneOnly;
+    const requiresProfessionalValidation = confirmMatchingReview || (!withdrawalOnly && !phoneOnly);
 
     const experienceInput = profileData.yearsInPractice.trim();
     if (requiresProfessionalValidation && experienceInput !== '' && (!/^\d+$/.test(experienceInput) || Number(experienceInput) > 60)) {
@@ -992,7 +1008,8 @@ export function SpecialistProfileScreen() {
     if (requiresProfessionalValidation && profileData.offersInPerson && !profileData.insuranceUploaded) {
       showAppAlert(appAlert, 
         'Falta la póliza',
-        'Para activar las sesiones presenciales necesitamos una póliza de responsabilidad civil subida y guardada en HERA.'
+        'Sube la póliza en Credenciales para guardar la modalidad presencial. Podrás volver a la ubicación con tus cambios.',
+        [{ text: 'Volver', style: 'cancel' }, { text: 'Ir a Credenciales', onPress: openConsultationInsurance }]
       );
       return false;
     }
@@ -1007,10 +1024,10 @@ export function SpecialistProfileScreen() {
     }
 
     const specialtyCount = profileData.specialties.length + profileData.customSpecialties.length;
-    const choiceError = profileData.customSpecialties.map((value, i) => customChoiceError(value, profileData.customSpecialties.slice(0, i), PROFESSIONAL_SPECIALTY_OPTIONS)).find(Boolean)
-      || profileData.customTherapeuticApproaches.map((value, i) => customChoiceError(value, profileData.customTherapeuticApproaches.slice(0, i), PROFESSIONAL_THERAPEUTIC_APPROACH_OPTIONS)).find(Boolean);
-    if (requiresProfessionalValidation && (specialtyCount < 1 || specialtyCount > 5 || choiceError || profileData.therapeuticApproaches.length + profileData.customTherapeuticApproaches.length > 30)) {
-      showAppAlert(appAlert, 'Revisa tu práctica', choiceError || 'Elige entre 1 y 5 especialidades y hasta 30 enfoques.');
+    const choiceError = customChoiceGroupErrors(profileData.customSpecialties, PROFESSIONAL_SPECIALTY_OPTIONS)[0]
+      || customChoiceGroupErrors(profileData.customTherapeuticApproaches, PROFESSIONAL_THERAPEUTIC_APPROACH_OPTIONS)[0];
+    if (requiresProfessionalValidation && (specialtyCount < 1 || choiceError || profileData.therapeuticApproaches.length + profileData.customTherapeuticApproaches.length > 30)) {
+      showAppAlert(appAlert, 'Revisa tu práctica', choiceError || 'Elige al menos una especialidad y hasta 30 enfoques.');
       return false;
     }
     if (perspectiveChanged && perspective.publish && (!perspective.religionCode || !perspective.noticeVersion || (perspective.religionCode === 'other' && !perspective.religionOtherText.trim()))) {
@@ -1018,10 +1035,12 @@ export function SpecialistProfileScreen() {
       return false;
     }
     profileSaveRunning.current = true;
+    ++loadVersion.current;
+    setSaveError('');
+    setSaved(false);
     setIsSaving(true);
     try {
-      const updateData: Partial<ServiceProfileData> & {perspectiveOperation?: PerspectiveOperation} = {
-      };
+      const updateData: Partial<ServiceProfileData> & {perspectiveOperation?: PerspectiveOperation} = {};
       const hasFieldChanged = <K extends keyof SpecialistProfileData>(field: K) =>
         JSON.stringify(profileData[field]) !== JSON.stringify(originalData[field]);
       const avatarChanged = hasFieldChanged('avatar');
@@ -1040,18 +1059,23 @@ export function SpecialistProfileScreen() {
       assignIfChanged('professionalType', 'professionalType', profileData.professionalType);
       assignIfChanged('bio', 'bio', profileData.bio);
       assignIfChanged('avatar', 'avatar', profileData.avatar);
-      // Send the complete choice groups so the server can validate the resulting selection.
-      if (requiresProfessionalValidation) {
+      if (confirmMatchingReview) {
+        // Re-submit the reviewed selection even when the user kept every option.
         updateData.specialties = profileData.specialties;
         updateData.customSpecialties = profileData.customSpecialties;
         updateData.therapeuticApproaches = profileData.therapeuticApproaches;
         updateData.customTherapeuticApproaches = profileData.customTherapeuticApproaches;
+      } else {
+        assignIfChanged('specialties', 'specialties', profileData.specialties);
+        assignIfChanged('customSpecialties', 'customSpecialties', profileData.customSpecialties);
+        assignIfChanged('therapeuticApproaches', 'therapeuticApproaches', profileData.therapeuticApproaches);
+        assignIfChanged('customTherapeuticApproaches', 'customTherapeuticApproaches', profileData.customTherapeuticApproaches);
       }
       if (perspectiveChanged) {
         if (perspective.publish && perspective.noticeVersion) updateData.perspectiveOperation = {action: 'publish', religionCode: perspective.religionCode, religionOtherText: perspective.religionCode === 'other' ? perspective.religionOtherText.trim() : null, noticeVersion: perspective.noticeVersion};
         else if (originalData.perspective.hasDeclaration) updateData.perspectiveOperation = {action: 'delete'};
       }
-      assignIfChanged('therapeuticApproaches', 'therapeuticApproaches', profileData.therapeuticApproaches);
+
       assignIfChanged('declaredGender', 'declaredGender', profileData.declaredGender);
       assignIfChanged('practiceContexts', 'practiceContexts', profileData.practiceContexts);
       assignIfChanged('languages', 'languages', profileData.languages);
@@ -1066,12 +1090,14 @@ export function SpecialistProfileScreen() {
       assignIfChanged('showAge', 'showAge', profileData.showAge);
       assignIfChanged('yearsInPractice', 'yearsInPractice', experienceInput === '' ? null : Number(experienceInput));
 
-      assignIfChanged('officeAddress', 'officeAddress', profileData.officeAddress);
-      assignIfChanged('officeCity', 'officeCity', profileData.officeCity);
-      assignIfChanged('officePostalCode', 'officePostalCode', profileData.officePostalCode);
-      assignIfChanged('officeCountry', 'officeCountry', profileData.officeCountry);
-      assignIfChanged('officeLat', 'officeLat', profileData.officeLat);
-      assignIfChanged('officeLng', 'officeLng', profileData.officeLng);
+      if (profileData.offersInPerson) {
+        assignIfChanged('officeAddress', 'officeAddress', profileData.officeAddress);
+        assignIfChanged('officeCity', 'officeCity', profileData.officeCity);
+        assignIfChanged('officePostalCode', 'officePostalCode', profileData.officePostalCode);
+        assignIfChanged('officeCountry', 'officeCountry', profileData.officeCountry);
+        assignIfChanged('officeLat', 'officeLat', profileData.officeLat);
+        assignIfChanged('officeLng', 'officeLng', profileData.officeLng);
+      }
       assignIfChanged('offersOnline', 'offersOnline', profileData.offersOnline);
       assignIfChanged('offersInPerson', 'offersInPerson', profileData.offersInPerson);
 
@@ -1084,13 +1110,15 @@ export function SpecialistProfileScreen() {
         setAvatarLoadFailed(false);
       }
       if (hasFieldChanged('phone')) updateUser({ phone: mappedData.phone });
-      setProfileData(mappedData);
-      setOriginalData(mappedData);
+      ++loadVersion.current;
+      const savedProfile = reconcileProfile(originalData, baseline.current, mappedData);
+      setProfileData(draft => reconcileProfile(profileData, draft, savedProfile));
+      setOriginalData(savedProfile);
       await refreshCompletion();
-      if (notifySuccess) showAppAlert(appAlert, 'Cambios guardados', 'Tu perfil ha sido actualizado correctamente');
+      if (notifySuccess) setSaved(true);
       return true;
     } catch (error: unknown) {
-      // API errors can contain sensitive form data; show only the safe user-facing message.
+      setSaveError(getErrorMessage(error, 'Revisa los datos introducidos e inténtalo de nuevo.'));
       showAppAlert(
         appAlert,
         'No se pudo guardar el perfil',
@@ -1101,7 +1129,7 @@ export function SpecialistProfileScreen() {
       profileSaveRunning.current = false;
       setIsSaving(false);
     }
-  }, [hasChanges, originalData, profileData, refreshCompletion, updateUser]);
+  }, [confirmMatchingReview, hasChanges, originalData, profileData, refreshCompletion, updateUser, openConsultationInsurance, appAlert]);
 
   const handleVideoSetup = async () => {
     if (!await handleSave(false)) return;
@@ -1184,9 +1212,17 @@ export function SpecialistProfileScreen() {
   const handleCopyShareUrl = useCallback(async () => {
     if (!shareProfileUrl) return;
 
-    await Clipboard.setStringAsync(shareProfileUrl);
-    setHasCopiedShareUrl(true);
-  }, [shareProfileUrl]);
+    try {
+      if (await Clipboard.setStringAsync(shareProfileUrl)) {
+        setHasCopiedShareUrl(true);
+        return;
+      }
+    } catch {
+      // The browser may deny clipboard access.
+    }
+    setHasCopiedShareUrl(false);
+    showAppAlert(appAlert, 'No se pudo copiar el enlace', shareProfileUrl);
+  }, [appAlert, shareProfileUrl]);
 
   const handleNativeShareSheet = useCallback(async () => {
     if (!shareProfileUrl) return;
@@ -1237,10 +1273,11 @@ export function SpecialistProfileScreen() {
 
       setIsUploadingInsurance(true);
       const result = await professionalService.uploadInsuranceDocument(asset);
+      ++loadVersion.current;
 
       setProfileData(prev => ({
         ...prev,
-        insuranceUploaded: true,
+        insuranceUploaded: result.insuranceUploaded,
         insuranceReviewStatus: result.insuranceReviewStatus,
         insuranceReviewedAt: null,
         insuranceRejectedReason: null,
@@ -1248,7 +1285,7 @@ export function SpecialistProfileScreen() {
       }));
       setOriginalData(prev => ({
         ...prev,
-        insuranceUploaded: true,
+        insuranceUploaded: result.insuranceUploaded,
         insuranceReviewStatus: result.insuranceReviewStatus,
         insuranceReviewedAt: null,
         insuranceRejectedReason: null,
@@ -1288,7 +1325,9 @@ export function SpecialistProfileScreen() {
   const handleDeleteInsuranceDocument = useCallback(() => {
     const doDelete = async () => {
       try {
+        setDeletingInsurance(true);
         const result = await professionalService.deleteInsuranceDocument();
+        ++loadVersion.current;
 
         setProfileData(prev => ({
           ...prev,
@@ -1315,18 +1354,20 @@ export function SpecialistProfileScreen() {
           'No se pudo eliminar la póliza',
           getErrorMessage(error, 'Vuelve a intentarlo en unos segundos.'),
         );
+      } finally {
+        setDeletingInsurance(false);
       }
     };
 
     showAppAlert(appAlert,
       'Eliminar póliza',
-      'Si eliminas la póliza, desactivaremos las sesiones presenciales hasta que subas una nueva.',
+      'Al eliminar este documento privado se desactivarán las sesiones presenciales. Tu ubicación quedará oculta y tu perfil dejará de aparecer en el filtro presencial. Para volver a activarlas, tendrás que subir una nueva póliza y guardar la modalidad.',
       [
         { text: 'Cancelar', style: 'cancel' },
         { text: 'Eliminar', style: 'destructive', onPress: () => void doDelete() },
       ]
     );
-  }, [refreshCompletion]);
+  }, [appAlert, refreshCompletion]);
 
   const handleCreateCertificate = useCallback(async () => {
     if (isUploadingCertificate) {
@@ -1476,6 +1517,7 @@ export function SpecialistProfileScreen() {
       startYear: '',
       endYear: '',
     };
+    setExpandedEntry('education-' + newEducation.id);
     setProfileData(prev => ({
       ...prev,
       education: [...prev.education, newEducation],
@@ -1492,6 +1534,8 @@ export function SpecialistProfileScreen() {
   }, []);
 
   const removeEducation = useCallback((id: string) => {
+    setExpandedEntry(null);
+    requestAnimationFrame(() => addEducationRef.current?.focus());
     setProfileData(prev => ({
       ...prev,
       education: prev.education.filter(edu => edu.id !== id),
@@ -1507,6 +1551,7 @@ export function SpecialistProfileScreen() {
       endYear: null,
       current: false,
     };
+    setExpandedEntry('experience-' + newExperience.id);
     setProfileData(prev => ({
       ...prev,
       experience: [...prev.experience, newExperience],
@@ -1523,6 +1568,8 @@ export function SpecialistProfileScreen() {
   }, []);
 
   const removeExperience = useCallback((id: string) => {
+    setExpandedEntry(null);
+    requestAnimationFrame(() => addExperienceRef.current?.focus());
     setProfileData(prev => ({
       ...prev,
       experience: prev.experience.filter(exp => exp.id !== id),
@@ -1535,179 +1582,95 @@ export function SpecialistProfileScreen() {
 
   const needsContactPhone = !originalData.phone.trim();
 
-  const tabs: { id: ProfileTab; label: string; icon: IconName; pendingCount?: number }[] = [
+  const tabs: { id: ProfileTab; label: string; icon: IconName; pendingHint?: string }[] = [
     {
       id: 'information',
-      label: 'Información Profesional',
+      label: 'Información profesional',
       icon: 'person-outline',
-      pendingCount: informationCompletionCount,
     },
     { id: 'mi-espacio', label: STRINGS.miEspacio.tabLabel, icon: 'sparkles-outline' },
     {
       id: 'credentials',
       label: 'Credenciales',
       icon: 'shield-checkmark-outline',
-      pendingCount: credentialsCompletionCount,
+      pendingHint: hasCompletionIssue('PROFESSIONAL_VERIFICATION') || hasCompletionIssue('PROFESSIONAL_INSURANCE') ? 'Credenciales pendientes' : undefined,
     },
     {
       id: 'pricing',
       label: 'Facturación',
       icon: 'card-outline',
-      pendingCount: billingCompletionCount,
+      pendingHint: hasCompletionIssue('PROFESSIONAL_BILLING') ? 'Datos fiscales pendientes' : undefined,
     },
     { id: 'privacy', label: 'Privacidad', icon: 'eye-outline' },
     { id: 'google', label: 'Google', icon: 'logo-google' },
-    { id: 'account', label: 'Cuenta', icon: 'settings-outline', pendingCount: needsContactPhone ? 1 : 0 },
+    { id: 'account', label: 'Cuenta', icon: 'settings-outline', pendingHint: needsContactPhone ? 'Teléfono recomendado pendiente' : undefined },
   ];
 
   const canShareProfile = isProfessionalVerified && Boolean(specialistId);
-  const renderTabNavigation = () => (
-    <TourTarget id="professional.profile.tabs" fill style={styles.fullWidthTourTarget}>
-      <View style={[styles.tabsContainer, isDesktop && styles.tabsContainerDesktop]}>
-        <View style={[styles.topBar, isDesktop ? styles.topBarDesktop : styles.topBarMobile]}>
-          {!isMobile ? <View style={styles.topBarContent}>
-            <Text style={styles.topBarTitle}>Editar perfil</Text>
-          </View> : null}
-
-          <View style={styles.topBarActions}>
-            <TourTarget id="professional.profile.preview" fill>
-              <Button
-                variant="outline"
-                size="small"
-                onPress={handleViewPublicProfile}
-                icon={<Ionicons name="eye-outline" size={16} color={palette.primary} />}
-                style={{ ...styles.topBarActionButton }}
-                textStyle={{ ...styles.topBarActionText }}
-              >
-                {isMobile ? 'Vista' : 'Vista previa'}
-              </Button>
-            </TourTarget>
-
-            {canShareProfile ? (
-              <Button
-                variant="outline"
-                size="small"
-                onPress={handleShareProfile}
-                icon={<Ionicons name="link-outline" size={16} color={palette.primary} />}
-                style={{ ...styles.topBarActionButton }}
-                textStyle={{ ...styles.topBarActionText }}
-              >
-                {isMobile ? 'Enlace' : 'Enlace público'}
-              </Button>
-            ) : null}
-
-            <TourTarget id="professional.profile.visibility" fill>
-              <DirectoryVisibilityStatus
-                status={directoryStatus}
-                hasChanges={hasChanges}
-                inPersonInsurancePending={originalData.offersInPerson && originalData.insuranceReviewStatus !== 'APPROVED'}
-                onAction={(action) => {
-                  if (action === 'pricing') {
-                    if (hasChanges) {
-                      showAppAlert(appAlert, 'Tienes cambios sin guardar', 'Guarda los cambios del perfil antes de ir a configurar el precio.');
-                      return;
-                    }
-                    navigateProfessionalSection(navigation, 'ProfessionalBilling');
-                  } else {
-                    setActiveTab(action);
-                    formScrollRef.current?.scrollTo({ y: 0, animated: true });
-                  }
-                }}
-                onRetry={() => {
-                  void professionalService.getComprehensiveProfile()
-                    .then((profile) => setDirectoryStatus(profile?.directoryStatus ?? null))
-                    .catch(() => setDirectoryStatus(null));
-                }}
-              />
-            </TourTarget>
-
-            <TourTarget id="professional.profile.save" fill>
-              <Button
-                variant="primary"
-                size="small"
-                onPress={handleSave}
-                disabled={!hasChanges || isSaving}
-                loading={isSaving}
-                icon={(
-                  <Ionicons
-                    name="checkmark-circle-outline"
-                    size={16}
-                    color={hasChanges ? palette.textOnCard : palette.textMuted}
-                  />
-                )}
-                style={{
-                  ...styles.topBarActionButton,
-                  ...styles.topBarSaveButton,
-                  ...(!hasChanges ? styles.topBarSaveButtonDisabled : {}),
-                }}
-                textStyle={{
-                  ...styles.topBarActionText,
-                  ...styles.topBarSaveText,
-                  ...(!hasChanges ? styles.topBarSaveTextDisabled : {}),
-                }}
-              >
-                {isMobile ? 'Guardar' : 'Guardar cambios'}
-              </Button>
-            </TourTarget>
-          </View>
+  const selectTab = (tab: ProfileTab) => {
+    setSaved(false);
+    setMenu(null);
+    setPendingSection(null);
+    setActiveTab(tab);
+    setReturnToConsultation(false);
+    formScrollRef.current?.scrollTo({ y: 0, animated: false });
+  };
+  const selectPart = (next: InformationPart) => {
+    selectTab('information');
+    setPart(next);
+  };
+  const renderParts = (nested = false) => (Object.keys(informationParts) as InformationPart[]).map(key => (
+    <ProfileEditorItem key={key} nested={nested} label={informationParts[key]} pendingHint={pendingParts[key] ? informationParts[key] + ' por completar' : undefined} selected={part === key} onPress={() => selectPart(key)} />
+  ));
+  const renderDestinations = (withParts = false) => tabs.map(tab => (
+    <React.Fragment key={tab.id}>
+      <ProfileEditorItem label={tab.label} icon={tab.icon} pendingHint={tab.pendingHint} selected={activeTab === tab.id} onPress={() => selectTab(tab.id)} />
+      {withParts && activeTab === 'information' && tab.id === 'information' && renderParts(true)}
+    </React.Fragment>
+  ));
+  const title = activeTab === 'information' && part !== 'identity' ? informationParts[part] : tabs.find(tab => tab.id === activeTab)?.label;
+  const intro = activeTab === 'information' ? subtitles[part] : activeTab !== 'agenda' ? subtitles[activeTab] : '';
+  const buttonIcon = (name: IconName) => <Ionicons name={name} size={17} color={theme.textPrimary} />;
+  const saveAction = <Button size="small" disabled={isSaving || isUploadingInsurance || deletingInsurance || !hasChanges}
+    accessibilityState={{ busy: isSaving }} onPress={() => void handleSave()}>{isSaving ? 'Guardando…' : saveError ? 'Reintentar' : 'Guardar'}</Button>;
+  const renderDirectoryStatus = (embedded = false) => (
+    <DirectoryVisibilityStatus embedded={embedded} status={directoryStatus} hasChanges={hasChanges}
+      inPersonInsurancePending={originalData.offersInPerson && originalData.insuranceReviewStatus !== 'APPROVED'}
+      onRetry={() => { void loadProfile(); }}
+      onInsurance={() => { selectTab('credentials'); setPendingSection('insurance'); }}
+      onAction={action => {
+        if (action === 'pricing') {
+          setMenu(null);
+          if (hasChanges) showAppAlert(appAlert, 'Tienes cambios sin guardar', 'Guarda los cambios del perfil antes de ir a configurar el precio.');
+          else navigateProfessionalSection(navigation, 'ProfessionalBilling');
+        } else {
+          selectTab(action);
+          if (action === 'credentials') setPendingSection('verification');
+        }
+      }} />
+  );
+  const previewAction = (
+    <TourTarget id="professional.profile.preview">
+      <Button size="small" variant="ghost" icon={buttonIcon('open-outline')}
+        accessibilityLabel="Ver perfil publicado" onPress={handleViewPublicProfile}>Perfil publicado</Button>
+    </TourTarget>
+  );
+  const renderNavigation = () => (
+    <TourTarget id="professional.profile.save" active={!hasChanges && !isSaving}>
+      <View style={styles.editorBar}>
+        <View style={styles.barLead}>
+          {isDesktop ? <Text accessibilityRole="header" style={styles.topBarTitle}>Editar perfil</Text> :
+            <TourTarget id="professional.profile.tabs"><Button size="small" variant="outline" icon={buttonIcon('list-outline')}
+              accessibilityLabel={'Secciones, actual: ' + tabs.find(tab => tab.id === activeTab)?.label} onPress={() => setMenu('sections')}>Secciones</Button></TourTarget>}
+          {isMobile && previewAction}
         </View>
-
-
-        <ScrollView
-          horizontal
-          ref={tabsScrollRef}
-          onLayout={() => { if (activeTab === 'account' || activeTab === 'google') tabsScrollRef.current?.scrollToEnd({ animated: false }); }}
-          onContentSizeChange={() => { if (activeTab === 'account' || activeTab === 'google') tabsScrollRef.current?.scrollToEnd({ animated: false }); }}
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={isDesktop ? styles.tabsDesktop : styles.tabsMobile}
-        >
-          {tabs.map((tab) => (
-            <AnimatedPressable
-              key={tab.id}
-              accessibilityRole="tab"
-              accessibilityLabel={tab.label}
-              accessibilityHint={tab.id === 'account' && needsContactPhone ? 'Teléfono recomendado pendiente. Abre el campo para completarlo.' : undefined}
-              accessibilityState={{ selected: activeTab === tab.id }}
-              style={{
-                ...styles.tab,
-                ...(isDesktop ? styles.tabDesktop : {}),
-                ...(activeTab === tab.id ? styles.tabActive : {}),
-                ...(isDesktop && activeTab === tab.id ? styles.tabActiveDesktop : {}),
-              }}
-              onPress={() => {
-                setActiveTab(tab.id);
-                setPendingSection(tab.id === 'account' && needsContactPhone ? 'phone' : null);
-                formScrollRef.current?.scrollTo({ y: 0, animated: false });
-              }}
-              hoverLift={false}
-              pressScale={0.985}
-            >
-              <Ionicons
-                name={tab.icon}
-                size={isDesktop ? 20 : 18}
-                color={activeTab === tab.id ? palette.primary : palette.textSecondary}
-              />
-              <Text
-                style={[
-                  styles.tabText,
-                  isDesktop ? styles.tabTextDesktop : {},
-                  activeTab === tab.id ? styles.tabTextActive : {},
-                ]}
-                numberOfLines={1}
-              >
-                {tab.label}
-              </Text>
-              {tab.pendingCount ? (
-                <View
-                  style={styles.tabPendingBadge}
-                  accessibilityLabel={tab.id === 'account' ? 'Teléfono recomendado pendiente' : `${tab.pendingCount} apartados pendientes`}
-                >
-                  <Text style={styles.tabPendingBadgeText}>{tab.pendingCount}</Text>
-                </View>
-              ) : null}
-            </AnimatedPressable>
-          ))}
-        </ScrollView>
+        <View style={styles.barActions}>
+          {!isMobile && previewAction}
+          {canShareProfile && <Button size="small" variant="outline" icon={buttonIcon('link-outline')}
+            accessibilityLabel="Enlace público" onPress={handleShareProfile}>Enlace público</Button>}
+          <TourTarget id="professional.profile.visibility">{renderDirectoryStatus()}</TourTarget>
+          {isDesktop && (hasChanges || isSaving) && <TourTarget id="professional.profile.save">{saveAction}</TourTarget>}
+        </View>
       </View>
     </TourTarget>
   );
@@ -1733,6 +1696,7 @@ export function SpecialistProfileScreen() {
       maxLength?: number;
       characterCount?: boolean;
       compactSpacing?: boolean;
+      autoFocus?: boolean;
       alignVerificationLabel?: boolean;
     }
   ) => {
@@ -1781,6 +1745,7 @@ export function SpecialistProfileScreen() {
             multiline && styles.fieldInputMultiline,
             multiline && { minHeight: numberOfLines * 24 + 24 },
           ]}
+          autoFocus={options?.autoFocus}
           value={value}
           accessibilityLabel={label}
           accessibilityState={{ disabled }}
@@ -1998,62 +1963,37 @@ export function SpecialistProfileScreen() {
     const color = isCritical ? theme.error : theme.warningAmber;
 
     return (
-      <View
-        style={[
-          styles.completionWarning,
-          isCritical ? styles.completionWarningCritical : null,
-        ]}
-        accessible
-        accessibilityLabel={`${title}. ${description}`}
-        accessibilityLiveRegion="polite"
-      >
-        <View style={[styles.completionWarningIcon, { borderColor: color }]}>
-          <Ionicons name="alert" size={13} color={color} />
-        </View>
-        <View style={styles.completionWarningCopy}>
-          <Text style={[styles.completionWarningTitle, { color }]}>{title}</Text>
-          <Text style={styles.completionWarningText}>{description}</Text>
-        </View>
-      </View>
+      <Pressable accessibilityRole="button" accessibilityLabel={title} accessibilityHint={description}
+        style={styles.completionInfoButton} onPress={() => showAppAlert(appAlert, title, description)}>
+        <Ionicons name="information-circle-outline" size={20} color={color} />
+      </Pressable>
     );
   };
 
   const renderInformationTab = () => (
     <View style={styles.tabContent}>
-      {informationCompletionCount > 0 ? (
-        <View style={styles.completionSummary}>
-          <Ionicons name="information-circle-outline" size={20} color={theme.warningAmber} />
-          <View style={styles.completionSummaryCopy}>
-            <Text style={styles.completionSummaryTitle}>
-              {informationCompletionCount === 1
-                ? 'Te queda 1 apartado por completar'
-                : `Te quedan ${informationCompletionCount} apartados por completar`}
-            </Text>
-            <Text style={styles.completionSummaryText}>
-              Estos apartados te ayudan a completar tu ficha; no todos son requisitos para aparecer en el directorio.
-            </Text>
-          </View>
-        </View>
-      ) : null}
-
-      {/* Public Identity Section */}
+      {part === 'identity' && <>
       <View
+        tabIndex={-1} collapsable={false}
         ref={(node) => { sectionRefs.current.identity = node; }}
         style={[
           styles.section,
           highlightedSection === 'identity' ? styles.targetHighlight : null,
         ]}
       >
-        <Text style={styles.sectionTitle}>Identidad pública</Text>
-        {renderCompletionWarning(
-          'PROFILE_IDENTITY',
-          'Identidad profesional incompleta',
-          'Revisa que el nombre completo y el tipo profesional estén informados.',
-        )}
+        <View style={styles.completionHeading}>
+          <Text style={[styles.sectionTitle, styles.inlineSectionTitle]}>Identidad y presentación</Text>
+          {renderCompletionWarning(
+            'PROFILE_IDENTITY',
+            'Identidad profesional incompleta',
+            'Revisa que el nombre completo y el tipo profesional estén informados.',
+          )}
+        </View>
+
         <View style={[styles.formCard, styles.informationCard]}>
           <View style={styles.identityCardLayout}>
             <View style={styles.photoPanel}>
-              <Text style={styles.panelTitle}>Foto de perfil</Text>
+
               <View style={styles.photoSection}>
                 <View style={styles.avatarContainer}>
                   {showProfileAvatar ? (
@@ -2065,7 +2005,7 @@ export function SpecialistProfileScreen() {
                   ) : (
                     <View style={[styles.avatarLarge, { backgroundColor: palette.primary }]}>
                       <Text style={styles.avatarLargeText}>
-                        {profileData.fullName.charAt(0).toUpperCase() || 'P'}
+                        {profileData.fullName.trim().split(/\s+/).filter(Boolean).slice(0, 2).map(word => word[0].toUpperCase()).join('') || 'P'}
                       </Text>
                     </View>
                   )}
@@ -2075,13 +2015,17 @@ export function SpecialistProfileScreen() {
                     </View>
                   )}
                 </View>
+                <View style={{ flex: 1, minWidth: 86 }}>
+                  <Text style={styles.fieldLabel}>Foto de perfil</Text>
+                  <Text style={styles.helperText}>Opcional · Imagen cuadrada</Text>
+                </View>
                 <View style={styles.photoActions}>
                   <Button
                     variant="outline"
                     size="small"
                     onPress={handleImagePick}
                     disabled={isUploadingAvatar}
-                    icon={<Ionicons name="camera-outline" size={18} color={palette.primary} />}
+
                     style={{ ...styles.photoButton }}
                     textStyle={{ ...styles.photoButtonText }}
                   >
@@ -2100,9 +2044,6 @@ export function SpecialistProfileScreen() {
                     </Button>
                   )}
                 </View>
-                <Text style={styles.photoHint}>
-                  Opcional. Recomendamos una foto cuadrada, nítida y con buena iluminación.
-                </Text>
               </View>
             </View>
 
@@ -2129,8 +2070,8 @@ export function SpecialistProfileScreen() {
                   )}
                 </View>
               </View>
-              {renderProfessionalTypeSelector()}
               <View style={styles.formRow}>
+                <View style={styles.formFieldHalf}>{renderProfessionalTypeSelector()}</View>
                 <View style={styles.formFieldHalf}>
                   {/* Colegiado number - read-only, sourced from verification flow */}
                   {renderFormField(
@@ -2144,15 +2085,16 @@ export function SpecialistProfileScreen() {
                           ? 'En revisión'
                           : 'Se completa mediante la verificación profesional',
                       required: false,
-                      verified: verificationStatus.verificationStatus === 'VERIFIED',
+                      verified: verificationKnown ? isProfessionalVerified : undefined,
                       alignVerificationLabel: true,
                       disabled: true,
                       helperText: 'Se actualiza desde Credenciales.',
                     }
                   )}
                 </View>
-                <View style={styles.formFieldHalf}>
-                  {renderFormField(
+              </View>
+              <ProfessionalBirthdayEditor leadingField={
+                  renderFormField(
                     'Años de experiencia (opcional)',
                     profileData.yearsInPractice,
                     (text) => updateField('yearsInPractice', text),
@@ -2163,33 +2105,35 @@ export function SpecialistProfileScreen() {
                       helperText: 'Dato declarado por ti, visible en tu perfil y en el directorio. Cuenta años completos de ejercicio, sin estudios ni periodos simultáneos. Déjalo vacío para no mostrarlo.',
                     }
                   )}
-                </View>
-              </View>
-              <ProfessionalBirthdayEditor birthDate={profileData.birthDate} showAge={profileData.showAge}
+                birthDate={profileData.birthDate} showAge={profileData.showAge}
                 onChange={(birthDate, showAge) => setProfileData(current => ({ ...current, birthDate, showAge }))} />
             </View>
           </View>
         </View>
       </View>
 
-      <View style={styles.informationSplitGrid}>
+
         {/* Professional Bio Section */}
         <View
-          ref={(node) => { sectionRefs.current.bio = node; }}
+          tabIndex={-1} collapsable={false}
+        ref={(node) => { sectionRefs.current.bio = node; }}
           style={[
             styles.section,
             styles.descriptionSection,
             highlightedSection === 'bio' ? styles.targetHighlight : null,
           ]}
         >
-          <Text style={styles.sectionTitle}>Descripción profesional</Text>
-          {renderCompletionWarning(
-            'PROFILE_BIO',
-            'Descripción profesional incompleta',
-            profileData.bio.trim().length < 150
-              ? `Te faltan ${150 - profileData.bio.trim().length} caracteres para alcanzar el mínimo de 150.`
-              : 'Ya alcanzaste el mínimo. Guarda los cambios para actualizar el estado del perfil.',
-          )}
+          <View style={styles.completionHeading}>
+            <Text style={[styles.sectionTitle, styles.inlineSectionTitle]}>Descripción profesional</Text>
+            {renderCompletionWarning(
+              'PROFILE_BIO',
+              'Descripción profesional incompleta',
+              profileData.bio.trim().length < 150
+                ? `Te faltan ${150 - profileData.bio.trim().length} caracteres para alcanzar el mínimo de 150.`
+                : 'Ya alcanzaste el mínimo. Guarda los cambios para actualizar el estado del perfil.',
+            )}
+          </View>
+
           <View style={[styles.formCard, styles.informationCard, styles.splitEqualCard]}>
             <View style={styles.descriptionPane}>
               {renderFormField(
@@ -2210,21 +2154,27 @@ export function SpecialistProfileScreen() {
           </View>
         </View>
 
+      </>}
+      {part === 'consultation' && <>
         {/* Modality Section */}
         <View
-          ref={(node) => { sectionRefs.current.modality = node; }}
+          tabIndex={-1} collapsable={false}
+        ref={(node) => { sectionRefs.current.modality = node; }}
           style={[
             styles.section,
             styles.modalitySection,
             highlightedSection === 'modality' ? styles.targetHighlight : null,
           ]}
         >
-          <Text style={styles.sectionTitle}>Modalidad de sesiones</Text>
-          {renderCompletionWarning(
-            'PROFILE_MODALITY',
-            'Modalidad pendiente',
-            'Selecciona al menos una modalidad: sesiones online o presenciales.',
-          )}
+          <View style={styles.completionHeading}>
+            <Text style={[styles.sectionTitle, styles.inlineSectionTitle]}>Modalidad de sesiones</Text>
+            {renderCompletionWarning(
+              'PROFILE_MODALITY',
+              'Modalidad pendiente',
+              'Selecciona al menos una modalidad: sesiones online o presenciales.',
+            )}
+          </View>
+
           <View style={[styles.formCard, styles.informationCard, styles.splitEqualCard]}>
             <View style={styles.formField}>
               <Text style={styles.fieldHelper}>Selecciona cómo ofreces tus sesiones</Text>
@@ -2236,7 +2186,7 @@ export function SpecialistProfileScreen() {
                   ]}
                   onPress={() => updateField('offersOnline', !profileData.offersOnline)}
                   accessibilityRole="checkbox"
-                  accessibilityState={{ checked: profileData.offersOnline }}
+                  aria-checked={profileData.offersOnline} accessibilityState={{ checked: profileData.offersOnline }}
                   activeOpacity={0.7}
                 >
                   <Ionicons
@@ -2255,7 +2205,7 @@ export function SpecialistProfileScreen() {
                   ]}
                   onPress={() => updateField('offersInPerson', !profileData.offersInPerson)}
                   accessibilityRole="checkbox"
-                  accessibilityState={{ checked: profileData.offersInPerson }}
+                  aria-checked={profileData.offersInPerson} accessibilityState={{ checked: profileData.offersInPerson }}
                   activeOpacity={0.7}
                 >
                   <Ionicons
@@ -2299,29 +2249,35 @@ export function SpecialistProfileScreen() {
                   <View style={styles.presentialStatusCopy}>
                     <Text style={styles.presentialStatusTitle}>{insuranceReviewCopy.title}</Text>
                     <Text style={styles.presentialStatusText}>{insuranceReviewCopy.description}</Text>
+                    <Button variant="ghost" size="small" style={styles.startButton} onPress={openConsultationInsurance}>
+                      {profileData.insuranceUploaded ? 'Revisar póliza en Credenciales' : 'Subir póliza en Credenciales'}
+                    </Button>
                   </View>
                 </View>
               ) : null}
             </View>
           </View>
         </View>
-      </View>
 
       {/* Office Location (only if in-person is offered) */}
       {profileData.offersInPerson && (
         <View
-          ref={(node) => { sectionRefs.current.location = node; }}
+          tabIndex={-1} collapsable={false}
+        ref={(node) => { sectionRefs.current.location = node; }}
           style={[
             styles.section,
             highlightedSection === 'location' ? styles.targetHighlight : null,
           ]}
         >
-          <Text style={styles.sectionTitle}>Ubicación presencial</Text>
-          {renderCompletionWarning(
-            'PROFILE_LOCATION',
-            'Ubicación presencial incompleta',
-            'Completa la dirección, la ciudad, el código postal y el país de la consulta.',
-          )}
+          <View style={styles.completionHeading}>
+            <Text style={[styles.sectionTitle, styles.inlineSectionTitle]}>Ubicación presencial</Text>
+            {renderCompletionWarning(
+              'PROFILE_LOCATION',
+              'Ubicación presencial incompleta',
+              'Completa la dirección, la ciudad, el código postal y el país de la consulta.',
+            )}
+          </View>
+
           <View style={[styles.formCard, styles.informationCard, styles.locationCard]}>
             <View style={styles.locationLayout}>
               <View style={styles.locationFieldsPane}>
@@ -2330,9 +2286,10 @@ export function SpecialistProfileScreen() {
                   <Text style={styles.fieldHelper}>
                     {profileData.locationVisibleToPatients
                       ? 'Visible para clientes que reserven sesiones presenciales'
-                      : 'No se mostrará hasta aprobar la póliza'}
+                      : 'La ubicación sigue oculta para los pacientes.'}
                   </Text>
                   <AddressAutocomplete
+                    onTextChange={value => editOfficeAddress('officeAddress', value)}
                     value={profileData.officeAddress}
                     placeholder="Buscar dirección..."
                     onAddressSelect={(details) => {
@@ -2351,7 +2308,7 @@ export function SpecialistProfileScreen() {
                     {renderFormField(
                       'Ciudad',
                       profileData.officeCity,
-                      (text) => updateField('officeCity', text),
+                      (text) => editOfficeAddress('officeCity', text),
                       { placeholder: 'Madrid' }
                     )}
                   </View>
@@ -2359,21 +2316,22 @@ export function SpecialistProfileScreen() {
                     {renderFormField(
                       'Código postal',
                       profileData.officePostalCode,
-                      (text) => updateField('officePostalCode', text),
+                      (text) => editOfficeAddress('officePostalCode', text),
                       { placeholder: '28001', keyboardType: 'numeric' }
                     )}
                   </View>
                 </View>
+                {renderFormField('País', profileData.officeCountry, country => editOfficeAddress('officeCountry', country))}
               </View>
 
               {/* Map Preview */}
-              {profileData.officeLat && profileData.officeLng && (
+              {profileData.officeLat != null && profileData.officeLng != null && (
                 <View style={styles.locationMapPane}>
                   <Text style={styles.fieldLabel}>Vista previa del mapa</Text>
                   <Text style={styles.fieldHelper}>
                     {profileData.locationVisibleToPatients
                       ? 'Así ven ya los clientes la ubicación de tu consulta'
-                      : 'Esta vista previa es interna hasta que aprobemos tu cobertura presencial'}
+                      : 'Vista previa privada de la ubicación de tu consulta'}
                   </Text>
                   <LocationMapPreview
                     lat={profileData.officeLat}
@@ -2389,8 +2347,10 @@ export function SpecialistProfileScreen() {
         </View>
       )}
 
-      {/* Specialties Section */}
+      </>}
+      {part === 'practice' && (
       <View
+        tabIndex={-1} collapsable={false}
         ref={(node) => { sectionRefs.current.matching = node; }}
         style={[
           styles.section,
@@ -2398,12 +2358,8 @@ export function SpecialistProfileScreen() {
           highlightedSection === 'matching' ? styles.targetHighlight : null,
         ]}
       >
-        <Text style={styles.sectionTitle}>Tu práctica y tu perfil</Text>
-        {renderCompletionWarning(
-          'PROFILE_MATCHING',
-          'Información profesional pendiente',
-          getMatchingCompletionDescription(profileData),
-        )}
+
+
         <ProfessionalMatchingEditor
           declaredGender={profileData.declaredGender}
           practiceContexts={profileData.practiceContexts}
@@ -2420,6 +2376,7 @@ export function SpecialistProfileScreen() {
           perspective={profileData.perspective}
           onPerspectiveChange={value => updateField('perspective', value)}
           busy={isSaving}
+          hasChanges={hasChanges}
           specialties={profileData.specialties}
           approaches={profileData.therapeuticApproaches}
           languages={profileData.languages}
@@ -2429,7 +2386,8 @@ export function SpecialistProfileScreen() {
         />
       </View>
 
-      <View style={styles.informationLowerGrid}>
+      )}
+      {part === 'trajectory' && <View style={styles.informationLowerGrid}>
         {/* Education Section */}
         <View style={[styles.section, styles.informationHalfSection]}>
           <View style={styles.sectionHeader}>
@@ -2437,6 +2395,7 @@ export function SpecialistProfileScreen() {
             <Button
               variant="outline"
               size="small"
+              focusRef={addEducationRef}
               onPress={addEducation}
               icon={<Ionicons name="add" size={18} color={palette.primary} />}
               style={{ ...styles.addButton }}
@@ -2447,65 +2406,28 @@ export function SpecialistProfileScreen() {
           </View>
 
           {profileData.education.length === 0 ? (
-            <View style={styles.emptyState}>
-              <Ionicons name="school-outline" size={40} color={palette.textMuted} />
-              <Text style={styles.emptyStateTitle}>No has añadido formación</Text>
-              <Text style={styles.emptyStateDescription}>
-                Comparte tus títulos y certificaciones para que los clientes conozcan tu preparación.
-              </Text>
-            </View>
+            <Text style={styles.trajectoryEmpty}>Todavía no has añadido formación.</Text>
           ) : (
             <View style={styles.itemsList}>
               {profileData.education.map((edu) => (
-                <View key={edu.id} style={styles.itemCard}>
-                  <View style={styles.itemIcon}>
-                    <Ionicons name="school" size={20} color={palette.primary} />
-                  </View>
-                  <View style={styles.itemContent}>
-                    <TextInput
-                      style={styles.itemInput}
-                      value={edu.degree}
-                      onChangeText={(text) => updateEducation(edu.id, 'degree', text)}
-                      placeholder="Título (ej: Máster en Psicología Clínica)"
-                      placeholderTextColor={palette.textMuted}
-                    />
-                    <TextInput
-                      style={styles.itemInputSmall}
-                      value={edu.institution}
-                      onChangeText={(text) => updateEducation(edu.id, 'institution', text)}
-                      placeholder="Institución"
-                      placeholderTextColor={palette.textMuted}
-                    />
-                    <View style={styles.itemRow}>
-                      <TextInput
-                        style={[styles.itemInputSmall, styles.itemInputYear]}
-                        value={edu.startYear}
-                        onChangeText={(text) => updateEducation(edu.id, 'startYear', text)}
-                        placeholder="Año inicio"
-                        placeholderTextColor={palette.textMuted}
-                        keyboardType="numeric"
-                        maxLength={4}
-                      />
-                      <Text style={styles.itemSeparator}>-</Text>
-                      <TextInput
-                        style={[styles.itemInputSmall, styles.itemInputYear]}
-                        value={edu.endYear}
-                        onChangeText={(text) => updateEducation(edu.id, 'endYear', text)}
-                        placeholder="Año fin"
-                        placeholderTextColor={palette.textMuted}
-                        keyboardType="numeric"
-                        maxLength={4}
-                      />
+                <TrajectoryEntry key={edu.id} kind="formación" title={edu.degree} organization={edu.institution}
+                  startYear={edu.startYear} endYear={edu.endYear}
+                  expanded={expandedEntry === 'education-' + edu.id}
+                  onToggle={() => setExpandedEntry(current => current === 'education-' + edu.id ? null : 'education-' + edu.id)}
+                  onRemove={() => removeEducation(edu.id)}>
+                    <View style={styles.trajectoryFields}>
+                      <View style={styles.formFieldHalf}>{renderFormField('Título de la formación', edu.degree,
+                        value => updateEducation(edu.id, 'degree', value), { compactSpacing: true, autoFocus: true })}</View>
+                      <View style={styles.formFieldHalf}>{renderFormField('Institución', edu.institution,
+                        value => updateEducation(edu.id, 'institution', value), { compactSpacing: true, placeholder: 'Universidad o centro' })}</View>
                     </View>
-                  </View>
-                  <TouchableOpacity
-                    style={styles.itemRemove}
-                    onPress={() => removeEducation(edu.id)}
-                    activeOpacity={0.7}
-                  >
-                    <Ionicons name="close-circle" size={22} color={palette.warning} />
-                  </TouchableOpacity>
-                </View>
+                    <View style={styles.trajectoryFields}>
+                      <View style={styles.formFieldHalf}>{renderFormField('Año inicial', edu.startYear,
+                        value => updateEducation(edu.id, 'startYear', value), { compactSpacing: true, keyboardType: 'numeric', maxLength: 4, placeholder: 'AAAA' })}</View>
+                      <View style={styles.formFieldHalf}>{renderFormField('Año final', edu.endYear || '',
+                        value => updateEducation(edu.id, 'endYear', value), { compactSpacing: true, keyboardType: 'numeric', maxLength: 4, placeholder: 'AAAA' })}</View>
+                    </View>
+                </TrajectoryEntry>
               ))}
             </View>
           )}
@@ -2518,6 +2440,7 @@ export function SpecialistProfileScreen() {
             <Button
               variant="outline"
               size="small"
+              focusRef={addExperienceRef}
               onPress={addExperience}
               icon={<Ionicons name="add" size={18} color={palette.primary} />}
               style={{ ...styles.addButton }}
@@ -2528,88 +2451,39 @@ export function SpecialistProfileScreen() {
           </View>
 
           {profileData.experience.length === 0 ? (
-            <View style={styles.emptyState}>
-              <Ionicons name="briefcase-outline" size={40} color={palette.textMuted} />
-              <Text style={styles.emptyStateTitle}>No has añadido puestos</Text>
-              <Text style={styles.emptyStateDescription}>
-                Añade tu experiencia para que los clientes conozcan tu trayectoria.
-              </Text>
-            </View>
+            <Text style={styles.trajectoryEmpty}>Todavía no has añadido experiencia profesional.</Text>
           ) : (
             <View style={styles.itemsList}>
               {profileData.experience.map((exp) => (
-                <View key={exp.id} style={styles.itemCard}>
-                  <View style={styles.itemIcon}>
-                    <Ionicons name="briefcase" size={20} color={palette.primary} />
-                  </View>
-                  <View style={styles.itemContent}>
-                    <TextInput
-                      style={styles.itemInput}
-                      value={exp.position}
-                      onChangeText={(text) => updateExperience(exp.id, 'position', text)}
-                      placeholder="Puesto (ej: Psicóloga Clínica)"
-                      placeholderTextColor={palette.textMuted}
-                    />
-                    <TextInput
-                      style={styles.itemInputSmall}
-                      value={exp.organization}
-                      onChangeText={(text) => updateExperience(exp.id, 'organization', text)}
-                      placeholder="Organización"
-                      placeholderTextColor={palette.textMuted}
-                    />
-                    <View style={styles.itemRow}>
-                      <TextInput
-                        style={[styles.itemInputSmall, styles.itemInputYear]}
-                        value={exp.startYear}
-                        onChangeText={(text) => updateExperience(exp.id, 'startYear', text)}
-                        placeholder="Inicio"
-                        placeholderTextColor={palette.textMuted}
-                        keyboardType="numeric"
-                        maxLength={4}
-                      />
-                      <Text style={styles.itemSeparator}>-</Text>
-                      {exp.current ? (
-                        <View style={styles.currentBadge}>
-                          <Text style={styles.currentBadgeText}>Presente</Text>
-                        </View>
-                      ) : (
-                        <TextInput
-                          style={[styles.itemInputSmall, styles.itemInputYear]}
-                          value={exp.endYear || ''}
-                          onChangeText={(text) => updateExperience(exp.id, 'endYear', text)}
-                          placeholder="Fin"
-                          placeholderTextColor={palette.textMuted}
-                          keyboardType="numeric"
-                          maxLength={4}
-                        />
-                      )}
-                      <TouchableOpacity
-                        style={styles.currentToggle}
-                        onPress={() => updateExperience(exp.id, 'current', !exp.current)}
-                        activeOpacity={0.7}
-                      >
-                        <Ionicons
-                          name={exp.current ? 'checkbox' : 'square-outline'}
-                          size={18}
-                          color={palette.primary}
-                        />
-                        <Text style={styles.currentToggleText}>Actual</Text>
-                      </TouchableOpacity>
+                <TrajectoryEntry key={exp.id} kind="experiencia" title={exp.position} organization={exp.organization}
+                  startYear={exp.startYear} endYear={exp.endYear} current={exp.current}
+                  expanded={expandedEntry === 'experience-' + exp.id}
+                  onToggle={() => setExpandedEntry(current => current === 'experience-' + exp.id ? null : 'experience-' + exp.id)}
+                  onRemove={() => removeExperience(exp.id)}>
+                    <View style={styles.trajectoryFields}>
+                      <View style={styles.formFieldHalf}>{renderFormField('Puesto', exp.position,
+                        value => updateExperience(exp.id, 'position', value), { compactSpacing: true, autoFocus: true })}</View>
+                      <View style={styles.formFieldHalf}>{renderFormField('Organización', exp.organization,
+                        value => updateExperience(exp.id, 'organization', value), { compactSpacing: true, placeholder: 'Centro o entidad' })}</View>
                     </View>
-                  </View>
-                  <TouchableOpacity
-                    style={styles.itemRemove}
-                    onPress={() => removeExperience(exp.id)}
-                    activeOpacity={0.7}
-                  >
-                    <Ionicons name="close-circle" size={22} color={palette.warning} />
-                  </TouchableOpacity>
-                </View>
+                    <View style={styles.trajectoryFields}>
+                      <View style={styles.formFieldHalf}>{renderFormField('Año inicial', exp.startYear,
+                        value => updateExperience(exp.id, 'startYear', value), { compactSpacing: true, keyboardType: 'numeric', maxLength: 4, placeholder: 'AAAA' })}</View>
+                      {!exp.current && <View style={styles.formFieldHalf}>{renderFormField('Año final', exp.endYear || '',
+                        value => updateExperience(exp.id, 'endYear', value), { compactSpacing: true, keyboardType: 'numeric', maxLength: 4, placeholder: 'AAAA' })}</View>}
+                    </View>
+                    <Pressable accessibilityRole="checkbox" accessibilityLabel="Empleo actual" aria-checked={exp.current}
+                      accessibilityState={{ checked: exp.current }} onPress={() => updateExperience(exp.id, 'current', !exp.current)}
+                      style={styles.currentToggle}>
+                      <Ionicons name={exp.current ? 'checkbox' : 'square-outline'} size={20} color={palette.primary} />
+                      <Text style={styles.bodyText}>Trabajo aquí actualmente</Text>
+                    </Pressable>
+                </TrajectoryEntry>
               ))}
             </View>
           )}
         </View>
-      </View>
+      </View>}
     </View>
   );
 
@@ -2630,118 +2504,18 @@ export function SpecialistProfileScreen() {
     }
   };
 
-  // Render the professional verification status banner
-  const renderVerificationStatusBanner = () => {
-    const status = verificationStatus.verificationStatus;
-
-    if (status === 'VERIFIED') {
-      return (
-        <View style={[styles.verificationBanner, styles.verificationBannerVerified]}>
-          <View style={styles.verificationBannerIcon}>
-            <Ionicons name="checkmark-circle" size={28} color={palette.success} />
-          </View>
-          <View style={styles.verificationBannerContent}>
-            <Text style={[styles.verificationBannerTitle, styles.verificationBannerTitleVerified]}>
-              Verificado
-            </Text>
-            <Text style={styles.verificationBannerText}>
-              Tu identidad profesional ha sido verificada correctamente.
-            </Text>
-          </View>
-        </View>
-      );
-    }
-
-    if (status === 'PENDING') {
-      return (
-        <View style={[styles.verificationBanner, styles.verificationBannerPending]}>
-          <View style={styles.verificationBannerIcon}>
-            <Ionicons name="time-outline" size={28} color={palette.info} />
-          </View>
-          <View style={styles.verificationBannerContent}>
-            <Text style={[styles.verificationBannerTitle, styles.verificationBannerTitlePending]}>
-              Verificación en proceso
-            </Text>
-            <Text style={styles.verificationBannerText}>
-              Te avisaremos cuando esté lista. Mientras tanto, puedes completar tu perfil.
-            </Text>
-          </View>
-        </View>
-      );
-    }
-
-    if (status === 'REJECTED') {
-      return (
-        <View style={[styles.verificationBanner, styles.verificationBannerRejected]}>
-          <View style={styles.verificationBannerIcon}>
-            <Ionicons name="alert-circle" size={28} color={palette.warning} />
-          </View>
-          <View style={styles.verificationBannerContent}>
-            <Text style={[styles.verificationBannerTitle, styles.verificationBannerTitleRejected]}>
-              Verificación rechazada
-            </Text>
-            <Text style={styles.verificationBannerText}>
-              Por favor reenvía tus datos correctamente.
-              {verificationStatus.rejectionReason && (
-                ` Motivo: ${verificationStatus.rejectionReason}`
-              )}
-            </Text>
-            <Button
-              variant="danger"
-              size="small"
-              onPress={handleResubmitVerification}
-              loading={resumingVerification}
-              icon={<Ionicons name="refresh" size={16} color="#FFFFFF" />}
-              style={{ ...styles.verificationResubmitButton }}
-              textStyle={{ ...styles.verificationResubmitButtonText }}
-            >
-              Reenviar verificación
-            </Button>
-          </View>
-        </View>
-      );
-    }
-
-    // NOT_SUBMITTED
-    return (
-      <View style={[styles.verificationBanner, styles.verificationBannerNotSubmitted]}>
-        <View style={styles.verificationBannerIcon}>
-          <Ionicons name="shield-outline" size={28} color={palette.textSecondary} />
-        </View>
-        <View style={styles.verificationBannerContent}>
-          <Text style={[styles.verificationBannerTitle, styles.verificationBannerTitleNotSubmitted]}>
-            Verificación pendiente
-          </Text>
-          <Text style={styles.verificationBannerText}>
-            Completa la verificación de tu identidad profesional para que los clientes puedan encontrarte.
-          </Text>
-          <Button
-            variant="primary"
-            size="small"
-            onPress={handleResubmitVerification}
-            loading={resumingVerification}
-            icon={<Ionicons name="shield-checkmark" size={16} color="#FFFFFF" />}
-            style={{ ...styles.verificationSubmitButton }}
-            textStyle={{ ...styles.verificationResubmitButtonText }}
-          >
-            Iniciar verificación
-          </Button>
-        </View>
-      </View>
-    );
-  };
-
-  const getEducationOptionLabel = (education: Education): string => {
+  const getEducationOptionLabel = (education: Education) => {
     const degree = education.degree.trim() || 'Formación';
-    const institution = education.institution.trim();
-    return institution ? `${degree} · ${institution}` : degree;
+    return education.institution.trim() ? degree + ' · ' + education.institution.trim() : degree;
   };
+
+  const savedEducation = originalData.education;
 
   const renderCertificateEducationPicker = (certificate: Certificate) => {
-    if (!profileData.education.length) {
+    if (!savedEducation.length) {
       return (
         <Text style={styles.certificateAssociationHint}>
-          Añade una formación para poder vincular este documento a un título concreto.
+          Guarda una formación en Trayectoria para poder vincularle este documento.
         </Text>
       );
     }
@@ -2750,7 +2524,7 @@ export function SpecialistProfileScreen() {
     const isUpdating = updatingCertificateKey === updateKey;
     const options: Array<{ id: string | null; label: string }> = [
       { id: null, label: 'Sin asociar' },
-      ...profileData.education.map((education) => ({
+      ...savedEducation.map((education) => ({
         id: education.id,
         label: getEducationOptionLabel(education),
       })),
@@ -2771,6 +2545,7 @@ export function SpecialistProfileScreen() {
                   selected && styles.certificateAssociationChipSelected,
                 ]}
                 activeOpacity={0.75}
+                accessibilityRole="button" accessibilityState={{ selected, disabled: isUpdating || selected }}
                 disabled={isUpdating || selected}
                 onPress={() => void handleUpdateCertificateMetadata(certificate, { educationId: option.id })}
               >
@@ -2798,177 +2573,57 @@ export function SpecialistProfileScreen() {
     <View style={styles.tabContent}>
       {/* Professional Verification Status Banner */}
       <View
+        tabIndex={-1} collapsable={false}
         ref={(node) => { sectionRefs.current.verification = node; }}
         style={highlightedSection === 'verification' ? styles.targetHighlight : null}
       >
-        {renderCompletionWarning(
-          'PROFESSIONAL_VERIFICATION',
-          'Verificación profesional pendiente',
-          'Completa o reenvía la verificación para que HERA pueda revisar tus credenciales.',
-        )}
-        {renderVerificationStatusBanner()}
-      </View>
 
-      {/* Verification Status Overview */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Estado de verificación</Text>
-        <View style={styles.verificationOverview}>
-          <View style={styles.verificationItem}>
-            <Ionicons
-              name={verificationStatus.verificationStatus === 'VERIFIED' ? 'checkmark-circle' : 'alert-circle'}
-              size={24}
-              color={verificationStatus.verificationStatus === 'VERIFIED' ? palette.success : palette.warningAmber}
-            />
-            <View style={styles.verificationItemContent}>
-              <Text style={styles.verificationItemTitle}>Identidad verificada</Text>
-              <Text style={styles.verificationItemStatus}>
-                {verificationStatus.verificationStatus === 'VERIFIED'
-                  ? 'Completado'
-                  : verificationStatus.verificationStatus === 'PENDING'
-                    ? 'En revisión'
-                    : 'Pendiente de verificar'}
-              </Text>
-            </View>
-          </View>
-          <View style={styles.verificationItem}>
-            <Ionicons
-              name={verificationStatus.verificationStatus === 'VERIFIED' ? 'checkmark-circle' : 'alert-circle'}
-              size={24}
-              color={verificationStatus.verificationStatus === 'VERIFIED' ? palette.success : palette.warningAmber}
-            />
-            <View style={styles.verificationItemContent}>
-              <Text style={styles.verificationItemTitle}>Número de colegiado validado</Text>
-              <Text style={styles.verificationItemStatus}>
-                {verificationStatus.verificationStatus === 'VERIFIED'
-                  ? 'Verificado'
-                  : verificationStatus.verificationStatus === 'PENDING'
-                    ? 'En revisión'
-                    : 'Pendiente'}
-              </Text>
-            </View>
-          </View>
-          <View style={[styles.verificationItem, styles.verificationItemLast]}>
-            <Ionicons
-              name={
-                profileData.insuranceReviewStatus === 'APPROVED'
-                  ? 'checkmark-circle'
-                  : profileData.insuranceReviewStatus === 'PENDING'
-                    ? 'time'
-                    : 'alert-circle'
-              }
-              size={24}
-              color={
-                profileData.insuranceReviewStatus === 'APPROVED'
-                  ? palette.success
-                  : profileData.insuranceReviewStatus === 'PENDING'
-                    ? palette.info
-                    : palette.warning
-              }
-            />
-            <View style={styles.verificationItemContent}>
-              <Text style={styles.verificationItemTitle}>Seguro profesional</Text>
-              <Text style={styles.verificationItemStatus}>
-                {profileData.insuranceReviewStatus === 'APPROVED'
-                  ? 'Aprobado'
-                  : profileData.insuranceReviewStatus === 'PENDING'
-                    ? 'En revisión'
-                    : profileData.insuranceReviewStatus === 'REJECTED'
-                      ? 'Rechazado'
-                      : 'Pendiente de subir'}
-              </Text>
-            </View>
-          </View>
-
-          {/* Profile Completion Bar */}
-          <View style={styles.completionSection}>
-            <View style={styles.completionHeader}>
-              <Text style={styles.completionLabel}>Verificación completada</Text>
-              <Text style={styles.completionValue}>{verificationCompletion}%</Text>
-            </View>
-            <View style={styles.completionBar}>
-              <View style={[styles.completionFill, { width: `${verificationCompletion}%` }]} />
-            </View>
-          </View>
+        <View style={styles.completionHeading}>
+          <Text style={[styles.sectionTitle, styles.inlineSectionTitle]}>Verificación profesional</Text>
+          {renderCompletionWarning(
+            'PROFESSIONAL_VERIFICATION',
+            'Verificación profesional pendiente',
+            'Completa o reenvía la verificación para que HERA pueda revisar tus credenciales.',
+          )}
         </View>
-      </View>
-
-      {/* Identity Verification */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Verificación de identidad</Text>
-        <View style={styles.formCard}>
-          <View style={styles.verificationCard}>
-            <View style={styles.verificationCardIcon}>
-              <Ionicons
-                name={verificationStatus.verificationStatus === 'VERIFIED' ? 'shield-checkmark' : 'shield'}
-                size={32}
-                color={verificationStatus.verificationStatus === 'VERIFIED' ? palette.success : palette.textSecondary}
-              />
-            </View>
-            <View style={styles.verificationCardContent}>
-              <Text style={styles.verificationCardTitle}>Carnet de colegiado</Text>
-              <Text style={styles.verificationCardStatus}>
-                {verificationStatus.verificationStatus === 'VERIFIED'
-                  ? `Verificado${verificationStatus.reviewedAt ? ` el ${new Date(verificationStatus.reviewedAt).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' })}` : ''}`
-                  : verificationStatus.verificationStatus === 'PENDING'
-                    ? 'En revisión por el equipo de verificación'
-                    : 'Sube tu documento de identidad'}
-              </Text>
-            </View>
-            <Button
-              variant={
-                verificationStatus.verificationStatus === 'VERIFIED'
-                || verificationStatus.verificationStatus === 'PENDING'
-                  ? 'ghost'
-                  : 'outline'
-              }
-              size="small"
-              onPress={
-                verificationStatus.verificationStatus === 'REJECTED'
-                || verificationStatus.verificationStatus === 'NOT_SUBMITTED'
-                  ? handleResubmitVerification
-                  : () => {}
-              }
-              disabled={
-                verificationStatus.verificationStatus === 'VERIFIED'
-                || verificationStatus.verificationStatus === 'PENDING'
-              }
-              loading={resumingVerification}
-              style={{ ...styles.verificationCardButton }}
-              textStyle={{ ...styles.verificationCardButtonText }}
-            >
-              {verificationStatus.verificationStatus === 'VERIFIED'
-                ? 'Verificado'
-                : verificationStatus.verificationStatus === 'PENDING'
-                  ? 'En revisión'
-                  : verificationStatus.verificationStatus === 'REJECTED'
-                    ? 'Corregir'
-                    : 'Verificar'}
-            </Button>
-          </View>
-        </View>
+        {!verificationKnown ? <View style={styles.detailGroup}>
+          <Text style={styles.bodyText}>{verificationError ? 'No se pudo comprobar la verificación.' : 'Consultando verificación…'}</Text>
+          {verificationError && <Button variant="outline" onPress={loadVerification}>Reintentar verificación</Button>}
+        </View> : <View style={styles.detailGroup}>
+          <Text style={styles.fieldLabel}>Identidad y carnet de colegiado</Text>
+          <Text style={styles.bodyText}>{isProfessionalVerified ? 'Identidad verificada' :
+            verificationStatus.verificationStatus === 'PENDING' ? 'Documento enviado · En revisión' :
+            verificationStatus.verificationStatus === 'REJECTED' ? 'Verificación rechazada' : 'Pendiente de envío'}</Text>
+          {verificationStatus.reviewedAt && <Text style={styles.helperText}>Revisado el {formatDocumentDate(verificationStatus.reviewedAt)}</Text>}
+          {verificationStatus.rejectionReason && <Text style={styles.bodyText}>{verificationStatus.rejectionReason}</Text>}
+          {verificationStatus.colegiadoNumber && <Text style={styles.bodyText}>Número de colegiado · {verificationStatus.colegiadoNumber}</Text>}
+          {['REJECTED', 'NOT_SUBMITTED'].includes(verificationStatus.verificationStatus) &&
+            <Button style={styles.startButton} variant="outline" loading={resumingVerification} onPress={handleResubmitVerification}>
+              {verificationStatus.verificationStatus === 'REJECTED' ? 'Reenviar verificación' : 'Verificar identidad'}
+            </Button>}
+          <Text style={styles.helperText}>Progreso de verificación · {verificationCompletion}%</Text>
+        </View>}
       </View>
 
       {/* Professional Insurance */}
       <View
+        tabIndex={-1} collapsable={false}
         ref={(node) => { sectionRefs.current.insurance = node; }}
         style={[
           styles.section,
           highlightedSection === 'insurance' ? styles.targetHighlight : null,
         ]}
       >
-        <Text style={styles.sectionTitle}>Seguro de responsabilidad civil</Text>
-        {renderCompletionWarning(
-          'PROFESSIONAL_INSURANCE',
-          'Seguro de responsabilidad civil pendiente',
-          'Sube una póliza válida para mantener activa la modalidad presencial.',
-        )}
+        <View style={styles.completionHeading}>
+          <Text style={[styles.sectionTitle, styles.inlineSectionTitle]}>Seguro de responsabilidad civil</Text>
+          {renderCompletionWarning(
+            'PROFESSIONAL_INSURANCE',
+            'Seguro de responsabilidad civil pendiente',
+            'Sube una póliza válida para mantener activa la modalidad presencial.',
+          )}
+        </View>
+
         <View style={styles.formCard}>
-          <View style={styles.credentialsHintCard}>
-            <Ionicons name="lock-closed-outline" size={18} color={palette.primary} />
-            <Text style={styles.credentialsHintText}>
-              Este archivo queda en almacenamiento privado y no se enseña al paciente. Nos sirve para validar la cobertura necesaria para sesiones presenciales.
-            </Text>
-          </View>
           <View
             style={[
               styles.insuranceStatusCard,
@@ -2992,63 +2647,22 @@ export function SpecialistProfileScreen() {
             />
             <View style={styles.insuranceStatusCopy}>
               <Text style={styles.insuranceStatusTitle}>{insuranceReviewCopy.title}</Text>
-              <Text style={styles.insuranceStatusText}>{insuranceReviewCopy.description}</Text>
+              <Text style={styles.insuranceStatusText}>{profileData.insuranceReviewStatus === 'NOT_UPLOADED'
+                    ? 'Sube un PDF de tu póliza para que HERA revise la cobertura presencial.'
+                    : insuranceReviewCopy.description}</Text>
             </View>
           </View>
-          {profileData.insuranceUploaded ? (
-            <View style={styles.documentCard}>
-              <View style={styles.documentIcon}>
-                <Ionicons name="document-text" size={24} color={palette.primary} />
-              </View>
-              <View style={styles.documentContent}>
-                <Text style={styles.documentTitle}>Póliza de seguro</Text>
-                <Text style={styles.documentMeta}>
-                  {profileData.locationVisibleToPatients
-                    ? 'Aprobada para sesiones presenciales y visible para pacientes'
-                    : 'Documento privado pendiente de aprobación para mostrar presencial'}
-                </Text>
-              </View>
-              <View style={styles.documentActions}>
-                <TouchableOpacity
-                  style={styles.documentAction}
-                  activeOpacity={0.7}
-                  onPress={() => void handleOpenInsuranceDocument()}
-                >
-                  {openingCredentialKey === 'insurance' ? (
-                    <ActivityIndicator size="small" color={palette.primary} />
-                  ) : (
-                    <Ionicons name="eye-outline" size={20} color={palette.primary} />
-                  )}
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.documentAction}
-                  activeOpacity={0.7}
-                  onPress={handleDeleteInsuranceDocument}
-                >
-                  <Ionicons name="trash-outline" size={20} color={palette.warning} />
-                </TouchableOpacity>
-              </View>
-            </View>
-          ) : (
-            <View style={styles.uploadArea}>
-              <Ionicons name="cloud-upload-outline" size={40} color={palette.textMuted} />
-              <Text style={styles.uploadTitle}>Subir póliza de seguro</Text>
-              <Text style={styles.uploadDescription}>
-                Requerido para ofrecer sesiones presenciales
-              </Text>
-              <Button
-                variant="primary"
-                size="small"
-                onPress={() => void handleUploadInsuranceDocument()}
-                loading={isUploadingInsurance}
-                icon={<Ionicons name="add" size={18} color={palette.textOnCard} />}
-                style={styles.uploadButton}
-                textStyle={{ ...styles.uploadButtonText }}
-              >
-                Subir PDF
-              </Button>
-            </View>
-          )}
+          <Text style={styles.bodyText}>Archivo privado · Solo para revisión de HERA</Text>
+          <View style={styles.inlineActions}>
+            {profileData.insuranceUploaded ? <>
+              <Button variant="outline" size="small" loading={openingCredentialKey === 'insurance'} onPress={handleOpenInsuranceDocument}>Abrir póliza</Button>
+              <Button variant="ghost" size="small" loading={deletingInsurance} disabled={isSaving || deletingInsurance} onPress={handleDeleteInsuranceDocument}>Eliminar póliza</Button>
+            </> : <Button size="small" disabled={isSaving} loading={isUploadingInsurance} onPress={handleUploadInsuranceDocument}>Subir póliza PDF</Button>}
+          </View>
+          {returnToConsultation && <Button variant="outline" style={styles.startButton} onPress={() => {
+            selectPart('consultation');
+            setPendingSection(profileData.offersInPerson ? 'location' : 'modality');
+          }}>{profileData.offersInPerson ? 'Continuar con la ubicación' : 'Volver a Consulta'}</Button>}
         </View>
       </View>
 
@@ -3080,7 +2694,7 @@ export function SpecialistProfileScreen() {
           <View style={styles.itemsList}>
             {profileData.certificates.map((cert) => {
               const linkedEducation = cert.educationId
-                ? profileData.education.find((education) => education.id === cert.educationId)
+                ? savedEducation.find((education) => education.id === cert.educationId)
                 : null;
               const updateKey = `certificate-meta:${cert.id}`;
               const isUpdating = updatingCertificateKey === updateKey;
@@ -3137,6 +2751,8 @@ export function SpecialistProfileScreen() {
                       style={[styles.documentAction, styles.certificateVisibilityAction]}
                       activeOpacity={0.7}
                       disabled={isUpdating}
+                      accessibilityRole="switch" aria-checked={cert.publicVisible} accessibilityState={{ checked: cert.publicVisible, disabled: isUpdating }}
+                      accessibilityLabel={'Mostrar el archivo ' + cert.name + ' en el perfil público'}
                       onPress={() => void handleUpdateCertificateMetadata(cert, {
                         publicVisible: !cert.publicVisible,
                       })}
@@ -3157,6 +2773,7 @@ export function SpecialistProfileScreen() {
                     <TouchableOpacity
                       style={styles.documentAction}
                       activeOpacity={0.7}
+                      accessibilityRole="button" accessibilityLabel={'Abrir certificado ' + cert.name}
                       onPress={() => void handleOpenCertificate(cert)}
                     >
                       {openingCredentialKey === `certificate:${cert.id}` ? (
@@ -3168,6 +2785,7 @@ export function SpecialistProfileScreen() {
                     <TouchableOpacity
                       style={styles.documentAction}
                       activeOpacity={0.7}
+                      accessibilityRole="button" accessibilityLabel={'Eliminar certificado ' + cert.name}
                       onPress={() => handleDeleteCertificate(cert.id)}
                     >
                       <Ionicons name="trash-outline" size={20} color={palette.warning} />
@@ -3188,55 +2806,36 @@ export function SpecialistProfileScreen() {
 
   const renderPricingTab = () => (
     <View style={styles.tabContent}>
-      {renderCompletionWarning(
-        'PROFESSIONAL_BILLING',
-        'Datos fiscales incompletos',
-        'Completa el nombre fiscal, el NIF y la dirección fiscal desde Facturación.',
-      )}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Resumen de facturación</Text>
-        <Button variant="outline" onPress={() => navigation.navigate('ProfessionalTariffs')}>Gestionar servicios y bonos</Button>
-        <View style={styles.formCard}>
-          <View style={styles.billingSummaryHeader}>
-            <View style={styles.billingSummaryIcon}>
-              <Ionicons name="card-outline" size={22} color={palette.primary} />
-            </View>
-            <View style={styles.billingSummaryCopy}>
-              <Text style={styles.billingSummaryTitle}>La facturación se gestiona desde su pantalla dedicada</Text>
-              <Text style={styles.billingSummaryText}>
-                Los precios y modalidades se gestionan en Servicios y bonos. Los datos fiscales, IBAN y numeración permanecen en Facturación.
-              </Text>
-            </View>
-          </View>
 
+      <View style={styles.section}>
+        <View style={styles.completionHeading}>
+          <Text style={[styles.sectionTitle, styles.inlineSectionTitle]}>Datos de facturación</Text>
+          {renderCompletionWarning(
+            'PROFESSIONAL_BILLING',
+            'Datos fiscales incompletos',
+            'Completa el nombre fiscal, el NIF y la dirección fiscal desde Facturación.',
+          )}
+        </View>
+        <View style={styles.formCard}>
           {isBillingConfigLoading ? (
             <View style={styles.billingLoadingRow}>
               <ActivityIndicator size="small" color={palette.primary} />
               <Text style={styles.billingSummaryText}>Cargando configuración...</Text>
             </View>
+          ) : !billingConfig ? (
+            <View style={styles.detailGroup}><Text style={styles.bodyText}>No se pudo comprobar la configuración fiscal y bancaria.</Text>
+              <Button style={styles.startButton} variant="outline" onPress={loadBillingConfig}>Reintentar</Button></View>
           ) : (
             <>
-              <View style={styles.billingStatusList}>
-                <View style={styles.billingStatusRow}>
-                  <Ionicons
-                    name={billingFiscalReady ? 'checkmark-circle' : 'alert-circle-outline'}
-                    size={18}
-                    color={billingFiscalReady ? palette.success : palette.warningAmber}
-                  />
-                  <Text style={styles.billingStatusText}>
-                    {billingFiscalReady ? 'Datos fiscales completos' : 'Faltan datos fiscales para facturas completas'}
-                  </Text>
-                </View>
-                <View style={styles.billingStatusRow}>
-                  <Ionicons
-                    name={billingBankReady ? 'checkmark-circle' : 'information-circle-outline'}
-                    size={18}
-                    color={billingBankReady ? palette.success : palette.textSecondary}
-                  />
-                  <Text style={styles.billingStatusText}>
-                    {billingBankReady ? 'IBAN configurado' : 'IBAN pendiente en Facturación'}
-                  </Text>
-                </View>
+              <View style={styles.summaryRow}>
+                <View style={styles.summaryCopy}><Text style={styles.fieldLabel}>Datos fiscales</Text>
+                  <Text style={styles.bodyText}>Identificación para emitir facturas completas.</Text></View>
+                <Text style={[styles.statusLabel, { backgroundColor: billingFiscalReady ? theme.successBg : theme.warningBg }]}>{billingFiscalReady ? 'Completos' : 'Pendientes'}</Text>
+              </View>
+              <View style={styles.summaryRow}>
+                <View style={styles.summaryCopy}><Text style={styles.fieldLabel}>Cuenta bancaria</Text>
+                  <Text style={styles.bodyText}>El IBAN se configura en Facturación.</Text></View>
+                <Text style={[styles.statusLabel, { backgroundColor: billingBankReady ? theme.successBg : theme.warningBg }]}>{billingBankReady ? 'Configurada' : 'Pendiente'}</Text>
               </View>
             </>
           )}
@@ -3251,9 +2850,15 @@ export function SpecialistProfileScreen() {
           >
             Abrir Facturación
           </Button>
+          <Text style={styles.helperText}>Gestiona allí tus datos fiscales, IBAN y numeración.</Text>
         </View>
       </View>
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Servicios y bonos</Text>
+        <Text style={styles.bodyText}>Gestiona los precios, modalidades y bonos que ofreces.</Text>
+        <Button style={styles.startButton} variant="outline" onPress={() => navigation.navigate('ProfessionalTariffs')}>Gestionar servicios y bonos</Button>
       </View>
+    </View>
   );
 
   // ============================================================================
@@ -3262,7 +2867,7 @@ export function SpecialistProfileScreen() {
 
   const renderGoogleTab = () => (
     <View style={styles.tabContent}>
-      <GoogleCalendarCard videoSetup={profileData.offersOnline} hasUnsavedChanges={hasChanges} onBeforeConnect={() => handleSave(false)} />
+      <GoogleCalendarCard plain videoSetup={profileData.offersOnline} hasUnsavedChanges={hasChanges} onBeforeConnect={() => handleSave(false)} />
     </View>
   );
 
@@ -3271,7 +2876,7 @@ export function SpecialistProfileScreen() {
       <View style={styles.accountGrid}>
         {/* Account Information */}
         <View style={styles.accountColumn}>
-          <AccountSettingsCard title="Información de cuenta">
+          <AccountSettingsCard plain title="Acceso y contacto">
             {renderFormField(
               'Email de acceso',
               profileData.email,
@@ -3284,8 +2889,8 @@ export function SpecialistProfileScreen() {
               }
             )}
             <View
-              ref={(node) => { sectionRefs.current.phone = node; }}
-              collapsable={false}
+              tabIndex={-1} collapsable={false}
+        ref={(node) => { sectionRefs.current.phone = node; }}
               style={highlightedSection === 'phone' ? styles.targetHighlight : undefined}
             >
               {renderFormField(
@@ -3304,49 +2909,19 @@ export function SpecialistProfileScreen() {
             </View>
           </AccountSettingsCard>
         </View>
-        <View style={styles.accountColumn}><ClinicalPinManager /></View>
+        <View style={styles.accountColumn}><ClinicalPinManager plain /></View>
       </View>
     </View>
   );
 
   const renderProfessionalTypeSelector = () => (
     <View style={styles.formField}>
-      <Text style={styles.fieldLabel}>
-        Tipo profesional <Text style={styles.required}>*</Text>
-      </Text>
-      <Text style={styles.fieldHelper}>
-        Selecciona el tipo que corresponda a tu formación y habilitación. Los pacientes lo verán en tu perfil y podrán usarlo para filtrar.
-      </Text>
-      <View style={styles.chipContainer}>
-        {PROFESSIONAL_TYPE_OPTIONS.map((option) => {
-          const isSelected = profileData.professionalType === option.id;
-
-          return (
-            <AnimatedPressable
-              key={option.id}
-              style={{
-                ...styles.chip,
-                ...(isSelected ? styles.chipSelected : {}),
-              }}
-              onPress={() => updateField('professionalType', option.id)}
-              hoverLift={false}
-              pressScale={0.985}
-            >
-              <Ionicons
-                name={isSelected ? 'checkmark' : option.icon}
-                size={14}
-                color={isSelected ? palette.primary : palette.textMuted}
-              />
-              <Text style={[
-                styles.chipText,
-                isSelected ? styles.chipTextSelected : null,
-              ]}>
-                {option.label}
-              </Text>
-            </AnimatedPressable>
-          );
-        })}
-      </View>
+      <Text style={styles.fieldLabel}>Tipo profesional *</Text>
+      <Pressable accessibilityRole="button" accessibilityLabel="Elegir tipo profesional"
+        onPress={() => setMenu('type')} style={[styles.fieldInput, styles.selectField]}>
+        <Text style={styles.bodyText}>{profileData.professionalType ? getProfessionalTypeLabel(profileData.professionalType) : 'Selecciona tu tipo profesional'}</Text>
+        <Ionicons name="chevron-down" size={16} color={theme.textPrimary} />
+      </Pressable>
     </View>
   );
 
@@ -3357,15 +2932,15 @@ export function SpecialistProfileScreen() {
   const renderPrivacyTab = () => (
     <View style={styles.tabContent}>
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Privacidad</Text>
+        <Text style={styles.sectionTitle}>Visibilidad del perfil</Text>
         <View style={styles.formCard}>
-          <View style={styles.privacySection}>
-            <Text style={styles.privacyLabel}>Visibilidad del perfil</Text>
+          <View accessibilityRole="radiogroup" style={styles.privacySection}>
             <TouchableOpacity
               style={[
                 styles.visibilityOption,
                 profileData.profileVisible && styles.visibilityOptionSelected,
               ]}
+              accessibilityRole="radio" aria-checked={profileData.profileVisible} accessibilityState={{ checked: profileData.profileVisible }}
               onPress={() => updateField('profileVisible', true)}
               activeOpacity={0.7}
             >
@@ -3377,7 +2952,7 @@ export function SpecialistProfileScreen() {
               <View style={styles.visibilityOptionCopy}>
                 <Text style={styles.visibilityOptionTitle}>Aparecer en el directorio</Text>
                 <Text style={styles.visibilityOptionText}>
-                  Tu perfil aparecerá cuando cumplas los requisitos de publicación y guardes esta opción. Si desactivas esta opción, seguirá accesible por enlace con la información que hayas publicado.
+                  Tu perfil aparecerá cuando cumplas los requisitos de publicación y guardes esta opción.
                 </Text>
               </View>
             </TouchableOpacity>
@@ -3386,6 +2961,7 @@ export function SpecialistProfileScreen() {
                 styles.visibilityOption,
                 !profileData.profileVisible && styles.visibilityOptionSelected,
               ]}
+              accessibilityRole="radio" aria-checked={!profileData.profileVisible} accessibilityState={{ checked: !profileData.profileVisible }}
               onPress={() => updateField('profileVisible', false)}
               activeOpacity={0.7}
             >
@@ -3397,7 +2973,7 @@ export function SpecialistProfileScreen() {
               <View style={styles.visibilityOptionCopy}>
                 <Text style={styles.visibilityOptionTitle}>Solo mediante enlace</Text>
                 <Text style={styles.visibilityOptionText}>
-                  No aparecerás en el directorio. Con la cuenta activa y la verificación aprobada, tu perfil seguirá accesible para quien tenga tu enlace.
+                  Al guardar, dejarás de aparecer en el directorio. Con la cuenta activa y la verificación aprobada, tu perfil seguirá accesible para quien tenga tu enlace.
                 </Text>
               </View>
             </TouchableOpacity>
@@ -3422,9 +2998,13 @@ export function SpecialistProfileScreen() {
   }
 
   return (
-    <View style={styles.container}>
-      {/* Keep navigation and save available while the form scrolls. */}
-      {renderTabNavigation()}
+    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      onLayout={event => setEditorWidth(event.nativeEvent.layout.width)}>
+      {renderNavigation()}
+      <View ref={viewportRef} collapsable={false} style={styles.workspace}>
+      {isDesktop && <TourTarget id="professional.profile.tabs" style={styles.rail}>
+        <ScrollView contentContainerStyle={styles.railContent}>{renderDestinations(true)}</ScrollView>
+      </TourTarget>}
       <ScrollView
         ref={formScrollRef}
         style={styles.formArea}
@@ -3436,55 +3016,61 @@ export function SpecialistProfileScreen() {
         scrollEventThrottle={16}
       >
         <View style={styles.formContent}>
+          {activeTab !== 'mi-espacio' && <View style={styles.intro}>
+            <View style={styles.headingLine}>
+              <Text accessibilityRole="header" style={styles.pageTitle}>{title}</Text>
+              {activeTab === 'information' && part === 'practice' && renderCompletionWarning(
+                'PROFILE_MATCHING',
+                'Información profesional pendiente',
+                getMatchingCompletionDescription(profileData),
+              )}
+            </View>
+            <Text style={styles.bodyText}>{intro}</Text>
+            {!isDesktop && activeTab === 'information' && <Button style={styles.startButton} size="small" variant="ghost"
+              icon={buttonIcon('list-outline')} onPress={() => setMenu('parts')}>Apartados de información</Button>}
+          </View>}
+          {loadError && <View style={styles.statusNote}><Text accessibilityRole="alert" style={styles.bodyText}>No se pudo cargar el perfil.</Text>
+            <Button size="small" variant="outline" onPress={loadProfile}>Volver a cargar</Button></View>}
+          {saveError && hasChanges && <Text accessibilityRole="alert" style={[styles.statusNote, styles.bodyText]}>
+            No se han guardado los cambios. {saveError}
+          </Text>}
+          {saved && !hasChanges && <Text accessibilityLiveRegion="polite" style={styles.bodyText}>Cambios guardados</Text>}
+          {loaded.current && <>
           {activeTab === 'mi-espacio' && renderMiEspacioTab()}
           {activeTab === 'information' && renderInformationTab()}
           {activeTab === 'credentials' && renderCredentialsTab()}
           {activeTab === 'pricing' && renderPricingTab()}
-          {activeTab === 'privacy' && <>{renderPrivacyTab()}<PrivacyPreferencesButton /></>}
+          {activeTab === 'privacy' && <>{renderPrivacyTab()}
+            <Button style={styles.startButton} variant="ghost" onPress={() => setMenu('requirements')}>Ver requisitos del directorio</Button>
+            <View style={styles.section}><Text style={styles.sectionTitle}>Estadísticas de uso</Text><PrivacyPreferencesButton /></View></>}
           {activeTab === 'account' && renderAccountTab()}
           {activeTab === 'google' && renderGoogleTab()}
+          </>}
         </View>
       </ScrollView>
 
-      <Modal
-        visible={isCertificateModalVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={closeCertificateModal}
-      >
-        <Pressable style={styles.shareModalOverlay} onPress={closeCertificateModal}>
-          <Pressable style={styles.documentModalContent} onPress={e => e.stopPropagation()}>
-            <View style={styles.shareModalHeader}>
-              <View style={styles.shareModalHeaderCopy}>
-                <View style={styles.shareModalBadge}>
-                  <Ionicons
-                    name={certificateDraft.publicVisible ? 'eye-outline' : 'lock-closed-outline'}
-                    size={14}
-                    color={palette.primary}
-                  />
-                  <Text style={styles.shareModalBadgeText}>
-                    {certificateDraft.publicVisible ? 'Visible en perfil' : 'Documento privado'}
-                  </Text>
-                </View>
-                <Text style={styles.shareModalTitle}>Añadir certificado</Text>
-                <Text style={styles.shareModalSubtitle}>
-                  Por defecto se guarda privado. Si activas la visibilidad, los pacientes podrán abrir el documento aportado en tu perfil público.
-                </Text>
-              </View>
-
-              <TouchableOpacity
-                onPress={closeCertificateModal}
-                activeOpacity={0.7}
-                style={styles.shareModalCloseButton}
-              >
-                <Ionicons name="close" size={22} color={palette.textSecondary} />
-              </TouchableOpacity>
-            </View>
-
+      </View>
+      {!isDesktop && (hasChanges || isSaving) && <View style={[styles.saveBar, { paddingBottom: Math.max(8, insets?.bottom ?? 0) }]}>
+        <Text accessibilityLiveRegion="polite" style={styles.bodyText}>{isSaving ? 'Guardando cambios…' : 'Cambios sin guardar'}</Text>
+        <TourTarget id="professional.profile.save">{saveAction}</TourTarget>
+      </View>}
+      {menu && <ProfileEditorSheet title={{ sections: 'Secciones del perfil', parts: 'Apartados de información', type: 'Tipo profesional', requirements: 'Requisitos del directorio' }[menu]} onClose={() => setMenu(null)}>
+        {menu === 'sections' && renderDestinations()}
+        {menu === 'parts' && renderParts()}
+        {menu === 'type' && <>
+          <Text style={styles.bodyText}>Selecciona el tipo que corresponda a tu formación y habilitación. Los pacientes lo verán en tu perfil y podrán usarlo para filtrar.</Text>
+          {PROFESSIONAL_TYPE_OPTIONS.map(option => <ProfileEditorItem key={option.id} label={option.label} icon={option.icon} selected={profileData.professionalType === option.id}
+            onPress={() => { updateField('professionalType', option.id); setMenu(null); }} />)}
+        </>}
+        {menu === 'requirements' && renderDirectoryStatus(true)}
+      </ProfileEditorSheet>}
+      {isCertificateModalVisible && <ProfileEditorSheet title="Añadir certificado" onClose={closeCertificateModal}>
+        <Text style={styles.bodyText}>Por defecto se guarda privado. Si activas la visibilidad, los pacientes podrán abrir el documento aportado en tu perfil público.</Text>
             <View style={styles.documentModalFields}>
               <View style={styles.formField}>
                 <Text style={styles.fieldLabel}>Nombre del certificado</Text>
                 <TextInput
+                  accessibilityLabel="Nombre del certificado"
                   value={certificateDraft.name}
                   onChangeText={(text) => setCertificateDraft(prev => ({ ...prev, name: text }))}
                   placeholder="Ej: EMDR Nivel I"
@@ -3498,6 +3084,7 @@ export function SpecialistProfileScreen() {
               <View style={styles.formField}>
                 <Text style={styles.fieldLabel}>Entidad emisora</Text>
                 <TextInput
+                  accessibilityLabel="Entidad emisora"
                   value={certificateDraft.issuer}
                   onChangeText={(text) => setCertificateDraft(prev => ({ ...prev, issuer: text }))}
                   placeholder="Ej: Asociación EMDR España"
@@ -3511,6 +3098,7 @@ export function SpecialistProfileScreen() {
               <View style={styles.formField}>
                 <Text style={styles.fieldLabel}>Válido hasta</Text>
                 <TextInput
+                  accessibilityLabel="Válido hasta"
                   value={certificateDraft.validUntil}
                   onChangeText={(text) => setCertificateDraft(prev => ({ ...prev, validUntil: text }))}
                   placeholder="YYYY-MM-DD (opcional)"
@@ -3530,6 +3118,7 @@ export function SpecialistProfileScreen() {
                   certificateDraft.publicVisible && styles.certificatePublicToggleActive,
                 ]}
                 activeOpacity={0.78}
+                accessibilityRole="checkbox" accessibilityState={{ checked: certificateDraft.publicVisible }}
                 onPress={() => setCertificateDraft(prev => ({
                   ...prev,
                   publicVisible: !prev.publicVisible,
@@ -3548,11 +3137,11 @@ export function SpecialistProfileScreen() {
                 </View>
               </TouchableOpacity>
 
-              {profileData.education.length ? (
+              {savedEducation.length ? (
                 <View style={styles.formField}>
                   <Text style={styles.fieldLabel}>Asociar a formación</Text>
                   <View style={styles.certificateAssociationChips}>
-                    {[{ id: null, label: 'Sin asociar' }, ...profileData.education.map((education) => ({
+                    {[{ id: null, label: 'Sin asociar' }, ...savedEducation.map((education) => ({
                       id: education.id,
                       label: getEducationOptionLabel(education),
                     }))].map((option) => {
@@ -3566,6 +3155,7 @@ export function SpecialistProfileScreen() {
                             selected && styles.certificateAssociationChipSelected,
                           ]}
                           activeOpacity={0.75}
+                          accessibilityRole="button" accessibilityState={{ selected }}
                           onPress={() => setCertificateDraft(prev => ({
                             ...prev,
                             educationId: option.id,
@@ -3614,42 +3204,12 @@ export function SpecialistProfileScreen() {
                 style={styles.shareModalPrimaryAction}
                 icon={<Ionicons name="cloud-upload-outline" size={16} color={palette.textOnCard} />}
               >
-                Seleccionar archivo
+                Elegir archivo y subir
               </Button>
             </View>
-          </Pressable>
-        </Pressable>
-      </Modal>
-
-      <Modal
-        visible={isShareModalVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={closeShareModal}
-      >
-        <Pressable style={styles.shareModalOverlay} onPress={closeShareModal}>
-          <Pressable style={styles.shareModalContent} onPress={e => e.stopPropagation()}>
-            <View style={styles.shareModalHeader}>
-              <View style={styles.shareModalHeaderCopy}>
-                <View style={styles.shareModalBadge}>
-                  <Ionicons name="link-outline" size={14} color={palette.primary} />
-                  <Text style={styles.shareModalBadgeText}>Enlace público</Text>
-                </View>
-                <Text style={styles.shareModalTitle}>Tu enlace público</Text>
-                <Text style={styles.shareModalSubtitle}>
-                  Personaliza la dirección de tu perfil y cópiala para compartirla con tus pacientes.
-                </Text>
-              </View>
-
-              <TouchableOpacity
-                onPress={closeShareModal}
-                activeOpacity={0.7}
-                style={styles.shareModalCloseButton}
-              >
-                <Ionicons name="close" size={22} color={palette.textSecondary} />
-              </TouchableOpacity>
-            </View>
-
+      </ProfileEditorSheet>}
+      {isShareModalVisible && <ProfileEditorSheet title="Tu enlace público" onClose={closeShareModal}>
+        <Text style={styles.bodyText}>Personaliza la dirección de tu perfil y cópiala para compartirla con tus pacientes.</Text>
             <PublicProfileSlugEditor
               initialSlug={savedPublicSlug}
               initialRemainingChanges={publicSlugChangesRemaining}
@@ -3694,11 +3254,8 @@ export function SpecialistProfileScreen() {
                 </Button>
               ) : null}
             </View>
-          </Pressable>
-        </Pressable>
-      </Modal>
-
-    </View>
+      </ProfileEditorSheet>}
+    </KeyboardAvoidingView>
   );
 }
 
@@ -3712,6 +3269,24 @@ function createStyles(
   isMobile: boolean,
 ) {
   return StyleSheet.create({
+  editorBar: { flexDirection: isMobile ? 'column' : 'row', justifyContent: 'space-between', alignItems: isMobile ? 'stretch' : 'center', gap: 8, paddingHorizontal: isDesktop ? 24 : 16, paddingVertical: isDesktop ? 12 : 6, borderBottomWidth: 1, borderColor: palette.border, backgroundColor: palette.background },
+  barLead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  barActions: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 },
+  workspace: { flex: 1, minHeight: 0, flexDirection: 'row' },
+  rail: { width: 226, backgroundColor: palette.backgroundMuted, borderRightWidth: 1, borderColor: palette.border },
+  railContent: { gap: 2, paddingHorizontal: 12, paddingVertical: 22 },
+  intro: { borderBottomWidth: 1, borderColor: palette.border, paddingBottom: 18, marginBottom: 22, gap: 8, alignItems: 'flex-start' },
+  pageTitle: { flexShrink: 1, fontFamily: palette.fontHeading, fontSize: isDesktop ? 36 : 28, lineHeight: isDesktop ? 44 : 35, color: palette.textPrimary },
+  bodyText: { fontFamily: palette.fontSans, color: palette.textPrimary, fontSize: 15, lineHeight: 22, flexShrink: 1 },
+  summaryRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14, borderBottomWidth: 1, borderColor: palette.border },
+  summaryCopy: { flex: 1, gap: 6 },
+  statusLabel: { paddingHorizontal: 9, paddingVertical: 5, borderRadius: 5, fontFamily: palette.fontSansBold, fontSize: 13, color: palette.textPrimary },
+  startButton: { alignSelf: 'flex-start', marginVertical: 4 },
+  detailGroup: { gap: 10 },
+  selectField: { flexDirection: 'row', gap: 10, alignItems: 'center', justifyContent: 'space-between', marginTop: 8 },
+  inlineActions: { flexDirection: 'row', gap: 8, flexWrap: 'wrap', marginVertical: 8 },
+  statusNote: { padding: 14, borderRadius: 8, marginBottom: 12, backgroundColor: palette.warningLight },
+  saveBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingTop: 8, borderTopWidth: 1, borderColor: palette.border, backgroundColor: palette.cardBg },
   container: {
     flex: 1,
     backgroundColor: palette.background,
@@ -3730,75 +3305,12 @@ function createStyles(
   },
 
   // ===== TAB NAVIGATION =====
-  fullWidthTourTarget: {
-    width: '100%',
-  },
-  tabsContainer: {
-    backgroundColor: palette.cardBg,
-    borderBottomWidth: 1,
-    borderBottomColor: palette.border,
-  },
-  tabsContainerDesktop: {
-    borderBottomWidth: 2,
-  },
-  topBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.md,
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.sm,
-  },
-  topBarDesktop: {
-    paddingHorizontal: spacing.xl,
-  },
-  topBarMobile: {
-    paddingHorizontal: spacing.md,
-    paddingLeft: spacing.md,
-    flexWrap: 'wrap',
-  },
-  topBarContent: {
-    flex: 1,
-    minWidth: 220,
-  },
   topBarTitle: {
     fontSize: isDesktop ? 22 : 20,
     lineHeight: isDesktop ? 28 : 26,
     fontWeight: '800',
     fontFamily: palette.fontHeading,
     color: palette.textPrimary,
-  },
-  topBarActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: isMobile ? 'flex-start' : 'flex-end',
-    gap: spacing.sm,
-    flexWrap: 'wrap',
-    flexShrink: 1,
-    maxWidth: '100%',
-    width: isMobile ? '100%' : undefined,
-  },
-  topBarActionButton: {
-    minWidth: isMobile ? 0 : 148,
-  },
-  topBarActionText: {
-    fontSize: isMobile ? 13 : 14,
-    fontWeight: '600',
-    fontFamily: palette.fontSansSemiBold,
-  },
-  topBarSaveButton: {
-    minWidth: isMobile ? 0 : 156,
-  },
-  topBarSaveButtonDisabled: {
-    shadowOpacity: 0,
-    shadowRadius: 0,
-    elevation: 0,
-  },
-  topBarSaveText: {
-    color: palette.textOnCard,
-  },
-  topBarSaveTextDisabled: {
-    color: palette.textMuted,
   },
   visibilityBadge: {
     flexDirection: 'row',
@@ -3835,83 +3347,6 @@ function createStyles(
   visibilityBadgeTextPending: {
     color: palette.warningAmber,
   },
-  shareModalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(12, 18, 15, 0.52)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: spacing.lg,
-  },
-  shareModalContent: {
-    width: '100%',
-    maxWidth: 560,
-    backgroundColor: palette.cardBg,
-    borderRadius: borderRadius.xl,
-    padding: isMobile ? spacing.lg : spacing.xl,
-    borderWidth: 1,
-    borderColor: palette.border,
-    gap: spacing.lg,
-    ...shadows.lg,
-  },
-  documentModalContent: {
-    width: '100%',
-    maxWidth: 560,
-    backgroundColor: palette.cardBg,
-    borderRadius: borderRadius.xl,
-    padding: spacing.xl,
-    borderWidth: 1,
-    borderColor: palette.border,
-    gap: spacing.lg,
-    ...shadows.lg,
-  },
-  shareModalHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: spacing.md,
-  },
-  shareModalHeaderCopy: {
-    flex: 1,
-    gap: spacing.xs,
-  },
-  shareModalBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    gap: 6,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 6,
-    borderRadius: borderRadius.full,
-    backgroundColor: palette.primaryAlpha12,
-    borderWidth: 1,
-    borderColor: palette.primaryMuted,
-  },
-  shareModalBadgeText: {
-    fontSize: 12,
-    fontWeight: '700',
-    fontFamily: palette.fontHeading,
-    color: palette.primary,
-  },
-  shareModalCloseButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: palette.backgroundMuted,
-  },
-  shareModalTitle: {
-    fontSize: 22,
-    fontWeight: '800',
-    fontFamily: palette.fontHeading,
-    color: palette.textPrimary,
-  },
-  shareModalSubtitle: {
-    fontSize: 14,
-    fontFamily: palette.fontSans,
-    lineHeight: 21,
-    color: palette.textSecondary,
-  },
   shareCopiedBanner: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -3945,169 +3380,33 @@ function createStyles(
   shareModalSecondaryActionText: {
     color: palette.primary,
   },
-  tabsMobile: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    gap: spacing.sm,
-    flexDirection: 'row',
-  },
-  tabsDesktop: {
-    paddingHorizontal: spacing.xl,
-    flexDirection: 'row',
-    gap: 0,
-  },
-  tab: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderRadius: borderRadius.lg,
-    backgroundColor: palette.cardBg,
-    borderWidth: 1,
-    borderColor: palette.border,
-    gap: spacing.xs,
-  },
-  tabDesktop: {
-    borderRadius: 0,
-    borderWidth: 0,
-    borderBottomWidth: 3,
-    borderBottomColor: 'transparent',
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    minHeight: 44,
-  },
-  tabActive: {
-    backgroundColor: palette.primaryMuted,
-    borderColor: palette.primary,
-  },
-  tabActiveDesktop: {
-    backgroundColor: 'transparent',
-    borderBottomColor: palette.primary,
-  },
-  tabText: {
-    fontSize: 13,
-    fontWeight: '500',
-    fontFamily: palette.fontSansSemiBold,
-    color: palette.textSecondary,
-  },
-  tabTextDesktop: {
-    fontSize: 15,
-    fontFamily: palette.fontSans,
-  },
-  tabTextActive: {
-    color: palette.textPrimary,
-    fontWeight: '600',
-  },
-  tabPendingBadge: {
-    minWidth: 20,
-    height: 20,
-    paddingHorizontal: 5,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: palette.warningAmber,
-  },
-  tabPendingBadgeText: {
-    color: palette.textOnPrimary,
-    fontFamily: palette.fontSansBold,
-    fontSize: 10,
-    lineHeight: 12,
-  },
 
   // ===== MAIN LAYOUT =====
-  formArea: {
-    flex: 1,
-  },
-  formContent: {
-    padding: isMobile ? spacing.md : spacing.lg,
-    paddingBottom: spacing.xl,
-  },
+  formArea: { flex: 1, minWidth: 0 },
+  formContent: { width: '100%', maxWidth: 1100, alignSelf: 'center', paddingHorizontal: isDesktop ? 42 : 18, paddingTop: isDesktop ? 26 : 20, paddingBottom: 48 },
 
   // ===== TAB CONTENT =====
   tabContent: {
     gap: isMobile ? spacing.md : spacing.lg,
   },
-  informationCard: {
-    padding: isMobile ? spacing.md : isDesktop ? spacing.md : spacing.lg,
-  },
-  identityCardLayout: {
-    flexDirection: isDesktop ? 'row' : 'column',
-    alignItems: isDesktop ? 'stretch' : 'center',
-    gap: spacing.lg,
-  },
-  photoPanel: {
-    width: isDesktop ? 260 : '100%',
-    flexShrink: 0,
-    paddingRight: isDesktop ? spacing.lg : 0,
-    borderRightWidth: isDesktop ? 1 : 0,
-    borderRightColor: palette.border,
-  },
-  identityFields: {
-    flex: isDesktop ? 1 : undefined,
-    minWidth: 0,
-    width: isDesktop ? undefined : '100%',
-  },
-  panelTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    fontFamily: palette.fontHeading,
-    color: palette.textPrimary,
-    marginBottom: spacing.sm,
-  },
-  informationSplitGrid: {
-    flexDirection: isDesktop ? 'row' : 'column',
-    alignItems: isDesktop ? 'stretch' : 'flex-start',
-    gap: isMobile ? spacing.md : spacing.lg,
-  },
-  descriptionSection: {
-    flex: isDesktop ? 1.45 : undefined,
-    minWidth: 0,
-    width: isDesktop ? undefined : '100%',
-    alignSelf: isDesktop ? 'stretch' : undefined,
-    marginBottom: 0,
-  },
-  modalitySection: {
-    flex: isDesktop ? 1 : undefined,
-    minWidth: isDesktop ? 360 : undefined,
-    width: isDesktop ? undefined : '100%',
-    alignSelf: isDesktop ? 'stretch' : undefined,
-    marginBottom: 0,
-  },
-  splitEqualCard: {
-    flex: isDesktop ? 1 : undefined,
-  },
+  informationCard: { padding: 0 },
+  identityCardLayout: { gap: 18 },
+  photoPanel: { padding: 10, borderRadius: 9, backgroundColor: palette.backgroundMuted },
+  identityFields: { minWidth: 0, width: '100%' },
+  descriptionSection: { width: '100%' },
+  modalitySection: { width: '100%' },
+  splitEqualCard: { width: '100%' },
   descriptionPane: {
     width: '100%',
   },
   locationCard: {
     marginTop: 0,
   },
-  locationLayout: {
-    flexDirection: isDesktop ? 'row' : 'column',
-    alignItems: 'flex-start',
-    gap: isMobile ? spacing.md : spacing.lg,
-  },
-  locationFieldsPane: {
-    flex: isDesktop ? 0.95 : undefined,
-    minWidth: isDesktop ? 360 : undefined,
-    width: isDesktop ? undefined : '100%',
-  },
-  locationMapPane: {
-    flex: isDesktop ? 1.15 : undefined,
-    minWidth: 0,
-    width: isDesktop ? undefined : '100%',
-  },
-  informationLowerGrid: {
-    flexDirection: isDesktop ? 'row' : 'column',
-    alignItems: 'flex-start',
-    gap: isMobile ? spacing.md : spacing.lg,
-  },
-  informationHalfSection: {
-    flex: isDesktop ? 1 : undefined,
-    minWidth: 0,
-    width: isDesktop ? undefined : '100%',
-    marginBottom: 0,
-  },
+  locationLayout: { gap: 16 },
+  locationFieldsPane: { width: '100%' },
+  locationMapPane: { width: '100%' },
+  informationLowerGrid: { gap: 24 },
+  informationHalfSection: { width: '100%' },
   informationFullSection: {
     width: '100%',
     marginBottom: 0,
@@ -4115,11 +3414,9 @@ function createStyles(
 
   // ===== SECTIONS =====
   settingsContent: { width: '100%', maxWidth: 1120, alignSelf: 'flex-start' },
-  accountGrid: { flexDirection: isDesktop ? 'row' : 'column', alignItems: isDesktop ? 'flex-start' : 'stretch', gap: spacing.lg },
-  accountColumn: { flex: isDesktop ? 1 : undefined, minWidth: 0 },
-  section: {
-    marginBottom: isMobile ? spacing.md : spacing.lg,
-  },
+  accountGrid: { gap: 28 },
+  accountColumn: { minWidth: 0 },
+  section: { paddingBottom: 14, borderBottomWidth: 1, borderBottomColor: palette.border },
   targetHighlight: {
     backgroundColor: palette.primaryAlpha12,
     borderColor: palette.primary,
@@ -4127,108 +3424,32 @@ function createStyles(
     borderRadius: borderRadius.lg,
     padding: 3,
   },
-  completionSummary: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: spacing.sm,
-    paddingVertical: spacing.xs,
-  },
-  completionSummaryCopy: {
-    flex: 1,
-    minWidth: 0,
-  },
-  completionSummaryTitle: {
-    color: palette.textPrimary,
-    fontFamily: palette.fontSansBold,
-    fontSize: 14,
-    lineHeight: 19,
-  },
-  completionSummaryText: {
-    color: palette.textSecondary,
-    fontFamily: palette.fontSans,
-    fontSize: 12,
-    lineHeight: 17,
-    marginTop: 2,
-  },
-  completionWarning: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: spacing.sm,
-    padding: spacing.sm,
-    marginBottom: spacing.md,
-    borderWidth: 1,
-    borderColor: palette.warningAmber,
-    borderRadius: borderRadius.md,
-    backgroundColor: palette.warningLight,
-  },
-  completionWarningCritical: {
-    borderColor: palette.warning,
-  },
-  completionWarningIcon: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: palette.cardBg,
-  },
-  completionWarningCopy: {
-    flex: 1,
-    minWidth: 0,
-  },
-  completionWarningTitle: {
-    fontFamily: palette.fontSansBold,
-    fontSize: 12,
-    lineHeight: 16,
-  },
-  completionWarningText: {
-    color: palette.textSecondary,
-    fontFamily: palette.fontSans,
-    fontSize: 12,
-    lineHeight: 17,
-    marginTop: 1,
-  },
+  completionInfoButton: { minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
+  headingLine: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  completionHeading: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 14 },
+  inlineSectionTitle: { marginBottom: 0 },
   sectionHeader: {
     flexDirection: 'row',
+    gap: spacing.sm,
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: spacing.md,
   },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    fontFamily: palette.fontHeading,
-    color: palette.textPrimary,
-    marginBottom: spacing.md,
-  },
+  sectionTitle: { flexShrink: 1, fontSize: 21, lineHeight: 28, fontFamily: palette.fontHeading, color: palette.textPrimary, marginBottom: 14 },
 
   // ===== FORM CARD =====
-  formCard: {
-    backgroundColor: palette.cardBg,
-    borderRadius: borderRadius.lg,
-    padding: spacing.lg,
-  },
+  formCard: { gap: 8 },
 
   // ===== FORM FIELDS =====
-  formField: {
-    marginBottom: spacing.lg,
-  },
+  formField: { marginBottom: 14 },
   labelRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: spacing.sm,
   },
-  alignedVerificationLabel: {
-    minHeight: 28,
-  },
-  fieldLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    fontFamily: palette.fontSansSemiBold,
-    color: palette.textSecondary,
-  },
+  alignedVerificationLabel: { minHeight: 20 },
+  fieldLabel: { fontSize: 15, fontFamily: palette.fontSansSemiBold, color: palette.textPrimary },
   fieldHint: {
     fontSize: 12,
     fontWeight: '400',
@@ -4271,11 +3492,7 @@ function createStyles(
     justifyContent: 'space-between',
     marginTop: spacing.xs,
   },
-  helperText: {
-    fontSize: 12,
-    fontFamily: palette.fontSans,
-    color: palette.textMuted,
-  },
+  helperText: { fontSize: 13, lineHeight: 18, flexShrink: 1, fontFamily: palette.fontSans, color: palette.textSecondary },
   characterCount: {
     fontSize: 12,
     fontFamily: palette.fontSans,
@@ -4308,65 +3525,18 @@ function createStyles(
   },
 
   // ===== CHIP SELECTOR =====
-  chipContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-    marginTop: spacing.sm,
-  },
-  chip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderRadius: borderRadius.xl,
-    backgroundColor: palette.cardBg,
-    borderWidth: 1,
-    borderColor: palette.border,
-    gap: spacing.xs,
-  },
-  chipSelected: {
-    backgroundColor: palette.primaryMuted,
-    borderColor: palette.primary,
-  },
   chipDisabled: {
     opacity: 0.5,
-  },
-  chipText: {
-    fontSize: 14,
-    fontWeight: '500',
-    fontFamily: palette.fontSansSemiBold,
-    color: palette.textSecondary,
-  },
-  chipTextSelected: {
-    color: palette.primary,
   },
   chipTextDisabled: {
     color: palette.textMuted,
   },
 
   // ===== PHOTO SECTION =====
-  photoSection: {
-    alignItems: 'center',
-    padding: 0,
-  },
-  avatarContainer: {
-    marginBottom: isDesktop ? spacing.sm : spacing.md,
-  },
-  avatarLarge: {
-    width: isDesktop ? 96 : 120,
-    height: isDesktop ? 96 : 120,
-    borderRadius: isDesktop ? 48 : 60,
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...shadows.lg,
-  },
-  avatarLargeText: {
-    fontSize: isDesktop ? 38 : 48,
-    fontWeight: '700',
-    fontFamily: palette.fontSansBold,
-    color: palette.textOnCard,
-  },
+  photoSection: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 10 },
+  avatarContainer: { width: isMobile ? 40 : 50, height: isMobile ? 40 : 50 },
+  avatarLarge: { width: '100%', height: '100%', borderRadius: 30, alignItems: 'center', justifyContent: 'center' },
+  avatarLargeText: { fontFamily: palette.fontSansBold, color: palette.textOnPrimary, fontSize: isMobile ? 17 : 21 },
   avatarUploadOverlay: {
     position: 'absolute',
     top: 0,
@@ -4378,23 +3548,8 @@ function createStyles(
     backgroundColor: palette.overlay,
     borderRadius: isDesktop ? 48 : 60,
   },
-  photoActions: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-    gap: spacing.sm,
-    marginBottom: spacing.sm,
-  },
-  photoButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderRadius: borderRadius.md,
-    borderWidth: 1,
-    borderColor: palette.border,
-  },
+  photoActions: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 4, flexShrink: 1 },
+  photoButton: { minHeight: 42 },
   photoButtonDanger: {
     borderWidth: 0,
   },
@@ -4406,12 +3561,6 @@ function createStyles(
   },
   photoButtonTextDanger: {
     color: palette.warning,
-  },
-  photoHint: {
-    fontSize: 12,
-    fontFamily: palette.fontSans,
-    color: palette.textMuted,
-    textAlign: 'center',
   },
 
   // ===== EMPTY STATE =====
@@ -4457,193 +3606,13 @@ function createStyles(
   itemsList: {
     gap: spacing.md,
   },
-  itemCard: {
-    flexDirection: 'row',
-    backgroundColor: palette.cardBg,
-    borderRadius: borderRadius.lg,
-    padding: spacing.md,
-    ...shadows.sm,
-  },
-  itemIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: palette.primaryMuted,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: spacing.md,
-  },
-  itemContent: {
-    flex: 1,
-  },
-  itemInput: {
-    fontSize: 15,
-    fontWeight: '600',
-    fontFamily: palette.fontSansSemiBold,
-    color: palette.textPrimary,
-    borderBottomWidth: 1,
-    borderBottomColor: palette.border,
-    paddingVertical: spacing.xs,
-    marginBottom: spacing.xs,
-  },
-  itemInputSmall: {
-    fontSize: 14,
-    fontFamily: palette.fontSans,
-    color: palette.textSecondary,
-    borderBottomWidth: 1,
-    borderBottomColor: palette.border,
-    paddingVertical: spacing.xs,
-    marginBottom: spacing.xs,
-  },
-  itemInputYear: {
-    width: 70,
-    textAlign: 'center',
-  },
-  itemRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    flexWrap: 'wrap',
-  },
-  itemSeparator: {
-    fontSize: 14,
-    fontFamily: palette.fontSans,
-    color: palette.textMuted,
-  },
-  itemRemove: {
-    padding: spacing.xs,
-  },
-  currentBadge: {
-    backgroundColor: palette.primaryMuted,
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.sm,
-    borderRadius: borderRadius.sm,
-  },
-  currentBadgeText: {
-    fontSize: 12,
-    fontWeight: '600',
-    fontFamily: palette.fontSansSemiBold,
-    color: palette.primary,
-  },
-  currentToggle: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    marginLeft: 'auto',
-  },
-  currentToggleText: {
-    fontSize: 13,
-    fontFamily: palette.fontSans,
-    color: palette.textSecondary,
-  },
+  trajectoryFields: { flexDirection: isMobile ? 'column' : 'row', gap: 12 },
+  trajectoryEmpty: { fontSize: 14, lineHeight: 20, color: palette.textSecondary, fontFamily: palette.fontSans, paddingBottom: 8 },
+  currentToggle: { flexDirection: 'row', alignSelf: 'flex-start', alignItems: 'center', gap: 8, minHeight: 44 },
 
   // ===== VERIFICATION =====
-  verificationOverview: {
-    backgroundColor: palette.cardBg,
-    borderRadius: borderRadius.lg,
-    padding: spacing.lg,
-    ...shadows.md,
-  },
-  verificationItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    paddingVertical: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: palette.border,
-  },
-  verificationItemLast: {
-    borderBottomWidth: 0,
-  },
-  verificationItemContent: {
-    flex: 1,
-  },
-  verificationItemTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-    fontFamily: palette.fontSansSemiBold,
-    color: palette.textPrimary,
-  },
-  verificationItemStatus: {
-    fontSize: 13,
-    fontFamily: palette.fontSans,
-    color: palette.textSecondary,
-  },
-  completionSection: {
-    marginTop: spacing.sm,
-    paddingTop: spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: palette.border,
-  },
-  completionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: spacing.sm,
-  },
-  completionLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    fontFamily: palette.fontSansSemiBold,
-    color: palette.textSecondary,
-  },
-  completionValue: {
-    fontSize: 14,
-    fontWeight: '700',
-    fontFamily: palette.fontHeading,
-    color: palette.primary,
-  },
-  completionBar: {
-    height: 8,
-    backgroundColor: palette.border,
-    borderRadius: 4,
-    overflow: 'hidden',
-  },
-  completionFill: {
-    height: '100%',
-    backgroundColor: palette.primary,
-    borderRadius: 4,
-  },
 
   // ===== VERIFICATION CARD =====
-  verificationCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-  },
-  verificationCardIcon: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: palette.background,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  verificationCardContent: {
-    flex: 1,
-  },
-  verificationCardTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    fontFamily: palette.fontSansSemiBold,
-    color: palette.textPrimary,
-  },
-  verificationCardStatus: {
-    fontSize: 13,
-    fontFamily: palette.fontSans,
-    color: palette.textSecondary,
-  },
-  verificationCardButton: {
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderRadius: borderRadius.md,
-    backgroundColor: palette.primary,
-  },
-  verificationCardButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    fontFamily: palette.fontSansSemiBold,
-    color: palette.textOnCard,
-  },
 
   // ===== DOCUMENT CARD =====
   documentCard: {
@@ -4675,22 +3644,6 @@ function createStyles(
   documentMeta: {
     fontSize: 13,
     fontFamily: palette.fontSans,
-    color: palette.textSecondary,
-  },
-  credentialsHintCard: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: spacing.sm,
-    padding: spacing.md,
-    borderRadius: borderRadius.lg,
-    backgroundColor: palette.primaryAlpha12,
-    marginBottom: spacing.md,
-  },
-  credentialsHintText: {
-    flex: 1,
-    fontSize: 13,
-    fontFamily: palette.fontSans,
-    lineHeight: 20,
     color: palette.textSecondary,
   },
   insuranceStatusCard: {
@@ -4876,39 +3829,6 @@ function createStyles(
   },
 
   // ===== UPLOAD AREA =====
-  uploadArea: {
-    alignItems: 'center',
-    padding: spacing.xl,
-    borderWidth: 2,
-    borderColor: palette.border,
-    borderStyle: 'dashed',
-    borderRadius: borderRadius.lg,
-  },
-  uploadTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    fontFamily: palette.fontSansSemiBold,
-    color: palette.textPrimary,
-    marginTop: spacing.md,
-    marginBottom: spacing.xs,
-  },
-  uploadDescription: {
-    fontSize: 14,
-    fontFamily: palette.fontSans,
-    color: palette.textSecondary,
-    textAlign: 'center',
-    marginBottom: spacing.md,
-  },
-  uploadButton: {
-    alignSelf: 'center',
-    minWidth: 190,
-  },
-  uploadButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    fontFamily: palette.fontSansSemiBold,
-    color: palette.textOnCard,
-  },
 
   // ===== PRICING =====
   priceRow: {
@@ -4957,33 +3877,6 @@ function createStyles(
     fontFamily: palette.fontSans,
     color: palette.textPrimary,
   },
-  billingSummaryHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: spacing.md,
-    paddingBottom: spacing.lg,
-    borderBottomWidth: 1,
-    borderBottomColor: palette.border,
-    marginBottom: spacing.lg,
-  },
-  billingSummaryIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: palette.primaryAlpha12,
-  },
-  billingSummaryCopy: {
-    flex: 1,
-    gap: spacing.xs,
-  },
-  billingSummaryTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    fontFamily: palette.fontHeading,
-    color: palette.textPrimary,
-  },
   billingSummaryText: {
     fontSize: 14,
     fontFamily: palette.fontSans,
@@ -5029,25 +3922,7 @@ function createStyles(
     lineHeight: 18,
     color: palette.textSecondary,
   },
-  billingStatusList: {
-    gap: spacing.sm,
-    marginBottom: spacing.lg,
-  },
-  billingStatusRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  billingStatusText: {
-    flex: 1,
-    fontSize: 14,
-    fontFamily: palette.fontSans,
-    lineHeight: 20,
-    color: palette.textPrimary,
-  },
-  billingCta: {
-    alignSelf: 'flex-start',
-  },
+  billingCta: { alignSelf: 'flex-start', marginTop: 10 },
 
   // ===== ACCOUNT =====
   accountActions: {
@@ -5143,13 +4018,6 @@ function createStyles(
   privacySection: {
     marginBottom: spacing.md,
   },
-  privacyLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    fontFamily: palette.fontSansSemiBold,
-    color: palette.textSecondary,
-    marginBottom: spacing.sm,
-  },
   visibilitySummary: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -5242,20 +4110,8 @@ function createStyles(
   },
 
   // ===== LOCATION & MODALITY =====
-  modalityOptions: {
-    gap: spacing.sm,
-    marginTop: spacing.sm,
-  },
-  modalityOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: spacing.md,
-    borderWidth: 2,
-    borderColor: palette.border,
-    borderRadius: borderRadius.md,
-    gap: spacing.sm,
-    backgroundColor: palette.cardBg,
-  },
+  modalityOptions: { gap: 8 },
+  modalityOption: { flexDirection: 'row', alignItems: 'center', minHeight: 52, paddingHorizontal: 12, gap: 12, borderWidth: 1, borderColor: palette.border, borderRadius: 8 },
   modalityOptionSelected: {
     borderColor: palette.primary,
     backgroundColor: palette.primaryMuted,
@@ -5304,10 +4160,7 @@ function createStyles(
     lineHeight: 20,
     color: palette.textSecondary,
   },
-  formRow: {
-    flexDirection: isMobile ? 'column' : 'row',
-    gap: spacing.md,
-  },
+  formRow: { flexDirection: isMobile ? 'column' : 'row', gap: isMobile ? 0 : 18 },
   formFieldHalf: {
     flex: isMobile ? undefined : 1,
     width: isMobile ? '100%' : undefined,
@@ -5320,100 +4173,6 @@ function createStyles(
   },
 
   // ===== PROFESSIONAL VERIFICATION STATUS BANNER =====
-  verificationBanner: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    padding: spacing.lg,
-    borderRadius: borderRadius.lg,
-    marginBottom: spacing.xl,
-    gap: spacing.md,
-  },
-  verificationBannerVerified: {
-    backgroundColor: palette.successLight,
-    borderWidth: 1,
-    borderColor: palette.success,
-  },
-  verificationBannerPending: {
-    backgroundColor: 'rgba(139, 168, 196, 0.15)',
-    borderWidth: 1,
-    borderColor: palette.info,
-  },
-  verificationBannerRejected: {
-    backgroundColor: palette.warningLight,
-    borderWidth: 1,
-    borderColor: palette.warning,
-  },
-  verificationBannerNotSubmitted: {
-    backgroundColor: palette.background,
-    borderWidth: 1,
-    borderColor: palette.border,
-  },
-  verificationBannerIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: palette.cardBg,
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...shadows.sm,
-  },
-  verificationBannerContent: {
-    flex: 1,
-  },
-  verificationBannerTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    fontFamily: palette.fontHeading,
-    marginBottom: spacing.xs,
-  },
-  verificationBannerTitleVerified: {
-    color: palette.success,
-  },
-  verificationBannerTitlePending: {
-    color: palette.info,
-  },
-  verificationBannerTitleRejected: {
-    color: palette.warning,
-  },
-  verificationBannerTitleNotSubmitted: {
-    color: palette.textPrimary,
-  },
-  verificationBannerText: {
-    fontSize: 14,
-    fontFamily: palette.fontSans,
-    color: palette.textSecondary,
-    lineHeight: 20,
-  },
-  verificationResubmitButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: palette.warning,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderRadius: borderRadius.md,
-    marginTop: spacing.md,
-    gap: spacing.xs,
-    alignSelf: 'flex-start',
-  },
-  verificationSubmitButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: palette.primary,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderRadius: borderRadius.md,
-    marginTop: spacing.md,
-    gap: spacing.xs,
-    alignSelf: 'flex-start',
-  },
-  verificationResubmitButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    fontFamily: palette.fontSansSemiBold,
-    color: '#FFFFFF',
-  },
 
   });
 }

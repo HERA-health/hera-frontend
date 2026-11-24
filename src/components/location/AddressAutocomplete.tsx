@@ -132,6 +132,7 @@ export const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [isReady, setIsReady] = useState(false);
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const [dropdownPosition, setDropdownPosition] = useState<DropdownPosition>({
@@ -177,8 +178,8 @@ export const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
         resetSessionToken();
         setIsReady(true);
       })
-      .catch((err) => {
-        console.error('Error loading Google Maps:', err);
+      .catch(() => {
+        setLoadFailed(true);
       });
   }, [resetSessionToken]);
 
@@ -548,7 +549,7 @@ export const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
 
       {hasGoogleMapsApiKey && !isReady ? (
         <Text style={[styles.loadingText, { color: theme.textMuted }]}>
-          Cargando autocompletado...
+          {loadFailed ? (onTextChange ? 'Autocompletado no disponible. Puedes escribir la dirección.' : 'Autocompletado no disponible.') : 'Cargando autocompletado…'}
         </Text>
       ) : null}
     </View>

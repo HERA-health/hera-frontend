@@ -16,12 +16,13 @@ const localDate = (date: string): Date => {
 };
 
 interface Props {
+  leadingField?: React.ReactNode;
   birthDate: string | null;
   showAge: boolean;
   onChange: (birthDate: string | null, showAge: boolean) => void;
 }
 
-export const ProfessionalBirthdayEditor: React.FC<Props> = ({ birthDate, showAge, onChange }) => {
+export const ProfessionalBirthdayEditor: React.FC<Props> = ({ birthDate, showAge, onChange, leadingField }) => {
   const { theme } = useTheme();
   const [open, setOpen] = useState(false);
   const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Madrid', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
@@ -31,6 +32,7 @@ export const ProfessionalBirthdayEditor: React.FC<Props> = ({ birthDate, showAge
 
   return (
     <View style={styles.row}>
+      {leadingField && <View style={styles.column}>{leadingField}</View>}
       <View style={styles.column}>
         <Text style={[text, styles.label, { fontFamily: theme.fontSansSemiBold }]}>Fecha de nacimiento (opcional)</Text>
         <Pressable accessibilityRole="button" accessibilityLabel="Elegir fecha de nacimiento" onPress={() => setOpen(true)}
@@ -44,8 +46,6 @@ export const ProfessionalBirthdayEditor: React.FC<Props> = ({ birthDate, showAge
             <Text style={[helper, { color: theme.primary }]}>Borrar fecha</Text>
           </Pressable>
         </View> : null}
-      </View>
-      <View style={[styles.column, styles.publication]}>
         <Pressable accessibilityRole="checkbox" accessibilityLabel="Mostrar mi edad en el perfil"
           accessibilityState={{ checked: showAge, disabled: !birthDate }} disabled={!birthDate}
           onPress={() => onChange(birthDate, !showAge)} style={styles.checkbox}>
@@ -73,6 +73,5 @@ const styles = StyleSheet.create({
   date: { minHeight: 48, borderWidth: 1, borderRadius: borderRadius.md, paddingHorizontal: spacing.lg, flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   dateFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   clear: { paddingVertical: spacing.sm, paddingLeft: spacing.sm, minHeight: 40, justifyContent: 'center' },
-  publication: { justifyContent: 'center', gap: spacing.xs },
-  checkbox: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, minHeight: 44 },
+  checkbox: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, minHeight: 44, marginTop: spacing.xs },
 });

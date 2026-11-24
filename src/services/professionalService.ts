@@ -1198,6 +1198,7 @@ export const uploadInsuranceDocument = async (file: UploadAsset): Promise<{
       timeout: 30000,
     });
 
+    invalidateSpecialistsCache();
     return response.data.data;
   } catch (error: unknown) {
     throw new Error(getErrorMessage(error, 'No se pudo subir la póliza.'));
@@ -1229,6 +1230,7 @@ export const deleteInsuranceDocument = async (): Promise<{
 }> => {
   try {
     const response = await api.delete('/specialists/me/insurance/document');
+    invalidateSpecialistsCache();
     return response.data.data;
   } catch (error: unknown) {
     throw new Error(getErrorMessage(error, 'No se pudo eliminar la póliza.'));
