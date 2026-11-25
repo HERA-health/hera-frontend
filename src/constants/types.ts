@@ -1,4 +1,5 @@
 import type { MarketingCapture } from "../seo/professionalContent";
+import type { NavigatorScreenParams } from '@react-navigation/native';
 /**
  * TypeScript type definitions for HERA - Health Era
  * Defines all core domain models and interfaces
@@ -206,10 +207,10 @@ export type RootStackParamList = {
     openCreateSession?: boolean;
     focusSessionId?: string;
   } | undefined;
-  ProfessionalProfile: {
+  ProfessionalProfile: ({
     initialTab?: ProfessionalProfileTab;
     initialSection?: ProfessionalProfileSection;
-  } | undefined;
+  } & (NavigatorScreenParams<ProfileEditorParamList> | { screen?: never })) | undefined;
   ProfessionalPayments: undefined;
   SessionPayment: { bookingId: string };
   PackagePayment: { patientPackageId: string };
@@ -266,10 +267,16 @@ export type ProfessionalProfileTab =
   | 'google'
   | 'account';
 
+export type ProfileEditorParamList = {
+  ProfileSections: undefined;
+  ProfileSection: { tab: Exclude<ProfessionalProfileTab, 'agenda'> };
+};
+
 export type ProfessionalProfileSection =
   | 'identity'
   | 'bio'
   | 'matching'
+  | 'languages'
   | 'modality'
   | 'location'
   | 'verification'

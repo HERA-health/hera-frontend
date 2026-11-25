@@ -17,6 +17,7 @@ let mockWindowDimensions = {
 const mockUseWindowDimensions = jest.fn(() => mockWindowDimensions);
 const mockScrollTo = jest.fn();
 let mockScrollableNode: HTMLElement | null = null;
+let mockHeaderScrollProgress: number | undefined;
 const mockDiscoveryBlur = jest.fn();
 let mockAuthState = {
   isAuthenticated: false,
@@ -103,7 +104,10 @@ jest.mock('../components/FeaturedSpecialistsSection', () => ({
 jest.mock('react-native-reanimated', () => {
   const Reanimated = require('react-native-reanimated/mock');
   Reanimated.default.call = () => {};
-  return Reanimated;
+  return {
+    ...Reanimated,
+    useSharedValue: (initial: unknown) => Reanimated.useSharedValue(mockHeaderScrollProgress ?? initial),
+  };
 });
 
 jest.mock('expo-blur', () => ({
@@ -171,6 +175,7 @@ describe('LandingPage', () => {
 
   beforeEach(() => {
     mockScrollableNode = null;
+    mockHeaderScrollProgress = undefined;
     mockAuthState = {
       isAuthenticated: false,
       user: null,
@@ -209,6 +214,18 @@ describe('LandingPage', () => {
   afterEach(() => {
     jest.clearAllMocks();
     document.body.replaceChildren();
+  });
+
+  it.each([
+    { progress: 2.86e-8, background: '0.000', border: '0.000' },
+    { progress: 0.5, background: '0.470', border: '0.500' },
+  ])('renders native-safe header colors at scroll progress $progress', ({ progress, background, border }) => {
+    mockHeaderScrollProgress = progress;
+    render(<LandingHeader context="access" isScrolled={false} onAccess={jest.fn()} />);
+    expect(screen.root).toHaveStyle({
+      backgroundColor: `rgba(250, 248, 243, ${background})`,
+      borderBottomColor: `rgba(220, 213, 202, ${border})`,
+    });
   });
 
   it('presents the two journeys and only concrete trust claims', () => {

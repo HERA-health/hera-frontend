@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect } from 'react';
-import { Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -87,15 +87,19 @@ export function NavItem({
   const { theme } = useTheme();
   const sidebarTheme = getSidebarTheme(theme);
 
+  // The editor entry and its shortcut to a missing field have different destinations.
+  const separateNotice = item.route === 'ProfessionalProfile' && notice && onNoticePress;
+  const inlineNotice = separateNotice ? undefined : notice;
+
   const handlePress = useCallback(() => {
     if (!item.disabled) {
-      if (notice && onNoticePress) {
-        onNoticePress(notice);
+      if (inlineNotice && onNoticePress) {
+        onNoticePress(inlineNotice);
       } else {
         onPress(item.route);
       }
     }
-  }, [item.disabled, item.route, notice, onNoticePress, onPress]);
+  }, [item.disabled, item.route, inlineNotice, onNoticePress, onPress]);
 
   const indicatorOpacity = useSharedValue(isActive ? 1 : 0);
 
@@ -161,7 +165,7 @@ export function NavItem({
           size={18}
           color={isActive ? sidebarTheme.icon.active : sidebarTheme.icon.inactive}
         />
-        {isCollapsed && notice ? (
+        {isCollapsed && inlineNotice ? (
           <View
             style={[
               styles.noticeDot,
@@ -187,7 +191,7 @@ export function NavItem({
           >
             {item.label}
           </Text>
-          {notice ? (
+          {inlineNotice ? (
             <Text
               style={[
                 styles.noticeLabel,
@@ -195,13 +199,13 @@ export function NavItem({
               ]}
               numberOfLines={1}
             >
-              {notice.label}
+              {inlineNotice.label}
             </Text>
           ) : null}
         </View>
       )}
 
-      {!isCollapsed && notice ? (
+      {!isCollapsed && inlineNotice ? (
         <View style={[styles.noticeIcon, { backgroundColor: sidebarTheme.background.subtle }]}>
           <Ionicons name={noticeIcon} size={17} color={noticeColor} />
         </View>
@@ -226,10 +230,10 @@ export function NavItem({
         hoverLift={false}
         pressScale={0.985}
         style={item.disabled ? [styles.pressable, styles.disabled] : styles.pressable}
-        accessibilityLabel={notice
-          ? `${item.label}. ${notice.label}. Abrir sección pendiente`
+        accessibilityLabel={inlineNotice
+          ? `${item.label}. ${inlineNotice.label}. Abrir sección pendiente`
           : `Navegar a ${item.label}`}
-        accessibilityHint={notice ? 'Abre directamente la información que requiere atención' : undefined}
+        accessibilityHint={inlineNotice ? 'Abre directamente la información que requiere atención' : undefined}
       >
         {item.tourTargetId ? (
           <TourTarget id={item.tourTargetId} fill style={styles.tourTarget}>
@@ -239,6 +243,13 @@ export function NavItem({
           innerContent
         )}
       </AnimatedPressable>
+      {separateNotice && <Pressable accessibilityRole="button" disabled={item.disabled}
+        accessibilityLabel={`${item.label}. ${notice.label}. Abrir sección pendiente`}
+        onPress={() => onNoticePress(notice)}
+        style={[styles.profileNotice, { backgroundColor: sidebarTheme.background.subtle }]}>
+        <Ionicons name={noticeIcon} size={16} color={noticeColor} />
+        {!isCollapsed && <Text style={[styles.profileNoticeText, { color: sidebarTheme.text.primary, fontFamily: theme.fontSansMedium }]}>{notice.label}</Text>}
+      </Pressable>}
     </View>
   );
 }

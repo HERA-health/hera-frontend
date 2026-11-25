@@ -19,5 +19,8 @@ export function navigateProfessionalSection<T extends ProfessionalSection>(
     ? [params?: RootStackParamList[T]]
     : [params: RootStackParamList[T]]
 ): void {
-  navigation.dispatch(CommonActions.navigate({ name, params: args[0], pop: true }));
+  const params = name === 'ProfessionalProfile' && !args[0]
+    ? { screen: 'ProfileSections', pop: true } satisfies RootStackParamList['ProfessionalProfile']
+    : args[0];
+  navigation.dispatch(CommonActions.navigate({ name, params, pop: true }));
 }

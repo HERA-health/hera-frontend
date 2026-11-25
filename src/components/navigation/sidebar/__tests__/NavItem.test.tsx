@@ -58,6 +58,8 @@ describe('NavItem completion notice', () => {
     fireEvent.press(getByLabelText('Editar perfil. Falta seguro RC · +1. Abrir sección pendiente'));
     expect(onNoticePress).toHaveBeenCalledWith(notice);
     expect(onPress).not.toHaveBeenCalled();
+    fireEvent.press(getByLabelText('Navegar a Editar perfil'));
+    expect(onPress).toHaveBeenCalledWith('ProfessionalProfile');
   });
 
   it('keeps the accessible completion target when the sidebar is collapsed', () => {

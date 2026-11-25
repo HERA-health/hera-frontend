@@ -19,6 +19,7 @@ const profileCompletionItemSchema = z.object({
   code: profileCompletionCodeSchema,
   state: z.enum(['ACTION_REQUIRED', 'WAITING_REVIEW']),
   severity: z.enum(['WARNING', 'CRITICAL', 'INFO']),
+  matchingField: z.enum(['specialties', 'approaches', 'languages', 'review']).optional(),
 });
 
 const profileCompletionSnapshotSchema = z.object({

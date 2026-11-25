@@ -190,6 +190,10 @@
       "destination": "/app-shell.html"
     },
     {
+      "source": "/ProfessionalProfile/seccion",
+      "destination": "/app-shell.html"
+    },
+    {
       "source": "/clinical-consent/:requestId/:token",
       "destination": "/app-shell.html"
     },

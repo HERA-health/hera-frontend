@@ -6,10 +6,12 @@ import { customChoiceGroupErrors, PROFESSIONAL_SPECIALTY_OPTIONS, PROFESSIONAL_T
 import { PrivacyPreferencesButton } from '../../components/common/PrivacyPreferences';
 import { navigateProfessionalSection } from '../../navigation/professionalNavigation';
 import { useFocusedRateLimitRecovery } from '../../hooks/useGeneralRateLimit';
-import { AccountSettingsCard } from '../../components/professional/AccountSettingsCard';
 import { GoogleCalendarCard } from '../../components/professional/GoogleCalendarCard';
 import { VideoCallSetupPrompt } from '../../components/professional/VideoCallSetupPrompt';
 import { ClinicalPinManager } from '../../components/professional/ClinicalPinManager';
+import { ProfileEditorSection } from '../../components/professional/ProfileEditorSection';
+import { ProfileEditorPages, type ProfilePageNavigation } from '../../components/professional/ProfileEditorPages';
+import { choiceKeyboardProps } from '../../utils/choiceKeyboard';
 import { TrajectoryEntry } from '../../components/professional/TrajectoryEntry';
 import { ProfileEditorSheet, ProfileEditorItem } from '../../components/professional/ProfileEditorSheet';
 import { SafeAreaInsetsContext } from 'react-native-safe-area-context';
@@ -26,6 +28,8 @@ import {
   useWindowDimensions,
   ActivityIndicator,
   KeyboardAvoidingView,
+  AccessibilityInfo,
+  findNodeHandle,
   Pressable,
   Image,
   Share,
@@ -40,6 +44,7 @@ import { showAppAlert, useAppAlert, useAppAlertState } from '../../components/co
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useNavigation, useFocusEffect, useRoute } from '@react-navigation/native';
+import { useProfileDraftExit } from './useProfileDraftExit';
 import { shadows, spacing, borderRadius, typography, layout } from '../../constants/colors';
 import type { Theme } from '../../constants/theme';
 import * as professionalService from '../../services/professionalService';
@@ -82,25 +87,11 @@ import { PUBLIC_PROFILE_SLUG_MAX_CHANGES } from '../../utils/publicProfileSlug';
 // TYPE DEFINITIONS
 // ============================================================================
 
-type ProfileTab = ProfessionalProfileTab;
+type ProfileTab = Exclude<ProfessionalProfileTab, 'agenda'>;
 type ProfileSection = ProfessionalProfileSection | 'phone';
-const informationParts = {
-  identity: 'Identidad y presentación',
-  consultation: 'Consulta',
-  practice: 'Práctica e idiomas',
-  trajectory: 'Trayectoria',
-} as const;
-type InformationPart = keyof typeof informationParts;
-const partForAnchor: Partial<Record<ProfileSection, InformationPart>> = {
-  identity: 'identity', bio: 'identity', modality: 'consultation', location: 'consultation', matching: 'practice',
-};
-type EditorMenu = 'sections' | 'parts' | 'type' | 'requirements';
-const subtitles: Record<Exclude<ProfileTab, 'agenda'> | InformationPart, string> = {
-  information: 'Así te presentas a quienes buscan especialista.',
-  identity: 'Así te presentas a quienes buscan especialista.',
-  consultation: 'Elige cómo atiendes y dónde pueden encontrarte.',
-  practice: 'Elige los datos de tu práctica que verán los pacientes.',
-  trajectory: 'Añade tu formación y experiencia profesional.',
+type EditorMenu = 'type' | 'requirements';
+const subtitles: Record<ProfileTab, string> = {
+  information: 'Tu presentación, tu forma de atender y tu trayectoria.',
   credentials: 'Verificación profesional y documentos de tu práctica.',
   pricing: 'Consulta tus datos de facturación y accede a su configuración.',
   privacy: 'Decide cómo pueden encontrar tu perfil.',
@@ -108,6 +99,20 @@ const subtitles: Record<Exclude<ProfileTab, 'agenda'> | InformationPart, string>
   account: 'Tus datos de acceso, contacto y seguridad clínica.',
   'mi-espacio': '',
 };
+
+function isProfileTab(tab: string): tab is ProfileTab {
+  return Object.hasOwn(subtitles, tab);
+}
+
+function focusEditorTarget(target: View | null) {
+  if (!target) return;
+  if (Platform.OS === 'web') {
+    target.focus?.();
+  } else {
+    const handle = findNodeHandle(target);
+    if (handle !== null) AccessibilityInfo.setAccessibilityFocus(handle);
+  }
+}
 
 // Keep edits made locally while a request was in flight.
 function reconcileProfile(base: SpecialistProfileData, draft: SpecialistProfileData, remote: SpecialistProfileData) {
@@ -521,8 +526,13 @@ export function SpecialistProfileScreen() {
   const { width: windowWidth } = useWindowDimensions();
   const [editorWidth, setEditorWidth] = useState(windowWidth);
   const isDesktop = editorWidth >= 920;
+  const isMobile = editorWidth < 768;
   const insets = React.useContext(SafeAreaInsetsContext);
-  const [part, setPart] = useState<InformationPart>('identity');
+  const pageNavigation = useRef<ProfilePageNavigation | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
+  const indexRowRef = useRef<View>(null);
+  const backLinkRef = useRef<AnimatedPressableHandle>(null);
+  const [matchingReviewed, setMatchingReviewed] = useState(false);
   const [menu, setMenu] = useState<EditorMenu | null>(null);
   const [returnToConsultation, setReturnToConsultation] = useState(false);
   const addEducationRef = useRef<AnimatedPressableHandle>(null);
@@ -533,7 +543,6 @@ export function SpecialistProfileScreen() {
   const [verificationError, setVerificationError] = useState(false);
   const [verificationKnown, setVerificationKnown] = useState(false);
   const [deletingInsurance, setDeletingInsurance] = useState(false);
-  const isMobile = windowWidth < 768;
   const palette = useMemo(() => createProfilePalette(theme), [theme, isDark]);
 
   const [activeTab, setActiveTab] = useState<ProfileTab>('information');
@@ -558,6 +567,7 @@ export function SpecialistProfileScreen() {
     identity: null,
     bio: null,
     matching: null,
+    languages: null,
     modality: null,
     location: null,
     verification: null,
@@ -616,30 +626,6 @@ export function SpecialistProfileScreen() {
   useProfessionalTourStepPreparation('professional.profile.visibility', prepareProfileTopStep);
   useProfessionalTourStepPreparation('professional.profile.preview', prepareProfileTopStep);
   useProfessionalTourStepPreparation('professional.profile.save', prepareProfileTopStep);
-
-  useEffect(() => {
-    if (!pendingSection || isLoading) return undefined;
-
-    const animationFrame = requestAnimationFrame(() => {
-      const target = sectionRefs.current[pendingSection] ?? (pendingSection === 'location' ? sectionRefs.current.modality : null);
-      const scrollView = formScrollRef.current;
-      if (!target || !scrollView) return;
-      if (Platform.OS === 'web') target.focus?.();
-
-      target.measureInWindow((_targetX, targetY) => {
-        viewportRef.current?.measureInWindow((_scrollX, scrollY) => {
-          scrollView.scrollTo({
-            y: Math.max(0, formScrollOffsetRef.current + targetY - scrollY - spacing.md),
-            animated: true,
-          });
-          setHighlightedSection(pendingSection);
-          setPendingSection(null);
-        });
-      });
-    });
-
-    return () => cancelAnimationFrame(animationFrame);
-  }, [activeTab, part, isLoading, pendingSection]);
 
   useEffect(() => {
     if (!highlightedSection) return undefined;
@@ -738,10 +724,38 @@ export function SpecialistProfileScreen() {
   const baseline = useRef(originalData);
   baseline.current = originalData;
   const hasDraftChanges = JSON.stringify(profileData) !== JSON.stringify(originalData);
-  const confirmMatchingReview = profileData.matchingNeedsReview && !hasDraftChanges
-    && activeTab === 'information' && part === 'practice';
+  const confirmMatchingReview = profileData.matchingNeedsReview && matchingReviewed;
   const hasChanges = hasDraftChanges || confirmMatchingReview;
+  const practiceWarning = getMatchingCompletionDescription(profileData);
+  const missingLanguage = profileData.languages.length === 0;
   const showProfileAvatar = Boolean(profileData.avatar) && !avatarLoadFailed;
+
+  useProfileDraftExit(hasChanges);
+
+  useEffect(() => {
+    if (!pendingSection || isLoading || (isMobile && !detailOpen)) return;
+    // Older completion snapshots can identify the practice group without specifying the missing field.
+    let anchor = pendingSection;
+    if (anchor === 'matching' && !practiceWarning && missingLanguage) anchor = 'languages';
+    if (anchor === 'location' && !sectionRefs.current.location) anchor = 'modality';
+    const frame = requestAnimationFrame(() => {
+      const target = sectionRefs.current[anchor];
+      const scrollView = formScrollRef.current;
+      if (!target || !scrollView) return;
+      if (Platform.OS === 'web' && typeof HTMLElement !== 'undefined' && target instanceof HTMLElement) {
+        target.focus({ preventScroll: true });
+        target.scrollIntoView({ block: 'start', inline: 'nearest' });
+      } else {
+        focusEditorTarget(target);
+        target.measureInWindow((_x, y) => viewportRef.current?.measureInWindow((_scrollX, scrollY) => {
+          scrollView.scrollTo({ y: Math.max(0, formScrollOffsetRef.current + y - scrollY - spacing.md), animated: true });
+        }));
+      }
+      setHighlightedSection(anchor);
+      setPendingSection(null);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [activeTab, detailOpen, isMobile, isLoading, pendingSection, practiceWarning, missingLanguage]);
 
   useEffect(() => {
     setAvatarLoadFailed(false);
@@ -824,13 +838,6 @@ export function SpecialistProfileScreen() {
     (code: ProfileCompletionCode): boolean => actionableCompletionCodes.has(code),
     [actionableCompletionCodes],
   );
-  const pendingParts: Record<InformationPart, boolean> = {
-    identity: hasCompletionIssue('PROFILE_IDENTITY') || hasCompletionIssue('PROFILE_BIO'),
-    consultation: hasCompletionIssue('PROFILE_MODALITY') || hasCompletionIssue('PROFILE_LOCATION'),
-    practice: hasCompletionIssue('PROFILE_MATCHING'),
-    trajectory: false,
-  };
-
   useEffect(() => {
     if (hasChanges) setSaved(false);
     setSaveError('');
@@ -910,6 +917,23 @@ export function SpecialistProfileScreen() {
     }
   }, []);
 
+  const onPageChange = useCallback((next: ProfilePageNavigation, tab?: string) => {
+    const returningToIndex = pageNavigation.current !== null && pageNavigation.current !== next && tab === undefined;
+    pageNavigation.current = next;
+    setDetailOpen(tab !== undefined);
+    if (tab !== undefined) setActiveTab(isProfileTab(tab) ? tab : 'information');
+    if (returningToIndex) {
+      setReturnToConsultation(false);
+      setPendingSection(null);
+      requestAnimationFrame(() => focusEditorTarget(indexRowRef.current));
+    }
+  }, []);
+
+  const openTab = useCallback((tab: ProfileTab) => {
+    setActiveTab(tab);
+    if (isMobile || detailOpen) pageNavigation.current?.navigate('ProfileSection', { tab });
+  }, [isMobile, detailOpen]);
+
   useFocusEffect(
     useCallback(() => {
       if (route.params?.initialTab === 'agenda') {
@@ -917,37 +941,21 @@ export function SpecialistProfileScreen() {
         navigateProfessionalSection(navigation, 'ProfessionalSessions', { openAgendaSettings: true });
         return;
       }
-      if (route.params?.initialTab) {
-        setActiveTab(route.params.initialTab);
-      }
-      if (route.params?.initialSection) {
-        const anchor = route.params.initialSection;
-        const informationPart = partForAnchor[anchor];
-        if (informationPart) {
-          setActiveTab('information');
-          setPart(informationPart);
-        } else {
-          setActiveTab('credentials');
-        }
-        setPendingSection(anchor);
-      }
       if (route.params?.initialTab || route.params?.initialSection) {
+        const anchor = route.params.initialSection;
+        const tab = anchor ? (anchor === 'verification' || anchor === 'insurance' ? 'credentials' : 'information') : route.params.initialTab;
+        if (tab) openTab(tab);
+        setPendingSection(anchor ?? null);
+        setReturnToConsultation(false);
         navigation.setParams({ initialTab: undefined, initialSection: undefined });
       }
-
-      loadProfile();
-      loadBillingConfig();
-      void loadVerification();
-
-    }, [
-      loadBillingConfig,
-      loadVerification,
-      loadProfile,
-      navigation,
-      route.params?.initialSection,
-      route.params?.initialTab,
-    ])
+    }, [navigation, openTab, route.params?.initialSection, route.params?.initialTab])
   );
+  useFocusEffect(useCallback(() => {
+    void loadProfile();
+    void loadBillingConfig();
+    void loadVerification();
+  }, [loadBillingConfig, loadVerification, loadProfile]));
 
   // ============================================================================
   // HANDLERS
@@ -980,9 +988,9 @@ export function SpecialistProfileScreen() {
 
   const openConsultationInsurance = useCallback(() => {
     setReturnToConsultation(true);
-    setActiveTab('credentials');
+    openTab('credentials');
     setPendingSection('insurance');
-  }, []);
+  }, [openTab]);
 
   const handleSave = useCallback(async (notifySuccess = true): Promise<boolean> => {
     if (profileSaveRunning.current) return false;
@@ -1114,6 +1122,7 @@ export function SpecialistProfileScreen() {
       const savedProfile = reconcileProfile(originalData, baseline.current, mappedData);
       setProfileData(draft => reconcileProfile(profileData, draft, savedProfile));
       setOriginalData(savedProfile);
+      if (confirmMatchingReview) setMatchingReviewed(false);
       await refreshCompletion();
       if (notifySuccess) setSaved(true);
       return true;
@@ -1133,7 +1142,7 @@ export function SpecialistProfileScreen() {
 
   const handleVideoSetup = async () => {
     if (!await handleSave(false)) return;
-    setActiveTab('google');
+    openTab('google');
     formScrollRef.current?.scrollTo({ y: 0, animated: false });
   };
 
@@ -1611,25 +1620,35 @@ export function SpecialistProfileScreen() {
     setSaved(false);
     setMenu(null);
     setPendingSection(null);
-    setActiveTab(tab);
+    openTab(tab);
     setReturnToConsultation(false);
     formScrollRef.current?.scrollTo({ y: 0, animated: false });
   };
-  const selectPart = (next: InformationPart) => {
-    selectTab('information');
-    setPart(next);
+  const returnToIndex = () => {
+    pageNavigation.current?.popToTop();
   };
-  const renderParts = (nested = false) => (Object.keys(informationParts) as InformationPart[]).map(key => (
-    <ProfileEditorItem key={key} nested={nested} label={informationParts[key]} pendingHint={pendingParts[key] ? informationParts[key] + ' por completar' : undefined} selected={part === key} onPress={() => selectPart(key)} />
-  ));
-  const renderDestinations = (withParts = false) => tabs.map(tab => (
-    <React.Fragment key={tab.id}>
-      <ProfileEditorItem label={tab.label} icon={tab.icon} pendingHint={tab.pendingHint} selected={activeTab === tab.id} onPress={() => selectTab(tab.id)} />
-      {withParts && activeTab === 'information' && tab.id === 'information' && renderParts(true)}
-    </React.Fragment>
-  ));
-  const title = activeTab === 'information' && part !== 'identity' ? informationParts[part] : tabs.find(tab => tab.id === activeTab)?.label;
-  const intro = activeTab === 'information' ? subtitles[part] : activeTab !== 'agenda' ? subtitles[activeTab] : '';
+  const renderDestinations = (index: boolean) => tabs.map(tab => {
+    const selected = !index && activeTab === tab.id;
+    return (
+      <Pressable key={tab.id} ref={index && tab.id === activeTab ? indexRowRef : undefined}
+        accessibilityRole="button" accessibilityLabel={tab.label} accessibilityHint={tab.pendingHint}
+        accessibilityState={index ? undefined : { selected }} aria-pressed={index ? undefined : selected}
+        onPress={() => {
+          selectTab(tab.id);
+          if (index) requestAnimationFrame(() => focusEditorTarget(backLinkRef.current));
+        }}
+        style={({ pressed }) => [index ? styles.indexRow : styles.navTab,
+          !index && tab.id === 'information' && styles.informationNavTab,
+          (selected || pressed) && styles.navSelected]}>
+        <View style={index && styles.indexIcon}><Ionicons name={tab.icon} size={index ? 21 : 17} color={theme.textPrimary} /></View>
+        <Text style={[styles.navLabel, index && styles.indexLabel, selected && styles.navLabelSelected]}>{tab.label}</Text>
+        {tab.pendingHint && <Ionicons name="information-circle-outline" size={16} color={theme.warningAmber} accessibilityLabel={tab.pendingHint} />}
+        {index && <Ionicons name="chevron-forward" size={17} color={theme.textSecondary} />}
+      </Pressable>
+    );
+  });
+  const title = tabs.find(tab => tab.id === activeTab)?.label;
+  const intro = subtitles[activeTab];
   const buttonIcon = (name: IconName) => <Ionicons name={name} size={17} color={theme.textPrimary} />;
   const saveAction = <Button size="small" disabled={isSaving || isUploadingInsurance || deletingInsurance || !hasChanges}
     accessibilityState={{ busy: isSaving }} onPress={() => void handleSave()}>{isSaving ? 'Guardando…' : saveError ? 'Reintentar' : 'Guardar'}</Button>;
@@ -1655,13 +1674,15 @@ export function SpecialistProfileScreen() {
         accessibilityLabel="Ver perfil publicado" onPress={handleViewPublicProfile}>Perfil publicado</Button>
     </TourTarget>
   );
-  const renderNavigation = () => (
+  const renderNavigation = (showIndex: boolean) => (
     <TourTarget id="professional.profile.save" active={!hasChanges && !isSaving}>
       <View style={styles.editorBar}>
         <View style={styles.barLead}>
-          {isDesktop ? <Text accessibilityRole="header" style={styles.topBarTitle}>Editar perfil</Text> :
-            <TourTarget id="professional.profile.tabs"><Button size="small" variant="outline" icon={buttonIcon('list-outline')}
-              accessibilityLabel={'Secciones, actual: ' + tabs.find(tab => tab.id === activeTab)?.label} onPress={() => setMenu('sections')}>Secciones</Button></TourTarget>}
+          {isMobile && !showIndex ?
+            <TourTarget id="professional.profile.tabs">
+              <Button accessibilityLabel="Volver a secciones" focusRef={backLinkRef} size="small" variant="ghost" icon={buttonIcon('arrow-back-outline')} onPress={returnToIndex}>Volver a secciones</Button>
+            </TourTarget> :
+            <Text accessibilityRole="header" style={[styles.topBarTitle, { fontFamily: theme.fontDisplay }]}>{isMobile ? 'Editar perfil' : 'Editar perfil profesional'}</Text>}
           {isMobile && previewAction}
         </View>
         <View style={styles.barActions}>
@@ -1669,7 +1690,7 @@ export function SpecialistProfileScreen() {
           {canShareProfile && <Button size="small" variant="outline" icon={buttonIcon('link-outline')}
             accessibilityLabel="Enlace público" onPress={handleShareProfile}>Enlace público</Button>}
           <TourTarget id="professional.profile.visibility">{renderDirectoryStatus()}</TourTarget>
-          {isDesktop && (hasChanges || isSaving) && <TourTarget id="professional.profile.save">{saveAction}</TourTarget>}
+          {!isMobile && (hasChanges || isSaving) && <TourTarget id="professional.profile.save">{saveAction}</TourTarget>}
         </View>
       </View>
     </TourTarget>
@@ -1970,169 +1991,146 @@ export function SpecialistProfileScreen() {
     );
   };
 
+  const renderProfilePhoto = () => (
+    <View style={styles.photoPanel}>
+
+      <View style={styles.photoSection}>
+        <View style={styles.avatarContainer}>
+          {showProfileAvatar ? (
+            <Image
+              source={{ uri: profileData.avatar ?? '' }}
+              style={styles.avatarLarge}
+              onError={() => setAvatarLoadFailed(true)}
+            />
+          ) : (
+            <View style={[styles.avatarLarge, { backgroundColor: palette.primary }]}>
+              <Text style={styles.avatarLargeText}>
+                {profileData.fullName.trim().split(/\s+/).filter(Boolean).slice(0, 2).map(word => word[0].toUpperCase()).join('') || 'P'}
+              </Text>
+            </View>
+          )}
+          {isUploadingAvatar && (
+            <View style={styles.avatarUploadOverlay}>
+              <ActivityIndicator size="large" color={palette.textOnCard} />
+            </View>
+          )}
+        </View>
+        <View style={{ flex: 1, minWidth: 86 }}>
+          <Text style={styles.fieldLabel}>Foto de perfil</Text>
+          <Text style={styles.helperText}>Opcional · Imagen cuadrada</Text>
+        </View>
+        <View style={styles.photoActions}>
+          <Button
+            variant="outline"
+            size="small"
+            onPress={handleImagePick}
+            disabled={isUploadingAvatar}
+
+            style={{ ...styles.photoButton }}
+            textStyle={{ ...styles.photoButtonText }}
+          >
+            {isUploadingAvatar ? 'Subiendo...' : 'Cambiar foto'}
+          </Button>
+          {profileData.avatar && (
+            <Button
+              variant="ghost"
+              size="small"
+              onPress={() => updateField('avatar', null)}
+              icon={<Ionicons name="trash-outline" size={18} color={palette.warning} />}
+              style={{ ...styles.photoButton, ...styles.photoButtonDanger }}
+              textStyle={{ ...styles.photoButtonText, ...styles.photoButtonTextDanger }}
+            >
+              Eliminar
+            </Button>
+          )}
+        </View>
+      </View>
+    </View>
+  );
+
   const renderInformationTab = () => (
     <View style={styles.tabContent}>
-      {part === 'identity' && <>
-      <View
-        tabIndex={-1} collapsable={false}
-        ref={(node) => { sectionRefs.current.identity = node; }}
-        style={[
-          styles.section,
-          highlightedSection === 'identity' ? styles.targetHighlight : null,
-        ]}
-      >
-        <View style={styles.completionHeading}>
-          <Text style={[styles.sectionTitle, styles.inlineSectionTitle]}>Identidad y presentación</Text>
-          {renderCompletionWarning(
+      <ProfileEditorSection wide={isDesktop} title="Datos profesionales" icon="id-card-outline"
+          leadContent={renderProfilePhoto()} anchorRef={node => { sectionRefs.current.identity = node; }}
+          highlighted={highlightedSection === 'identity'} notice={renderCompletionWarning(
             'PROFILE_IDENTITY',
             'Identidad profesional incompleta',
             'Revisa que el nombre completo y el tipo profesional estén informados.',
-          )}
-        </View>
+          )}>
 
-        <View style={[styles.formCard, styles.informationCard]}>
-          <View style={styles.identityCardLayout}>
-            <View style={styles.photoPanel}>
-
-              <View style={styles.photoSection}>
-                <View style={styles.avatarContainer}>
-                  {showProfileAvatar ? (
-                    <Image
-                      source={{ uri: profileData.avatar ?? '' }}
-                      style={styles.avatarLarge}
-                      onError={() => setAvatarLoadFailed(true)}
-                    />
-                  ) : (
-                    <View style={[styles.avatarLarge, { backgroundColor: palette.primary }]}>
-                      <Text style={styles.avatarLargeText}>
-                        {profileData.fullName.trim().split(/\s+/).filter(Boolean).slice(0, 2).map(word => word[0].toUpperCase()).join('') || 'P'}
-                      </Text>
-                    </View>
-                  )}
-                  {isUploadingAvatar && (
-                    <View style={styles.avatarUploadOverlay}>
-                      <ActivityIndicator size="large" color={palette.textOnCard} />
-                    </View>
-                  )}
-                </View>
-                <View style={{ flex: 1, minWidth: 86 }}>
-                  <Text style={styles.fieldLabel}>Foto de perfil</Text>
-                  <Text style={styles.helperText}>Opcional · Imagen cuadrada</Text>
-                </View>
-                <View style={styles.photoActions}>
-                  <Button
-                    variant="outline"
-                    size="small"
-                    onPress={handleImagePick}
-                    disabled={isUploadingAvatar}
-
-                    style={{ ...styles.photoButton }}
-                    textStyle={{ ...styles.photoButtonText }}
-                  >
-                    {isUploadingAvatar ? 'Subiendo...' : 'Cambiar foto'}
-                  </Button>
-                  {profileData.avatar && (
-                    <Button
-                      variant="ghost"
-                      size="small"
-                      onPress={() => updateField('avatar', null)}
-                      icon={<Ionicons name="trash-outline" size={18} color={palette.warning} />}
-                      style={{ ...styles.photoButton, ...styles.photoButtonDanger }}
-                      textStyle={{ ...styles.photoButtonText, ...styles.photoButtonTextDanger }}
-                    >
-                      Eliminar
-                    </Button>
-                  )}
-                </View>
-              </View>
-            </View>
-
-            <View style={styles.identityFields}>
-              <View style={styles.formRow}>
-                <View style={styles.formFieldHalf}>
-                  {renderFormField(
-                    'Nombre completo',
-                    profileData.fullName,
-                    (text) => updateField('fullName', text),
-                    { placeholder: 'Elena Rodríguez García', required: true }
-                  )}
-                </View>
-                <View style={styles.formFieldHalf}>
-                  {renderFormField(
-                    'Título profesional',
-                    profileData.professionalTitle,
-                    (text) => updateField('professionalTitle', text),
-                    {
-                      placeholder: 'Ej: Psicóloga infantojuvenil',
-                      required: false,
-                      helperText: 'Opcional. Puedes indicar tu área de trabajo.',
-                    }
-                  )}
-                </View>
-              </View>
-              <View style={styles.formRow}>
-                <View style={styles.formFieldHalf}>{renderProfessionalTypeSelector()}</View>
-                <View style={styles.formFieldHalf}>
-                  {/* Colegiado number - read-only, sourced from verification flow */}
-                  {renderFormField(
-                    'Número de colegiado',
-                    verificationStatus.colegiadoNumber || '',
-                    () => {},
-                    {
-                      placeholder: verificationStatus.verificationStatus === 'VERIFIED'
-                        ? ''
-                        : verificationStatus.verificationStatus === 'PENDING'
-                          ? 'En revisión'
-                          : 'Se completa mediante la verificación profesional',
-                      required: false,
-                      verified: verificationKnown ? isProfessionalVerified : undefined,
-                      alignVerificationLabel: true,
-                      disabled: true,
-                      helperText: 'Se actualiza desde Credenciales.',
-                    }
-                  )}
-                </View>
-              </View>
-              <ProfessionalBirthdayEditor leadingField={
-                  renderFormField(
-                    'Años de experiencia (opcional)',
-                    profileData.yearsInPractice,
-                    (text) => updateField('yearsInPractice', text),
-                    {
-                      placeholder: 'Ej: 3',
-                      keyboardType: 'numeric',
-                      alignVerificationLabel: true,
-                      helperText: 'Dato declarado por ti, visible en tu perfil y en el directorio. Cuenta años completos de ejercicio, sin estudios ni periodos simultáneos. Déjalo vacío para no mostrarlo.',
-                    }
-                  )}
-                birthDate={profileData.birthDate} showAge={profileData.showAge}
-                onChange={(birthDate, showAge) => setProfileData(current => ({ ...current, birthDate, showAge }))} />
-            </View>
+        <View style={styles.identityGrid}>
+          <View style={styles.identityField}>
+            {renderFormField(
+              'Nombre completo',
+              profileData.fullName,
+              (text) => updateField('fullName', text),
+              { placeholder: 'Elena Rodríguez García', required: true }
+            )}
+          </View>
+          <View style={styles.identityField}>
+            {renderFormField(
+              'Título profesional',
+              profileData.professionalTitle,
+              (text) => updateField('professionalTitle', text),
+              {
+                placeholder: 'Ej: Psicóloga infantojuvenil',
+                required: false,
+                helperText: 'Opcional. Puedes indicar tu área de trabajo.',
+              }
+            )}
+          </View>
+          <View style={styles.identityField}>{renderProfessionalTypeSelector()}</View>
+          <View style={styles.identityField}>
+            {/* Colegiado number - read-only, sourced from verification flow */}
+            {renderFormField(
+              'Número de colegiado',
+              verificationStatus.colegiadoNumber || '',
+              () => {},
+              {
+                placeholder: verificationStatus.verificationStatus === 'VERIFIED'
+                  ? ''
+                  : verificationStatus.verificationStatus === 'PENDING'
+                    ? 'En revisión'
+                    : 'Se completa mediante la verificación profesional',
+                required: false,
+                verified: verificationKnown ? isProfessionalVerified : undefined,
+                alignVerificationLabel: true,
+                disabled: true,
+                helperText: 'Se actualiza desde Credenciales.',
+              }
+            )}
+          </View>
+          <View style={styles.identityField}>
+            {renderFormField(
+              'Años de experiencia (opcional)',
+              profileData.yearsInPractice,
+              (text) => updateField('yearsInPractice', text),
+              {
+                placeholder: 'Ej: 3',
+                keyboardType: 'numeric',
+                alignVerificationLabel: true,
+                helperText: 'Dato declarado por ti, visible en tu perfil y en el directorio. Cuenta años completos de ejercicio, sin estudios ni periodos simultáneos. Déjalo vacío para no mostrarlo.',
+              }
+            )}
+          </View>
+          <View style={styles.identityField}>
+            <ProfessionalBirthdayEditor birthDate={profileData.birthDate} showAge={profileData.showAge}
+              onChange={(birthDate, showAge) => setProfileData(current => ({ ...current, birthDate, showAge }))} />
           </View>
         </View>
-      </View>
+      </ProfileEditorSection>
 
 
         {/* Professional Bio Section */}
-        <View
-          tabIndex={-1} collapsable={false}
-        ref={(node) => { sectionRefs.current.bio = node; }}
-          style={[
-            styles.section,
-            styles.descriptionSection,
-            highlightedSection === 'bio' ? styles.targetHighlight : null,
-          ]}
-        >
-          <View style={styles.completionHeading}>
-            <Text style={[styles.sectionTitle, styles.inlineSectionTitle]}>Descripción profesional</Text>
-            {renderCompletionWarning(
+        <ProfileEditorSection wide={isDesktop} title="Descripción profesional" icon="document-text-outline"
+          description="Cuenta cómo trabajas y a quién acompañas." anchorRef={node => { sectionRefs.current.bio = node; }}
+          highlighted={highlightedSection === 'bio'} notice={renderCompletionWarning(
               'PROFILE_BIO',
               'Descripción profesional incompleta',
               profileData.bio.trim().length < 150
                 ? `Te faltan ${150 - profileData.bio.trim().length} caracteres para alcanzar el mínimo de 150.`
                 : 'Ya alcanzaste el mínimo. Guarda los cambios para actualizar el estado del perfil.',
-            )}
-          </View>
+            )}>
 
           <View style={[styles.formCard, styles.informationCard, styles.splitEqualCard]}>
             <View style={styles.descriptionPane}>
@@ -2152,32 +2150,20 @@ export function SpecialistProfileScreen() {
               )}
             </View>
           </View>
-        </View>
+        </ProfileEditorSection>
 
-      </>}
-      {part === 'consultation' && <>
         {/* Modality Section */}
-        <View
-          tabIndex={-1} collapsable={false}
-        ref={(node) => { sectionRefs.current.modality = node; }}
-          style={[
-            styles.section,
-            styles.modalitySection,
-            highlightedSection === 'modality' ? styles.targetHighlight : null,
-          ]}
-        >
-          <View style={styles.completionHeading}>
-            <Text style={[styles.sectionTitle, styles.inlineSectionTitle]}>Modalidad de sesiones</Text>
-            {renderCompletionWarning(
+        <ProfileEditorSection wide={isDesktop} title="Consulta" icon="videocam-outline"
+          description="Elige las modalidades en las que ofreces tus sesiones." anchorRef={node => { sectionRefs.current.modality = node; }}
+          highlighted={highlightedSection === 'modality'} notice={renderCompletionWarning(
               'PROFILE_MODALITY',
               'Modalidad pendiente',
               'Selecciona al menos una modalidad: sesiones online o presenciales.',
-            )}
-          </View>
+            )}>
 
           <View style={[styles.formCard, styles.informationCard, styles.splitEqualCard]}>
             <View style={styles.formField}>
-              <Text style={styles.fieldHelper}>Selecciona cómo ofreces tus sesiones</Text>
+              <Text style={styles.fieldLabel}>Modalidad de sesiones</Text>
               <View style={styles.modalityOptions}>
                 <TouchableOpacity
                   style={[
@@ -2257,26 +2243,17 @@ export function SpecialistProfileScreen() {
               ) : null}
             </View>
           </View>
-        </View>
+        </ProfileEditorSection>
 
       {/* Office Location (only if in-person is offered) */}
       {profileData.offersInPerson && (
-        <View
-          tabIndex={-1} collapsable={false}
-        ref={(node) => { sectionRefs.current.location = node; }}
-          style={[
-            styles.section,
-            highlightedSection === 'location' ? styles.targetHighlight : null,
-          ]}
-        >
-          <View style={styles.completionHeading}>
-            <Text style={[styles.sectionTitle, styles.inlineSectionTitle]}>Ubicación presencial</Text>
-            {renderCompletionWarning(
+        <ProfileEditorSection wide={isDesktop} title="Ubicación presencial" icon="location-outline"
+          description="Indica dónde se realizan las sesiones presenciales." anchorRef={node => { sectionRefs.current.location = node; }}
+          highlighted={highlightedSection === 'location'} notice={renderCompletionWarning(
               'PROFILE_LOCATION',
               'Ubicación presencial incompleta',
               'Completa la dirección, la ciudad, el código postal y el país de la consulta.',
-            )}
-          </View>
+            )}>
 
           <View style={[styles.formCard, styles.informationCard, styles.locationCard]}>
             <View style={styles.locationLayout}>
@@ -2344,23 +2321,28 @@ export function SpecialistProfileScreen() {
               )}
             </View>
           </View>
-        </View>
+        </ProfileEditorSection>
       )}
 
-      </>}
-      {part === 'practice' && (
       <View
         tabIndex={-1} collapsable={false}
         ref={(node) => { sectionRefs.current.matching = node; }}
-        style={[
-          styles.section,
-          styles.informationFullSection,
-          highlightedSection === 'matching' ? styles.targetHighlight : null,
-        ]}
+        style={styles.detailGroup}
       >
-
-
         <ProfessionalMatchingEditor
+          wide={isDesktop}
+          highlighted={highlightedSection === 'matching'}
+          notice={practiceWarning && renderCompletionWarning('PROFILE_MATCHING', 'Especialidades y enfoques pendientes', practiceWarning)}
+          languageRef={node => { sectionRefs.current.languages = node; }}
+          languageHighlighted={highlightedSection === 'languages'}
+          languageNotice={missingLanguage && renderCompletionWarning('PROFILE_MATCHING', 'Idioma de las sesiones pendiente', 'Añade al menos un idioma en el que atiendas y guarda los cambios.')}
+          reviewAction={profileData.matchingNeedsReview && <Pressable accessibilityRole="checkbox"
+            {...choiceKeyboardProps(() => setMatchingReviewed(value => !value), isSaving)}
+            disabled={isSaving} accessibilityLabel="He revisado mis especialidades y enfoques" accessibilityState={{ checked: matchingReviewed, disabled: isSaving }}
+            aria-checked={matchingReviewed} onPress={() => setMatchingReviewed(value => !value)} style={styles.currentToggle}>
+            <Ionicons name={matchingReviewed ? 'checkbox' : 'square-outline'} size={20} color={palette.primary} />
+            <Text style={styles.bodyText}>He revisado mis especialidades y enfoques</Text>
+          </Pressable>}
           declaredGender={profileData.declaredGender}
           practiceContexts={profileData.practiceContexts}
           onGenderChange={value => updateField('declaredGender', value)}
@@ -2386,13 +2368,11 @@ export function SpecialistProfileScreen() {
         />
       </View>
 
-      )}
-      {part === 'trajectory' && <View style={styles.informationLowerGrid}>
+      <Text accessibilityRole="header" style={[styles.pageTitle, { fontFamily: theme.fontDisplay }]}>Trayectoria profesional</Text>
+      <View style={styles.informationLowerGrid}>
         {/* Education Section */}
-        <View style={[styles.section, styles.informationHalfSection]}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Formación académica</Text>
-            <Button
+        <ProfileEditorSection wide={isDesktop} title="Formación académica" icon="school-outline" description="Títulos, centros y fechas de formación.">
+          <Button
               variant="outline"
               size="small"
               focusRef={addEducationRef}
@@ -2403,7 +2383,6 @@ export function SpecialistProfileScreen() {
             >
               Añadir título
             </Button>
-          </View>
 
           {profileData.education.length === 0 ? (
             <Text style={styles.trajectoryEmpty}>Todavía no has añadido formación.</Text>
@@ -2431,13 +2410,11 @@ export function SpecialistProfileScreen() {
               ))}
             </View>
           )}
-        </View>
+        </ProfileEditorSection>
 
         {/* Experience Section */}
-        <View style={[styles.section, styles.informationHalfSection]}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Experiencia profesional</Text>
-            <Button
+        <ProfileEditorSection wide={isDesktop} title="Experiencia profesional" icon="briefcase-outline" description="Puestos, organizaciones y años de ejercicio.">
+          <Button
               variant="outline"
               size="small"
               focusRef={addExperienceRef}
@@ -2448,7 +2425,6 @@ export function SpecialistProfileScreen() {
             >
               Añadir experiencia
             </Button>
-          </View>
 
           {profileData.experience.length === 0 ? (
             <Text style={styles.trajectoryEmpty}>Todavía no has añadido experiencia profesional.</Text>
@@ -2482,8 +2458,8 @@ export function SpecialistProfileScreen() {
               ))}
             </View>
           )}
-        </View>
-      </View>}
+        </ProfileEditorSection>
+      </View>
     </View>
   );
 
@@ -2572,20 +2548,13 @@ export function SpecialistProfileScreen() {
   const renderCredentialsTab = () => (
     <View style={styles.tabContent}>
       {/* Professional Verification Status Banner */}
-      <View
-        tabIndex={-1} collapsable={false}
-        ref={(node) => { sectionRefs.current.verification = node; }}
-        style={highlightedSection === 'verification' ? styles.targetHighlight : null}
-      >
-
-        <View style={styles.completionHeading}>
-          <Text style={[styles.sectionTitle, styles.inlineSectionTitle]}>Verificación profesional</Text>
-          {renderCompletionWarning(
+      <ProfileEditorSection wide={isDesktop} title="Verificación profesional" icon="shield-checkmark-outline"
+          description="Revisa el estado de tu identidad y colegiación." anchorRef={node => { sectionRefs.current.verification = node; }}
+          highlighted={highlightedSection === 'verification'} notice={renderCompletionWarning(
             'PROFESSIONAL_VERIFICATION',
             'Verificación profesional pendiente',
             'Completa o reenvía la verificación para que HERA pueda revisar tus credenciales.',
-          )}
-        </View>
+          )}>
         {!verificationKnown ? <View style={styles.detailGroup}>
           <Text style={styles.bodyText}>{verificationError ? 'No se pudo comprobar la verificación.' : 'Consultando verificación…'}</Text>
           {verificationError && <Button variant="outline" onPress={loadVerification}>Reintentar verificación</Button>}
@@ -2603,25 +2572,16 @@ export function SpecialistProfileScreen() {
             </Button>}
           <Text style={styles.helperText}>Progreso de verificación · {verificationCompletion}%</Text>
         </View>}
-      </View>
+      </ProfileEditorSection>
 
       {/* Professional Insurance */}
-      <View
-        tabIndex={-1} collapsable={false}
-        ref={(node) => { sectionRefs.current.insurance = node; }}
-        style={[
-          styles.section,
-          highlightedSection === 'insurance' ? styles.targetHighlight : null,
-        ]}
-      >
-        <View style={styles.completionHeading}>
-          <Text style={[styles.sectionTitle, styles.inlineSectionTitle]}>Seguro de responsabilidad civil</Text>
-          {renderCompletionWarning(
+      <ProfileEditorSection wide={isDesktop} title="Seguro de responsabilidad civil" icon="document-lock-outline"
+          description="Documentación privada de la cobertura presencial." anchorRef={node => { sectionRefs.current.insurance = node; }}
+          highlighted={highlightedSection === 'insurance'} notice={renderCompletionWarning(
             'PROFESSIONAL_INSURANCE',
             'Seguro de responsabilidad civil pendiente',
             'Sube una póliza válida para mantener activa la modalidad presencial.',
-          )}
-        </View>
+          )}>
 
         <View style={styles.formCard}>
           <View
@@ -2660,16 +2620,13 @@ export function SpecialistProfileScreen() {
             </> : <Button size="small" disabled={isSaving} loading={isUploadingInsurance} onPress={handleUploadInsuranceDocument}>Subir póliza PDF</Button>}
           </View>
           {returnToConsultation && <Button variant="outline" style={styles.startButton} onPress={() => {
-            selectPart('consultation');
+            selectTab('information');
             setPendingSection(profileData.offersInPerson ? 'location' : 'modality');
           }}>{profileData.offersInPerson ? 'Continuar con la ubicación' : 'Volver a Consulta'}</Button>}
         </View>
-      </View>
+      </ProfileEditorSection>
 
-      {/* Certificates */}
-      <View style={styles.section}>
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Certificados y acreditaciones</Text>
+      <ProfileEditorSection wide={isDesktop} title="Certificados y acreditaciones" icon="ribbon-outline">
           <Button
             variant="outline"
             size="small"
@@ -2680,7 +2637,7 @@ export function SpecialistProfileScreen() {
           >
             Añadir certificado
           </Button>
-        </View>
+
 
         {profileData.certificates.length === 0 ? (
           <View style={styles.emptyState}>
@@ -2796,7 +2753,7 @@ export function SpecialistProfileScreen() {
             })}
           </View>
         )}
-      </View>
+      </ProfileEditorSection>
     </View>
   );
 
@@ -2807,15 +2764,12 @@ export function SpecialistProfileScreen() {
   const renderPricingTab = () => (
     <View style={styles.tabContent}>
 
-      <View style={styles.section}>
-        <View style={styles.completionHeading}>
-          <Text style={[styles.sectionTitle, styles.inlineSectionTitle]}>Datos de facturación</Text>
-          {renderCompletionWarning(
+      <ProfileEditorSection wide={isDesktop} title="Datos de facturación" icon="receipt-outline"
+        notice={renderCompletionWarning(
             'PROFESSIONAL_BILLING',
             'Datos fiscales incompletos',
             'Completa el nombre fiscal, el NIF y la dirección fiscal desde Facturación.',
-          )}
-        </View>
+          )}>
         <View style={styles.formCard}>
           {isBillingConfigLoading ? (
             <View style={styles.billingLoadingRow}>
@@ -2852,12 +2806,11 @@ export function SpecialistProfileScreen() {
           </Button>
           <Text style={styles.helperText}>Gestiona allí tus datos fiscales, IBAN y numeración.</Text>
         </View>
-      </View>
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Servicios y bonos</Text>
-        <Text style={styles.bodyText}>Gestiona los precios, modalidades y bonos que ofreces.</Text>
+      </ProfileEditorSection>
+      <ProfileEditorSection wide={isDesktop} title="Servicios y bonos" icon="pricetags-outline"
+        description="Gestiona los precios, modalidades y bonos que ofreces.">
         <Button style={styles.startButton} variant="outline" onPress={() => navigation.navigate('ProfessionalTariffs')}>Gestionar servicios y bonos</Button>
-      </View>
+      </ProfileEditorSection>
     </View>
   );
 
@@ -2876,7 +2829,7 @@ export function SpecialistProfileScreen() {
       <View style={styles.accountGrid}>
         {/* Account Information */}
         <View style={styles.accountColumn}>
-          <AccountSettingsCard plain title="Acceso y contacto">
+          <ProfileEditorSection wide={isDesktop} title="Acceso y contacto" icon="person-circle-outline">
             {renderFormField(
               'Email de acceso',
               profileData.email,
@@ -2907,9 +2860,9 @@ export function SpecialistProfileScreen() {
                 }
               )}
             </View>
-          </AccountSettingsCard>
+          </ProfileEditorSection>
         </View>
-        <View style={styles.accountColumn}><ClinicalPinManager plain /></View>
+        <View style={styles.settingsPanel}><ClinicalPinManager plain /></View>
       </View>
     </View>
   );
@@ -2931,8 +2884,7 @@ export function SpecialistProfileScreen() {
 
   const renderPrivacyTab = () => (
     <View style={styles.tabContent}>
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Visibilidad del perfil</Text>
+      <ProfileEditorSection wide={isDesktop} title="Visibilidad del perfil" icon="eye-outline">
         <View style={styles.formCard}>
           <View accessibilityRole="radiogroup" style={styles.privacySection}>
             <TouchableOpacity
@@ -2980,7 +2932,8 @@ export function SpecialistProfileScreen() {
           </View>
 
         </View>
-      </View>
+        <Button style={styles.startButton} variant="ghost" onPress={() => setMenu('requirements')}>Ver requisitos del directorio</Button>
+      </ProfileEditorSection>
     </View>
   );
 
@@ -2988,23 +2941,20 @@ export function SpecialistProfileScreen() {
   // MAIN RENDER
   // ============================================================================
 
-  if (isLoading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={palette.primary} />
-        <Text style={styles.loadingText}>Cargando perfil...</Text>
-      </View>
-    );
-  }
-
-  return (
+  const showIndex = isMobile && !detailOpen;
+  const page = isLoading ? (
+    <View style={styles.loadingContainer}>
+      <ActivityIndicator size="large" color={palette.primary} />
+      <Text style={styles.loadingText}>Cargando perfil...</Text>
+    </View>
+  ) : (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       onLayout={event => setEditorWidth(event.nativeEvent.layout.width)}>
-      {renderNavigation()}
-      <View ref={viewportRef} collapsable={false} style={styles.workspace}>
-      {isDesktop && <TourTarget id="professional.profile.tabs" style={styles.rail}>
-        <ScrollView contentContainerStyle={styles.railContent}>{renderDestinations(true)}</ScrollView>
+      {renderNavigation(showIndex)}
+      {!isMobile && <TourTarget id="professional.profile.tabs" style={styles.desktopNav}>
+        <View style={styles.navList}>{renderDestinations(false)}</View>
       </TourTarget>}
+      <View ref={viewportRef} collapsable={false} style={styles.workspace}>
       <ScrollView
         ref={formScrollRef}
         style={styles.formArea}
@@ -3016,18 +2966,14 @@ export function SpecialistProfileScreen() {
         scrollEventThrottle={16}
       >
         <View style={styles.formContent}>
-          {activeTab !== 'mi-espacio' && <View style={styles.intro}>
-            <View style={styles.headingLine}>
-              <Text accessibilityRole="header" style={styles.pageTitle}>{title}</Text>
-              {activeTab === 'information' && part === 'practice' && renderCompletionWarning(
-                'PROFILE_MATCHING',
-                'Información profesional pendiente',
-                getMatchingCompletionDescription(profileData),
-              )}
+          {showIndex ? <TourTarget id="professional.profile.tabs">
+            <View style={styles.index}>
+              <Text accessibilityRole="header" style={[styles.pageTitle, { fontFamily: theme.fontDisplay }]}>Secciones del perfil</Text>
+              <View style={styles.indexList}>{renderDestinations(true)}</View>
             </View>
-            <Text style={styles.bodyText}>{intro}</Text>
-            {!isDesktop && activeTab === 'information' && <Button style={styles.startButton} size="small" variant="ghost"
-              icon={buttonIcon('list-outline')} onPress={() => setMenu('parts')}>Apartados de información</Button>}
+          </TourTarget> : <View style={styles.intro}>
+            <Text accessibilityRole="header" style={[styles.pageTitle, { fontFamily: theme.fontDisplay }]}>{title}</Text>
+            {Boolean(intro) && <Text style={styles.introText}>{intro}</Text>}
           </View>}
           {loadError && <View style={styles.statusNote}><Text accessibilityRole="alert" style={styles.bodyText}>No se pudo cargar el perfil.</Text>
             <Button size="small" variant="outline" onPress={loadProfile}>Volver a cargar</Button></View>}
@@ -3035,14 +2981,13 @@ export function SpecialistProfileScreen() {
             No se han guardado los cambios. {saveError}
           </Text>}
           {saved && !hasChanges && <Text accessibilityLiveRegion="polite" style={styles.bodyText}>Cambios guardados</Text>}
-          {loaded.current && <>
+          {!showIndex && loaded.current && <>
           {activeTab === 'mi-espacio' && renderMiEspacioTab()}
           {activeTab === 'information' && renderInformationTab()}
           {activeTab === 'credentials' && renderCredentialsTab()}
           {activeTab === 'pricing' && renderPricingTab()}
           {activeTab === 'privacy' && <>{renderPrivacyTab()}
-            <Button style={styles.startButton} variant="ghost" onPress={() => setMenu('requirements')}>Ver requisitos del directorio</Button>
-            <View style={styles.section}><Text style={styles.sectionTitle}>Estadísticas de uso</Text><PrivacyPreferencesButton /></View></>}
+            <ProfileEditorSection wide={isDesktop} title="Estadísticas de uso" icon="stats-chart-outline"><PrivacyPreferencesButton /></ProfileEditorSection></>}
           {activeTab === 'account' && renderAccountTab()}
           {activeTab === 'google' && renderGoogleTab()}
           </>}
@@ -3050,13 +2995,11 @@ export function SpecialistProfileScreen() {
       </ScrollView>
 
       </View>
-      {!isDesktop && (hasChanges || isSaving) && <View style={[styles.saveBar, { paddingBottom: Math.max(8, insets?.bottom ?? 0) }]}>
+      {isMobile && (hasChanges || isSaving) && <View style={[styles.saveBar, { paddingBottom: Math.max(8, insets?.bottom ?? 0) }]}>
         <Text accessibilityLiveRegion="polite" style={styles.bodyText}>{isSaving ? 'Guardando cambios…' : 'Cambios sin guardar'}</Text>
         <TourTarget id="professional.profile.save">{saveAction}</TourTarget>
       </View>}
-      {menu && <ProfileEditorSheet title={{ sections: 'Secciones del perfil', parts: 'Apartados de información', type: 'Tipo profesional', requirements: 'Requisitos del directorio' }[menu]} onClose={() => setMenu(null)}>
-        {menu === 'sections' && renderDestinations()}
-        {menu === 'parts' && renderParts()}
+      {menu && <ProfileEditorSheet title={menu === 'type' ? 'Tipo profesional' : 'Requisitos del directorio'} onClose={() => setMenu(null)}>
         {menu === 'type' && <>
           <Text style={styles.bodyText}>Selecciona el tipo que corresponda a tu formación y habilitación. Los pacientes lo verán en tu perfil y podrán usarlo para filtrar.</Text>
           {PROFESSIONAL_TYPE_OPTIONS.map(option => <ProfileEditorItem key={option.id} label={option.label} icon={option.icon} selected={profileData.professionalType === option.id}
@@ -3257,6 +3200,7 @@ export function SpecialistProfileScreen() {
       </ProfileEditorSheet>}
     </KeyboardAvoidingView>
   );
+  return <ProfileEditorPages onPageChange={onPageChange}>{page}</ProfileEditorPages>;
 }
 
 // ============================================================================
@@ -3269,14 +3213,25 @@ function createStyles(
   isMobile: boolean,
 ) {
   return StyleSheet.create({
-  editorBar: { flexDirection: isMobile ? 'column' : 'row', justifyContent: 'space-between', alignItems: isMobile ? 'stretch' : 'center', gap: 8, paddingHorizontal: isDesktop ? 24 : 16, paddingVertical: isDesktop ? 12 : 6, borderBottomWidth: 1, borderColor: palette.border, backgroundColor: palette.background },
-  barLead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  editorBar: { flexDirection: isMobile ? 'column' : 'row', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: isMobile ? 'stretch' : 'center', gap: 8, paddingHorizontal: isDesktop ? 24 : 16, paddingVertical: isDesktop ? 16 : 6, borderBottomWidth: isDesktop ? 0 : 1, borderColor: palette.border, backgroundColor: palette.background },
+  barLead: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' },
   barActions: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 },
   workspace: { flex: 1, minHeight: 0, flexDirection: 'row' },
-  rail: { width: 226, backgroundColor: palette.backgroundMuted, borderRightWidth: 1, borderColor: palette.border },
-  railContent: { gap: 2, paddingHorizontal: 12, paddingVertical: 22 },
-  intro: { borderBottomWidth: 1, borderColor: palette.border, paddingBottom: 18, marginBottom: 22, gap: 8, alignItems: 'flex-start' },
-  pageTitle: { flexShrink: 1, fontFamily: palette.fontHeading, fontSize: isDesktop ? 36 : 28, lineHeight: isDesktop ? 44 : 35, color: palette.textPrimary },
+  desktopNav: { paddingHorizontal: 20, paddingBottom: 12, backgroundColor: palette.background },
+  navList: { flexDirection: 'row', borderWidth: 1, borderColor: palette.border, borderRadius: 10, overflow: 'hidden' },
+  navTab: { flex: 1, flexDirection: 'row', minHeight: 46, alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 6, paddingHorizontal: 5 },
+  informationNavTab: { flex: 1.55 },
+  navSelected: { backgroundColor: palette.primaryAlpha12 },
+  navLabel: { flexShrink: 1, textAlign: 'center', fontFamily: palette.fontSansMedium, fontSize: 14, color: palette.textPrimary },
+  navLabelSelected: { fontFamily: palette.fontSansBold },
+  index: { gap: 16 },
+  indexList: { borderWidth: 1, borderColor: palette.border, borderRadius: 14, overflow: 'hidden', backgroundColor: palette.cardBg },
+  indexRow: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 62, paddingHorizontal: 16, paddingVertical: 9, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: palette.border },
+  indexIcon: { width: 34, height: 34, borderRadius: 9, alignItems: 'center', justifyContent: 'center', backgroundColor: palette.backgroundMuted },
+  indexLabel: { flex: 1, textAlign: 'left', fontFamily: palette.fontSansSemiBold, fontSize: 16 },
+  intro: { marginBottom: 16, gap: 3 },
+  introText: { color: palette.textSecondary, fontSize: 14, lineHeight: 20, fontFamily: palette.fontSans },
+  pageTitle: { fontSize: isDesktop ? 30 : 26, lineHeight: isDesktop ? 38 : 33, color: palette.textPrimary },
   bodyText: { fontFamily: palette.fontSans, color: palette.textPrimary, fontSize: 15, lineHeight: 22, flexShrink: 1 },
   summaryRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14, borderBottomWidth: 1, borderColor: palette.border },
   summaryCopy: { flex: 1, gap: 6 },
@@ -3306,9 +3261,9 @@ function createStyles(
 
   // ===== TAB NAVIGATION =====
   topBarTitle: {
-    fontSize: isDesktop ? 22 : 20,
-    lineHeight: isDesktop ? 28 : 26,
-    fontWeight: '800',
+    fontSize: isDesktop ? 30 : 22,
+    lineHeight: isDesktop ? 38 : 29,
+    flexShrink: 1,
     fontFamily: palette.fontHeading,
     color: palette.textPrimary,
   },
@@ -3383,14 +3338,15 @@ function createStyles(
 
   // ===== MAIN LAYOUT =====
   formArea: { flex: 1, minWidth: 0 },
-  formContent: { width: '100%', maxWidth: 1100, alignSelf: 'center', paddingHorizontal: isDesktop ? 42 : 18, paddingTop: isDesktop ? 26 : 20, paddingBottom: 48 },
+  formContent: { width: '100%', maxWidth: layout.profileMaxWidth, alignSelf: 'center', paddingHorizontal: isDesktop ? 20 : 14, paddingTop: isDesktop ? 10 : 16, paddingBottom: 48 },
 
   // ===== TAB CONTENT =====
   tabContent: {
-    gap: isMobile ? spacing.md : spacing.lg,
+    gap: 12,
   },
   informationCard: { padding: 0 },
-  identityCardLayout: { gap: 18 },
+  identityGrid: { flexDirection: 'row', flexWrap: 'wrap', columnGap: 14, rowGap: 6 },
+  identityField: { flexGrow: 1, flexBasis: isDesktop ? '30%' : isMobile ? '100%' : '46%', minWidth: 0 },
   photoPanel: { padding: 10, borderRadius: 9, backgroundColor: palette.backgroundMuted },
   identityFields: { minWidth: 0, width: '100%' },
   descriptionSection: { width: '100%' },
@@ -3405,7 +3361,7 @@ function createStyles(
   locationLayout: { gap: 16 },
   locationFieldsPane: { width: '100%' },
   locationMapPane: { width: '100%' },
-  informationLowerGrid: { gap: 24 },
+  informationLowerGrid: { gap: 12 },
   informationHalfSection: { width: '100%' },
   informationFullSection: {
     width: '100%',
@@ -3414,7 +3370,8 @@ function createStyles(
 
   // ===== SECTIONS =====
   settingsContent: { width: '100%', maxWidth: 1120, alignSelf: 'flex-start' },
-  accountGrid: { gap: 28 },
+  settingsPanel: { borderWidth: 1, borderColor: palette.border, backgroundColor: palette.cardBg, borderRadius: 14, padding: 18 },
+  accountGrid: { gap: 12 },
   accountColumn: { minWidth: 0 },
   section: { paddingBottom: 14, borderBottomWidth: 1, borderBottomColor: palette.border },
   targetHighlight: {
@@ -3548,7 +3505,7 @@ function createStyles(
     backgroundColor: palette.overlay,
     borderRadius: isDesktop ? 48 : 60,
   },
-  photoActions: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 4, flexShrink: 1 },
+  photoActions: { maxWidth: '100%', flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 4, flexShrink: 1 },
   photoButton: { minHeight: 42 },
   photoButtonDanger: {
     borderWidth: 0,
@@ -3589,6 +3546,7 @@ function createStyles(
 
   // ===== ADD BUTTON =====
   addButton: {
+    alignSelf: 'flex-start',
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,

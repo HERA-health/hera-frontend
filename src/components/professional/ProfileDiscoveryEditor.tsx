@@ -8,18 +8,20 @@ import type {PerspectiveDraft, ProfileOptions} from '../../services/profileDisco
 
 interface Props {
   languages: string[]; onLanguagesChange: (values: string[]) => void;
+  languageNotice?: React.ReactNode;
+  languageRef?: React.Ref<View>;
   perspective: PerspectiveDraft; onPerspectiveChange: (value: PerspectiveDraft) => void;
   options: ProfileOptions | null; busy?: boolean; retry: () => void; error?: boolean;
 }
-export function ProfileDiscoveryEditor({languages, onLanguagesChange, perspective, onPerspectiveChange, options, busy, retry, error}: Props) {
+export function ProfileDiscoveryEditor({languages, onLanguagesChange, languageNotice, languageRef, perspective, onPerspectiveChange, options, busy, retry, error}: Props) {
   const {theme} = useTheme();
   const [details, setDetails] = useState(false);
   const text = {color: theme.textPrimary, fontFamily: theme.fontSans, fontSize: 14, lineHeight: 21};
   const heading = {...text, fontSize: 18, fontFamily: theme.fontSansSemiBold};
   const changeChoice = (religionCode: string) => onPerspectiveChange({...perspective, religionCode, religionOtherText: '', publish: false, noticeVersion: null});
   return <>
-    <View style={{gap: 12}}>
-      <SearchableProfileSelect compact label="Idiomas de las sesiones" renderIcon={renderLanguageIcon} options={options?.languages ?? []} values={languages} onChange={onLanguagesChange} multiple disabled={!options || busy} emptyLabel="+ Añadir idioma" />
+    <View ref={languageRef} collapsable={false} tabIndex={-1} style={{gap: 12}}>
+      <SearchableProfileSelect compact label="Idiomas de las sesiones" labelAction={languageNotice} renderIcon={renderLanguageIcon} options={options?.languages ?? []} values={languages} onChange={onLanguagesChange} multiple disabled={!options || busy} emptyLabel="+ Añadir idioma" />
       {!options ? <Pressable accessibilityRole="button" onPress={retry}><Text style={text}>{error ? 'No se pudieron cargar las opciones. Reintentar' : 'Cargando opciones…'}</Text></Pressable> : null}
     </View>
     <View style={{height: 1, backgroundColor: theme.borderLight}} />

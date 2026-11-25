@@ -15,7 +15,7 @@ function Harness({initial = [], initialCustomApproaches = []}: {initial?: string
 }
 test('a sixth specialty and a custom seventh can be selected and removed', () => {
   render(<Harness initial={['anxiety','depression','sleep','trauma','grief']} />);
-  fireEvent.press(screen.getByText('Editar especialidades'));
+  fireEvent.press(screen.getByRole('button', {name: 'Editar especialidades'}));
   fireEvent.press(screen.getByLabelText('Psicología forense y pericial'));
   fireEvent.press(screen.getByText('+ Añadir otra'));
   fireEvent.changeText(screen.getByLabelText('Otra especialidad'), 'Área ficticia');
@@ -27,7 +27,7 @@ test('a sixth specialty and a custom seventh can be selected and removed', () =>
 test('therapeutic approaches keep their limit of thirty', () => {
   const approaches = Array.from({length: 30}, (_, i) => 'Enfoque ' + (i + 1));
   render(<Harness initialCustomApproaches={approaches} />);
-  fireEvent.press(screen.getByText('Editar enfoques terapéuticos'));
+  fireEvent.press(screen.getByRole('button', {name: 'Editar enfoques terapéuticos'}));
   expect(screen.getByText('Has alcanzado el límite de 30 enfoques.')).toBeTruthy();
   expect(screen.getByRole('button', {name: '+ Añadir otro'})).toBeDisabled();
   fireEvent.press(screen.getByLabelText('Quitar Enfoque 30'));
@@ -36,7 +36,7 @@ test('therapeutic approaches keep their limit of thirty', () => {
 
 test('custom choices reject catalog aliases and update the live preview', () => {
   render(<Harness />);
-  fireEvent.press(screen.getByText('Editar especialidades'));
+  fireEvent.press(screen.getByRole('button', {name: 'Editar especialidades'}));
   fireEvent.press(screen.getByText('+ Añadir otra'));
   fireEvent.changeText(screen.getByLabelText('Otra especialidad'),'ANSIEDAD');
   fireEvent.press(screen.getByText('Añadir'));
@@ -54,7 +54,7 @@ test('web checkbox Space toggles a choice above five specialties', () => {
   Platform.OS = 'web';
   try {
     render(<Harness initial={['anxiety','depression','sleep','trauma','grief']} />);
-    fireEvent.press(screen.getByText('Editar especialidades'));
+    fireEvent.press(screen.getByRole('button', {name: 'Editar especialidades'}));
     const preventDefault = jest.fn();
     fireEvent(screen.getByLabelText('Sexualidad'), 'keyDown', {key:' ', repeat:false, preventDefault});
     expect(screen.getByText('6 seleccionadas')).toBeTruthy();

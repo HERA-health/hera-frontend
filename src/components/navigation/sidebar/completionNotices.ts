@@ -24,7 +24,7 @@ const LABELS: Record<ProfileCompletionCode, { action: string; waiting: string }>
     action: 'Completa tu descripción profesional',
     waiting: 'Descripción en revisión',
   },
-  PROFILE_MATCHING: { action: 'Añade especialidades', waiting: 'Especialidades en revisión' },
+  PROFILE_MATCHING: { action: 'Revisa los datos de tu práctica', waiting: 'Práctica en revisión' },
   PROFILE_MODALITY: { action: 'Elige una modalidad', waiting: 'Modalidad en revisión' },
   PROFILE_LOCATION: { action: 'Completa tu ubicación', waiting: 'Ubicación en revisión' },
   PROFESSIONAL_VERIFICATION: {
@@ -52,14 +52,21 @@ const getItemRank = (item: ProfileCompletionItem): number => {
   return stateRank + CODE_PRIORITY[item.code];
 };
 
-const getTarget = (code: ProfileCompletionCode): SidebarNotice['target'] => {
+const matchingLabels = {
+  specialties: 'Añade especialidades',
+  approaches: 'Añade enfoques terapéuticos',
+  languages: 'Añade un idioma',
+  review: 'Revisa especialidades y enfoques',
+} satisfies Record<NonNullable<ProfileCompletionItem['matchingField']>, string>;
+
+const getTarget = ({ code, matchingField }: ProfileCompletionItem): SidebarNotice['target'] => {
   switch (code) {
     case 'PROFILE_IDENTITY':
       return { route: 'ProfessionalProfile', params: { initialTab: 'information', initialSection: 'identity' } };
     case 'PROFILE_BIO':
       return { route: 'ProfessionalProfile', params: { initialTab: 'information', initialSection: 'bio' } };
     case 'PROFILE_MATCHING':
-      return { route: 'ProfessionalProfile', params: { initialTab: 'information', initialSection: 'matching' } };
+      return { route: 'ProfessionalProfile', params: { initialTab: 'information', initialSection: matchingField === 'languages' ? 'languages' : 'matching' } };
     case 'PROFILE_MODALITY':
       return { route: 'ProfessionalProfile', params: { initialTab: 'information', initialSection: 'modality' } };
     case 'PROFILE_LOCATION':
@@ -82,9 +89,9 @@ const buildNotice = (items: ProfileCompletionItem[]): SidebarNotice | undefined 
 
   const sortedItems = [...items].sort((left, right) => getItemRank(left) - getItemRank(right));
   const primary = sortedItems[0];
-  const baseLabel = primary.state === 'WAITING_REVIEW'
-    ? LABELS[primary.code].waiting
-    : LABELS[primary.code].action;
+  const fieldLabel = primary.code === 'PROFILE_MATCHING' && primary.matchingField
+    ? matchingLabels[primary.matchingField] : undefined;
+  const baseLabel = primary.state === 'WAITING_REVIEW' ? LABELS[primary.code].waiting : fieldLabel ?? LABELS[primary.code].action;
   const additionalCount = items.length - 1;
 
   return {
@@ -92,7 +99,7 @@ const buildNotice = (items: ProfileCompletionItem[]): SidebarNotice | undefined 
     label: additionalCount > 0 ? `${baseLabel} · +${additionalCount}` : baseLabel,
     tone: getNoticeTone(primary),
     count: items.length,
-    target: getTarget(primary.code),
+    target: getTarget(primary),
   };
 };
 

@@ -15,7 +15,6 @@ import {
 import { BlurView } from 'expo-blur';
 import Animated, {
   Easing,
-  interpolate,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
@@ -110,8 +109,9 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
         borderBottomColor: 'transparent',
       };
     }
-    const bgOpacity = interpolate(scrollProgress.value, [0, 1], [0, isDark ? 0.9 : 0.94]);
-    const borderOpacity = interpolate(scrollProgress.value, [0, 1], [0, 1]);
+    // Reanimated's native color parser expects decimal alpha, including near zero.
+    const bgOpacity = (scrollProgress.value * (isDark ? 0.9 : 0.94)).toFixed(3);
+    const borderOpacity = scrollProgress.value.toFixed(3);
 
     return {
       backgroundColor: context === 'landing' ? theme.surfaceWarm : isDark

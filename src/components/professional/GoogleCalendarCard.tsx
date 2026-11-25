@@ -33,7 +33,7 @@ export function GoogleCalendarCard({ plain = false, videoSetup = false, hasUnsav
   const { width } = useWindowDimensions();
   const compact = width < 680;
   const [contentWidth, setContentWidth] = useState(0);
-  const twoColumns = !plain && contentWidth >= 640;
+  const twoColumns = contentWidth >= (plain ? 900 : 640);
   const [confirmMeet, setConfirmMeet] = useState<{
     email: string; disclosureVersion: string; connection: { id: string; generation: number };
   } | null>(null);
@@ -194,7 +194,7 @@ export function GoogleCalendarCard({ plain = false, videoSetup = false, hasUnsav
           : 'Primero sincroniza tus citas con Google Calendar. Después podrás activar un enlace de Meet para cada videollamada.'}</Text>
       </View>}
       <View onLayout={event => setContentWidth(event.nativeEvent.layout.width)} style={[styles.columns, twoColumns && styles.columnsWide]}>
-      <View style={[styles.section, !plain && styles.productPanel, styles.column, twoColumns && styles.calendarColumnWide, { backgroundColor: plain ? 'transparent' : calendarActive ? theme.successLight : theme.bgMuted }]}>
+      <View style={[styles.section, styles.productPanel, styles.column, twoColumns && styles.calendarColumnWide, { borderWidth: plain ? 1 : 0, borderColor: theme.border, backgroundColor: plain ? theme.bgCard : calendarActive ? theme.successLight : theme.bgMuted }]}>
         <View style={styles.sectionHeader}>
           <Image source={require('../../../assets/google-calendar.png')} style={styles.productLogo} resizeMode="contain" accessible={false} />
           <View style={styles.headerCopy}>
@@ -222,7 +222,7 @@ export function GoogleCalendarCard({ plain = false, videoSetup = false, hasUnsav
         {plain && calendarOptions}
       </View>
 
-      <View style={[styles.section, !plain && styles.productPanel, plain && [styles.plainSection, { borderColor: theme.navigationBorder }], styles.column, twoColumns && styles.columnWide, { backgroundColor: plain ? 'transparent' : meetActive ? theme.successLight : theme.bgMuted }]}>
+      <View style={[styles.section, styles.productPanel, styles.column, twoColumns && styles.columnWide, { borderWidth: plain ? 1 : 0, borderColor: theme.border, backgroundColor: plain ? theme.bgCard : meetActive ? theme.successLight : theme.bgMuted }]}>
         <View style={styles.sectionHeader}>
           <Image source={require('../../../assets/google-meet.png')} style={styles.productLogo} resizeMode="contain" accessible={false} />
           <View style={styles.headerCopy}>
@@ -251,7 +251,7 @@ export function GoogleCalendarCard({ plain = false, videoSetup = false, hasUnsav
       </View>
 
       {!plain && calendarOptions}
-      {plain && importSettings && <View style={[styles.plainSection, { borderColor: theme.navigationBorder }]}><Text style={heading}>Eventos de Google en HERA</Text>{importSettings}</View>}
+      {plain && importSettings && <View style={[styles.plainSection, { borderColor: theme.border, backgroundColor: theme.bgCard }]}><Text style={heading}>Eventos de Google en HERA</Text>{importSettings}</View>}
       {pending && pollingPaused && !error && <Button variant="ghost" size="small" disabled={busy} style={styles.start} onPress={() => { void refresh(); }}>Actualizar estado</Button>}
       {status?.errorCode === 'REVOCATION_FAILED' && <View style={styles.section}>
         <Text style={copy}>HERA ha dejado de sincronizar. No se pudo retirar el permiso en Google; puedes hacerlo desde tu cuenta.</Text>
@@ -320,7 +320,7 @@ export function GoogleCalendarCard({ plain = false, videoSetup = false, hasUnsav
 }
 
 const styles = StyleSheet.create({
-  plainSection: { gap: 12, borderTopWidth: 1, paddingTop: 20 },
+  plainSection: { gap: 12, borderWidth: 1, padding: 18, borderRadius: 14 },
   setupIntro: { gap: 8 },
   section: { gap: 12 },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 12 },

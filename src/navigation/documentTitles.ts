@@ -106,6 +106,7 @@ function getLegalDocumentTitle(params: unknown): string | null {
 }
 
 function getRouteTitle(routeName: string | undefined, params: unknown): string {
+  if (routeName === 'ProfileSections' || routeName === 'ProfileSection') return ROUTE_TITLES.ProfessionalProfile;
   if (routeName === 'LegalDocument') {
     return getLegalDocumentTitle(params) ?? ROUTE_TITLES.LegalDocument;
   }

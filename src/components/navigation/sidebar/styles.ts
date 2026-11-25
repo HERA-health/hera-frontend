@@ -103,6 +103,8 @@ export const sectionStyles = StyleSheet.create({
 });
 
 export const navItemStyles = StyleSheet.create({
+  profileNotice: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 44, minWidth: 44, paddingHorizontal: 8, borderRadius: 9 },
+  profileNoticeText: { flexShrink: 1, fontSize: 12, lineHeight: 16 },
   container: {
     marginBottom: 0,
     width: '100%',

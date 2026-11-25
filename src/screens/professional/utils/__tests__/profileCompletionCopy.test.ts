@@ -2,30 +2,30 @@ import { getMatchingCompletionDescription } from '../profileCompletionCopy';
 
 describe('getMatchingCompletionDescription', () => {
   it.each([
-    [[], [], [], 'Añade o revisa al menos una especialidad, un enfoque terapéutico y un idioma.'],
-    [['anxiety'], [], [], 'Añade o revisa al menos un enfoque terapéutico y un idioma.'],
-    [['anxiety'], ['cbt'], [], 'Añade o revisa al menos un idioma.'],
-    [[], ['cbt'], ['spanish'], 'Añade o revisa al menos una especialidad.'],
+    [[], [], 'Añade al menos una especialidad y un enfoque terapéutico.'],
+    [['anxiety'], [], 'Añade al menos un enfoque terapéutico.'],
+    [[], ['cbt'], 'Añade al menos una especialidad.'],
   ])('describes only the missing matching selections', (
     specialties,
     therapeuticApproaches,
-    languages,
     expected,
   ) => {
     expect(getMatchingCompletionDescription({
       specialties,
       therapeuticApproaches,
-      languages,
+      matchingNeedsReview: false,
     })).toBe(expected);
   });
 
-  it('asks the user to save when all matching selections are complete locally', () => {
+  it('keeps the practice card clear when only the language is missing', () => {
     expect(getMatchingCompletionDescription({
       specialties: ['anxiety'],
       therapeuticApproaches: ['cbt'],
-      languages: ['spanish'],
-    })).toBe(
-      'Ya has completado esta información. Guarda los cambios para actualizar el estado del perfil.',
-    );
+      matchingNeedsReview: false,
+    })).toBeNull();
+  });
+
+  it('explains the required acknowledgement for migrated selections', () => {
+    expect(getMatchingCompletionDescription({specialties: ['anxiety'], therapeuticApproaches: ['cbt'], matchingNeedsReview: true})).toContain('casilla de revisión');
   });
 });

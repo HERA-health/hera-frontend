@@ -21,6 +21,7 @@ import {
 
 interface Props {
   label: string;
+  labelAction?: React.ReactNode;
   optional?: boolean;
   options: ProfileOption[];
   values: string[];
@@ -34,6 +35,7 @@ interface Props {
 }
 export function SearchableProfileSelect({
   label,
+  labelAction,
   optional = false,
   options,
   values,
@@ -77,17 +79,15 @@ export function SearchableProfileSelect({
     borderColor: theme.border,
     borderRadius: 12,
   };
+  const fieldLabel = (
+    <Text style={[text, { flexShrink: 1, fontFamily: theme.fontSansSemiBold, fontSize: compact ? 18 : 15 }]}>
+      {label}
+      {optional ? <Text style={{ color: theme.textSecondary, fontFamily: theme.fontSans, fontSize: 14 }}> (opcional)</Text> : null}
+    </Text>
+  );
   return (
     <View style={{ gap: 8, minWidth: 200, flexShrink: 1 }}>
-      <Text
-        style={[
-          text,
-          { fontFamily: theme.fontSansSemiBold, fontSize: compact ? 18 : 15 },
-        ]}
-      >
-        {label}
-        {optional ? <Text style={{ color: theme.textSecondary, fontFamily: theme.fontSans, fontSize: 14 }}> (opcional)</Text> : null}
-      </Text>
+      {labelAction ? <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>{fieldLabel}{labelAction}</View> : fieldLabel}
       {multiple && values.length > 0 ? (
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
           {values.map((value) => (

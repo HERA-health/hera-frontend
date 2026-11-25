@@ -86,4 +86,18 @@ describe('buildSidebarCompletionNotices', () => {
       items: [],
     })).toEqual({});
   });
+
+  it.each([
+    ['languages', 'Añade un idioma', 'languages'],
+    ['approaches', 'Añade enfoques terapéuticos', 'matching'],
+    ['specialties', 'Añade especialidades', 'matching'],
+    ['review', 'Revisa especialidades y enfoques', 'matching'],
+    [undefined, 'Revisa los datos de tu práctica', 'matching'],
+  ] as const)('labels and targets the matching field %s', (matchingField, label, initialSection) => {
+    const { profile } = buildSidebarCompletionNotices({ role: 'PROFESSIONAL', scopeId: 'test', items: [
+      { code: 'PROFILE_MATCHING', state: 'ACTION_REQUIRED', severity: 'WARNING', matchingField },
+    ] });
+    expect(profile.label).toBe(label);
+    expect(profile.target.params?.initialSection).toBe(initialSection);
+  });
 });

@@ -15,7 +15,7 @@ import { captureReferralUrl } from './src/services/pendingReferralIntent';
 import React, { useEffect } from 'react';
 import { AppState, Platform, View } from 'react-native';
 import { cleanupClinicalPreviews } from './src/services/clinicalPreviewCache';
-import { NavigationContainer, LinkingOptions } from '@react-navigation/native';
+import { NavigationContainer, LinkingOptions, type PathConfig } from '@react-navigation/native';
 import * as Linking from 'expo-linking';
 import { captureCalendarUrl } from './src/services/googleCalendarIntent';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -30,7 +30,7 @@ import { RootNavigator } from './src/navigation/RootNavigator';
 import { getDocumentTitleForRoute } from './src/navigation/documentTitles';
 import { ErrorBoundary } from './src/components/common/ErrorBoundary';
 import { AlertProvider } from './src/components/common/alert';
-import type { RootStackParamList } from './src/constants/types';
+import type { ProfileEditorParamList, RootStackParamList } from './src/constants/types';
 import {
   legalSlugFor,
 } from './src/constants/legal';
@@ -54,6 +54,11 @@ if (__DEV__ && Platform.OS === 'web' && typeof document !== 'undefined') {
 
 // Deep linking configuration
 const prefix = Linking.createURL('/');
+const profileEditorPaths = { ProfileSections: '', ProfileSection: 'seccion' };
+const profileEditorPages = {
+  initialRouteName: 'ProfileSections',
+  screens: profileEditorPaths,
+} satisfies PathConfig<ProfileEditorParamList>;
 
 export const linking: LinkingOptions<RootStackParamList> = {
   prefixes: [prefix, 'hera://'],
@@ -77,6 +82,10 @@ export const linking: LinkingOptions<RootStackParamList> = {
       MatchingAdvice: 'orientacion',
       AdminMatchingAdvice: 'admin/orientacion',
       ProfessionalTariffs: 'profesional/tarifas',
+      ProfessionalProfile: {
+        path: 'ProfessionalProfile',
+        ...profileEditorPages,
+      },
       ...(RESOURCES_VISIBLE ? { ResourceLibrary: 'profesional/recursos' } : {}),
       ProfessionalSubscription: 'profesional/suscripcion',
       AdminSubscriptions: 'admin/suscripciones',

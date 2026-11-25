@@ -20,7 +20,23 @@ jest.mock('@react-navigation/native', () => ({
   CommonActions: { navigate: (payload: unknown) => ({ type: 'NAVIGATE', payload }) },
   useNavigation: () => mockNavigation,
   useRoute: () => ({ params: mockRouteParams }),
+  usePreventRemove: jest.fn(),
   useFocusEffect: (callback: () => void) => require('react').useEffect(callback, [callback]),
+}));
+jest.mock('../../../components/professional/ProfileEditorPages', () => ({
+  ProfileEditorPages: ({children, onPageChange}: {
+    children: React.ReactElement;
+    onPageChange: (navigation: object, tab?: string) => void;
+  }) => {
+    const ReactModule = jest.requireActual<typeof React>('react');
+    const [tab, setTab] = ReactModule.useState<string>();
+    const navigation = ReactModule.useMemo(() => ({
+      navigate: (_route: string, params: {tab: string}) => setTab(params.tab),
+      popToTop: () => setTab(undefined),
+    }), []);
+    ReactModule.useLayoutEffect(() => onPageChange(navigation, tab), [navigation, onPageChange, tab]);
+    return children;
+  },
 }));
 jest.mock('../../../contexts/ThemeContext', () => ({ useTheme: () => ({ theme: require('../../../constants/theme').lightTheme, isDark: false }) }));
 jest.mock('../../../contexts/AuthContext', () => ({ useAuth: () => ({ user: { id: 'professional', name: 'Especialista de prueba' }, updateUser: mockUpdateUser }) }));
@@ -30,9 +46,9 @@ jest.mock('../../../hooks/useGeneralRateLimit', () => ({ useFocusedRateLimitReco
 jest.mock('../../../components/onboarding/professionalTourContext', () => ({ useProfessionalTourAutoStart: jest.fn(), useProfessionalTourStepPreparation: jest.fn() }));
 jest.mock('../../../components/onboarding/TourTarget', () => ({ TourTarget: ({ children }: { children: React.ReactNode }) => children }));
 jest.mock('../../../components/professional/ProfessionalMatchingEditor', () => ({
-  ProfessionalMatchingEditor: ({perspective, onPerspectiveChange}: {perspective: import('../../../utils/perspective').PerspectiveDraft; onPerspectiveChange: (value: import('../../../utils/perspective').PerspectiveDraft) => void}) => {
+  ProfessionalMatchingEditor: ({perspective, onPerspectiveChange, reviewAction}: {reviewAction?: React.ReactNode; perspective: import('../../../utils/perspective').PerspectiveDraft; onPerspectiveChange: (value: import('../../../utils/perspective').PerspectiveDraft) => void}) => {
     const {Button} = require('react-native');
-    return <Button title="Retirar perspectiva de prueba" onPress={() => onPerspectiveChange({...perspective, religionCode: '', religionOtherText: '', publish: false, noticeVersion: null})} />;
+    return <>{reviewAction}<Button title="Retirar perspectiva de prueba" onPress={() => onPerspectiveChange({...perspective, religionCode: '', religionOtherText: '', publish: false, noticeVersion: null})} /></>;
   },
 }));
 jest.mock('../../../components/professional/PublicProfileSlugEditor', () => ({ PublicProfileSlugEditor: () => null }));
@@ -70,17 +86,37 @@ beforeEach(() => {
   });
 });
 
-test('a missing bio marks identity and exposes its guidance only at the bio heading', async () => {
+test('a missing bio shows guidance at its field in the continuous form', async () => {
   mockCompletion = { role: 'PROFESSIONAL', scopeId: 'demo', items: [{ code: 'PROFILE_BIO', state: 'ACTION_REQUIRED', severity: 'WARNING' }] };
   render(<SpecialistProfileScreen />);
-  const info = await screen.findByRole('button', { name: 'Descripción profesional incompleta' });
-  fireEvent.press(info);
+  fireEvent.press(await screen.findByRole('button', { name: 'Descripción profesional incompleta' }));
   expect(showAppAlert).toHaveBeenCalledWith(expect.anything(), 'Descripción profesional incompleta', expect.stringContaining('150'));
-  fireEvent.press(screen.getByRole('button', { name: 'Trayectoria' }));
-  expect(screen.queryByRole('button', { name: 'Descripción profesional incompleta' })).toBeNull();
-  expect(screen.getByRole('button', { name: 'Identidad y presentación' }).props.accessibilityHint).toContain('por completar');
-  expect(screen.getByRole('button', { name: 'Trayectoria' }).props.accessibilityHint).toBeUndefined();
+  expect(screen.getByRole('header', {name: 'Trayectoria profesional'})).toBeTruthy();
+  expect(screen.queryByRole('button', {name: 'Modalidad pendiente'})).toBeNull();
   expect(screen.queryByText(/Te queda.*apartado/)).toBeNull();
+});
+
+function useMobileViewport() {
+  jest.mocked(useWindowDimensions).mockReturnValue({width: 390, height: 844, fontScale: 1, scale: 1});
+}
+
+test('mobile opens the seven-section index and keeps edits across the index and other destinations', async () => {
+  useMobileViewport();
+  render(<SpecialistProfileScreen />);
+  await screen.findByRole('header', {name: 'Secciones del perfil'});
+  for (const name of ['Información profesional', 'Mi Espacio', 'Credenciales', 'Facturación', 'Privacidad', 'Google', 'Cuenta']) {
+    expect(screen.getByRole('button', {name})).toBeTruthy();
+  }
+  expect(screen.queryByLabelText('Título profesional')).toBeNull();
+  fireEvent.press(screen.getByRole('button', {name: 'Información profesional'}));
+  fireEvent.changeText(screen.getByLabelText('Título profesional'), 'Título ficticio');
+  fireEvent.press(screen.getByText('Volver a secciones'));
+  fireEvent.press(screen.getByRole('button', {name: 'Google'}));
+  await screen.findByText('Google Calendar');
+  fireEvent.press(screen.getByText('Volver a secciones'));
+  fireEvent.press(screen.getByRole('button', {name: 'Información profesional'}));
+  expect(screen.getByLabelText('Título profesional').props.value).toBe('Título ficticio');
+  expect(professionalService.updateComprehensiveProfile).not.toHaveBeenCalled();
 });
 
 test('optional experience years loads empty, saves a number, and can be cleared', async () => {
@@ -124,7 +160,6 @@ test('enabling online sessions persists the modality before opening the Google t
   let finishSave: (value: professionalService.SpecialistProfileData) => void = () => { throw new Error('Save not started'); };
   jest.mocked(professionalService.updateComprehensiveProfile).mockImplementation(() => new Promise(resolve => { finishSave = resolve; }));
   render(<SpecialistProfileScreen />);
-  fireEvent.press(await screen.findByRole('button', { name: 'Consulta' }));
   fireEvent.press(await screen.findByText('Sesiones online'));
   fireEvent.press(await screen.findByText('Guardar y configurar Google Meet'));
   expect(professionalService.updateComprehensiveProfile).toHaveBeenCalledWith({ offersOnline: true });
@@ -141,8 +176,7 @@ test('a rejected profile save keeps the selected modality and does not advance t
   try {
     jest.mocked(professionalService.updateComprehensiveProfile).mockRejectedValue(new Error('No se pudo guardar.'));
     render(<SpecialistProfileScreen />);
-    fireEvent.press(await screen.findByRole('button', { name: 'Consulta' }));
-  fireEvent.press(await screen.findByText('Sesiones online'));
+    fireEvent.press(await screen.findByText('Sesiones online'));
     fireEvent.press(await screen.findByText('Guardar y configurar Google Meet'));
     await waitFor(() => expect(showAppAlert).toHaveBeenCalledWith(expect.anything(), 'No se pudo guardar el perfil', 'No se pudo guardar.'));
     expect(screen.getByText('Guardar y configurar Google Meet')).toBeTruthy();
@@ -236,15 +270,17 @@ test('a location reminder opens Consultation even when in-person sessions are st
   mockRouteParams = { initialTab: 'information', initialSection: 'location' };
   render(<SpecialistProfileScreen />);
   await screen.findByText('Sesiones presenciales');
-  expect(screen.getByRole('button', { name: 'Consulta', selected: true })).toBeTruthy();
+  expect(screen.getByRole('header', { name: 'Consulta' })).toBeTruthy();
   expect(mockNavigation.setParams).toHaveBeenCalledWith({ initialTab: undefined, initialSection: undefined });
 });
 
 test('an insurance reminder opens Credentials and the policy upload', async () => {
+  useMobileViewport();
   mockRouteParams = { initialSection: 'insurance' };
   render(<SpecialistProfileScreen />);
   await screen.findByText('Subir póliza PDF');
-  expect(screen.getByRole('button', { name: 'Credenciales', selected: true })).toBeTruthy();
+  expect(screen.getByRole('header', {name: 'Credenciales'})).toBeTruthy();
+  expect(screen.queryByRole('header', {name: 'Secciones del perfil'})).toBeNull();
 });
 
 test('existing account navigation still opens account settings', async () => {
@@ -261,7 +297,6 @@ test('withdrawing alone bypasses unrelated incomplete profile fields and saves o
   let finishSave: (value: professionalService.SpecialistProfileData) => void = () => {throw new Error('Not started');};
   jest.mocked(professionalService.updateComprehensiveProfile).mockImplementation(() => new Promise(resolve => {finishSave = resolve;}));
   render(<SpecialistProfileScreen />);
-  fireEvent.press(await screen.findByRole('button', { name: 'Práctica e idiomas' }));
   fireEvent.press(await screen.findByText('Retirar perspectiva de prueba'));
   const saveButton = screen.getByText('Guardar');
   fireEvent.press(saveButton);
@@ -275,7 +310,6 @@ test('a rejected withdrawal keeps the draft available to retry', async () => {
   jest.mocked(professionalService.getComprehensiveProfile).mockResolvedValue({...profile, perspective: {religionCode: 'catholic', hasPublication: true, hasDeclaration: true}});
   jest.mocked(professionalService.updateComprehensiveProfile).mockRejectedValue(new Error('Error de prueba'));
   render(<SpecialistProfileScreen />);
-  fireEvent.press(await screen.findByRole('button', { name: 'Práctica e idiomas' }));
   fireEvent.press(await screen.findByText('Retirar perspectiva de prueba'));
   fireEvent.press(screen.getByText('Guardar'));
   await waitFor(() => expect(showAppAlert).toHaveBeenCalledWith(expect.anything(), 'No se pudo guardar el perfil', 'Error de prueba'));
@@ -289,14 +323,32 @@ test('a migrated profile can acknowledge its review without changing valid selec
   render(<SpecialistProfileScreen />);
   await screen.findByLabelText('Título profesional');
   expect(screen.queryByText('Guardar')).toBeNull();
-  fireEvent.press(await screen.findByRole('button', { name: 'Práctica e idiomas' }));
-  await screen.findByText('Retirar perspectiva de prueba');
+  fireEvent.press(screen.getByRole('checkbox', {name: 'He revisado mis especialidades y enfoques'}));
   await act(async () => fireEvent.press(screen.getByText('Guardar')));
   expect(professionalService.updateComprehensiveProfile).toHaveBeenCalledWith({
     specialties: profile.specialties, customSpecialties: [],
     therapeuticApproaches: profile.therapeuticApproaches, customTherapeuticApproaches: [],
   });
   expect(screen.queryByText('Guardar')).toBeNull();
+});
+
+test('saving an unrelated change locks the review checkbox and keeps the acknowledgement available afterwards', async () => {
+  const legacy = { ...profile, matchingNeedsReview: true };
+  jest.mocked(professionalService.getComprehensiveProfile).mockResolvedValue(legacy);
+  let complete: (saved: professionalService.SpecialistProfileData) => void = () => { throw new Error('Save did not start'); };
+  jest.mocked(professionalService.updateComprehensiveProfile).mockImplementationOnce(() => new Promise(resolve => { complete = resolve; }));
+  render(<SpecialistProfileScreen />);
+  fireEvent.changeText(await screen.findByLabelText('Título profesional'), 'Título de prueba');
+  fireEvent.press(screen.getByText('Guardar'));
+  const checkbox = () => screen.getByRole('checkbox', {name: 'He revisado mis especialidades y enfoques'});
+  expect(checkbox()).toBeDisabled();
+  fireEvent.press(checkbox());
+  expect(professionalService.updateComprehensiveProfile).toHaveBeenCalledWith({professionalTitle: 'Título de prueba'});
+  await act(async () => complete({...legacy, professionalTitle: 'Título de prueba'}));
+  expect(checkbox()).toBeEnabled();
+  fireEvent.press(checkbox());
+  expect(checkbox()).toBeChecked();
+  expect(screen.getByText('Guardar')).toBeTruthy();
 });
 
 test('legacy agenda settings navigation redirects to Agenda and clears the old tab', async () => {
@@ -331,7 +383,6 @@ test('a private PDF upload preserves the consultation draft and permits a partia
   jest.mocked(professionalService.updateComprehensiveProfile).mockImplementation(async changes => ({ ...pending, ...changes }));
   render(<SpecialistProfileScreen />);
   fireEvent.changeText(await screen.findByLabelText('Título profesional'), 'Edición de prueba');
-  fireEvent.press(screen.getByRole('button', { name: 'Consulta' }));
   fireEvent.press(screen.getByText('Sesiones presenciales'));
   fireEvent.changeText(screen.getByLabelText('Ciudad'), 'Ciudad ficticia');
   fireEvent.press(screen.getByText('Guardar'));
@@ -359,7 +410,6 @@ test('rejected insurance keeps the reason and only confirmed deletion disables t
   });
   render(<SpecialistProfileScreen />);
   fireEvent.changeText(await screen.findByLabelText('Título profesional'), 'Otro título');
-  fireEvent.press(screen.getByRole('button', { name: 'Consulta' }));
   expect(screen.getByText(/Documento de prueba caducado/)).toBeTruthy();
   fireEvent.press(screen.getByText('Revisar póliza en Credenciales'));
   fireEvent.press(screen.getByText('Eliminar póliza'));
@@ -370,7 +420,6 @@ test('rejected insurance keeps the reason and only confirmed deletion disables t
   fireEvent.press(screen.getByText('Volver a Consulta'));
   expect(screen.getByRole('checkbox', { name: /Sesiones presenciales/ }).props.accessibilityState.checked).toBe(false);
   expect(screen.getByRole('checkbox', { name: /Sesiones online/ }).props.accessibilityState.checked).toBe(true);
-  fireEvent.press(screen.getByRole('button', { name: 'Identidad y presentación' }));
   expect(screen.getByLabelText('Título profesional').props.value).toBe('Otro título');
 });
 

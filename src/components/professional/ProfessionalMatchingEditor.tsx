@@ -1,3 +1,4 @@
+import { ProfileEditorSection } from './ProfileEditorSection';
 import { ProfileEditorSheet } from './ProfileEditorSheet';
 import { Button } from '../common/Button';
 import { SearchableProfileSelect } from '../common/SearchableProfileSelect';
@@ -19,6 +20,13 @@ interface Props {
   declaredGender?: 'woman' | 'man' | 'nonbinary' | null; practiceContexts?: string[];
   onGenderChange?: (value: 'woman' | 'man' | 'nonbinary' | null) => void; onContextsChange?: (values: string[]) => void;
   hasChanges?: boolean;
+  wide?: boolean;
+  highlighted?: boolean;
+  notice?: React.ReactNode;
+  languageNotice?: React.ReactNode;
+  languageRef?: React.Ref<View>;
+  languageHighlighted?: boolean;
+  reviewAction?: React.ReactNode;
   name: string; title: string; avatar: string | null;
   specialties: string[]; approaches: string[]; customSpecialties: string[]; customApproaches: string[];
   languages: string[]; profileVisible: boolean; matchingNeedsReview: boolean; busy?: boolean;
@@ -47,14 +55,21 @@ function ChoiceGroup({title, description, options, selected, custom, onToggle, o
     if (atLimit) return;
     onCustomChange([...custom, draft.trim()]); setDraft(''); setError(''); setAdding(false);
   };
-  return <View style={{gap: 12}}>
-    <View style={{flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', gap: 8, alignItems: 'center'}}>
-      <Text style={[text, {fontFamily: theme.fontSansSemiBold, fontSize: 18}]}>{title}</Text>
-      <Text accessibilityLiveRegion="polite" style={[text, {color: theme.primary, fontSize: 12}]}>{required ? count + (count === 1 ? ' seleccionada' : ' seleccionadas') : count + ' seleccionados'}</Text>
+  const labels = [...selected.map(value => options.find(option => option.value === value)?.label ?? value), ...custom];
+  return <View style={{gap: 5, flex: 1, minWidth: 0}}>
+    <View style={{flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', gap: 6}}>
+      <Text style={[text, {fontFamily: theme.fontSansSemiBold}]}>{title}</Text>
+      <Text accessibilityLiveRegion="polite" style={[text, {color: theme.textSecondary, fontSize: 12}]}>{required ? count + (count === 1 ? ' seleccionada' : ' seleccionadas') : count + (count === 1 ? ' seleccionado' : ' seleccionados')}</Text>
     </View>
-    <Text style={[text, {color: theme.textSecondary}]}>{description}</Text>
-    <Text style={text}>{[...options.filter(option => selected.includes(option.value)).map(option => option.label), ...custom].join(' · ') || 'Sin seleccionar'}</Text>
-    <Button size="small" variant="outline" style={{ alignSelf: 'flex-start' }} onPress={() => setEditing(true)}>{'Editar ' + title.toLowerCase()}</Button>
+    <Pressable accessibilityRole="button" accessibilityLabel={'Editar ' + title.toLowerCase()} accessibilityHint={description}
+      disabled={busy} onPress={() => setEditing(true)}
+      style={{minHeight: 46, flexDirection: 'row', alignItems: 'center', gap: 8, padding: 8, borderWidth: 1, borderColor: theme.borderStrong, borderRadius: 8}}>
+      <View style={{flex: 1, flexDirection: 'row', flexWrap: 'wrap', gap: 5}}>
+        {labels.length ? labels.map(label => <Text key={label} style={[text, {backgroundColor: theme.navigationActive, borderRadius: 5, paddingHorizontal: 6}]}>{label}</Text>) :
+          <Text style={[text, {color: theme.textSecondary}]}>Seleccionar</Text>}
+      </View>
+      <Ionicons name="chevron-down" color={theme.textPrimary} size={16} />
+    </Pressable>
     {editing && <ProfileEditorSheet title={title} onClose={() => { setEditing(false); setSearch(''); }}>
       <Text style={text}>La selección se aplicará cuando guardes el perfil.</Text>
       <TextInput accessibilityLabel={'Buscar en ' + title.toLowerCase()} value={search} onChangeText={setSearch} placeholder="Buscar opciones"
@@ -100,13 +115,18 @@ export function ProfessionalMatchingEditor(props: Props) {
     }
   }, [options?.religionNoticeVersion, props.perspective, props.onPerspectiveChange]);
   const perspectiveLabel = props.perspective.religionCode === 'other' ? props.perspective.religionOtherText : optionLabel(options?.religions ?? [], props.perspective.religionCode);
-  return <View testID="professional-practice-editor" style={{flexDirection: 'column', gap: 24, alignItems: 'flex-start'}}>
-    <View style={{width: '100%', minWidth: 0, gap: 26}}>
+  return <View testID="professional-practice-editor" style={{gap: 12}}>
+    <ProfileEditorSection wide={Boolean(props.wide)} icon="layers-outline" title="Especialidades y enfoques"
+      description="Las áreas que atiendes y los enfoques que utilizas." notice={props.notice} highlighted={props.highlighted}>
       {props.matchingNeedsReview ? <Text style={{color: theme.textSecondary, fontFamily: theme.fontSans, fontSize: 14, lineHeight: 21}}>Hemos actualizado las opciones. Revisa tus especialidades y enfoques; hemos conservado como propias las selecciones sin equivalente.</Text> : null}
+      <View style={{flexDirection: props.wide ? 'row' : 'column', gap: 14}}>
       <ChoiceGroup title="Especialidades" description="Elige las áreas en las que trabajas." options={PROFESSIONAL_SPECIALTY_OPTIONS} selected={props.specialties} custom={props.customSpecialties} onCustomChange={props.onCustomSpecialtiesChange} required busy={props.busy} onToggle={value => props.onToggle('specialties', value)} />
-      <View style={{height: 1, backgroundColor: theme.borderLight}} />
       <ChoiceGroup title="Enfoques terapéuticos" description="Selecciona los enfoques con los que trabajas." options={PROFESSIONAL_THERAPEUTIC_APPROACH_OPTIONS} selected={props.approaches} custom={props.customApproaches} onCustomChange={props.onCustomApproachesChange} max={30} busy={props.busy} onToggle={value => props.onToggle('therapeuticApproaches', value)} />
-      <View style={{height: 1, backgroundColor: theme.borderLight}} />
+      </View>
+      {props.reviewAction}
+    </ProfileEditorSection>
+    <ProfileEditorSection wide={Boolean(props.wide)} icon="options-outline" title="Información complementaria" highlighted={props.languageHighlighted}
+      description="Idiomas de las sesiones y datos opcionales de tu práctica.">
       {props.onGenderChange && props.onContextsChange ? <View style={{gap: 12}}>
         <Text style={{fontFamily: theme.fontSans, color: theme.textSecondary}}>Datos voluntarios para orientar las recomendaciones. Declara solo experiencia de tu práctica; compartir una identidad no acredita experiencia clínica. Puedes retirar estas declaraciones al guardar el perfil.</Text>
         <SearchableProfileSelect label="Género declarado · opcional" values={props.declaredGender ? [props.declaredGender] : []} options={[
@@ -116,8 +136,9 @@ export function ProfessionalMatchingEditor(props: Props) {
           {value:'culture',label:'Identidad cultural y procedencia',aliases:[]}, {value:'lgbtq',label:'Diversidad sexual y de género',aliases:[]}, {value:'relationships',label:'Relaciones no convencionales',aliases:[]}, {value:'migration',label:'Experiencias migratorias e interculturales',aliases:[]}, {value:'discrimination',label:'Discriminación',aliases:[]},
         ]} onChange={props.onContextsChange} disabled={props.busy} />
       </View> : null}
-      <ProfileDiscoveryEditor languages={props.languages} onLanguagesChange={props.onLanguagesChange} perspective={props.perspective} onPerspectiveChange={props.onPerspectiveChange} options={options} error={error} retry={retry} busy={props.busy} />
-    </View>
+      <ProfileDiscoveryEditor languages={props.languages} onLanguagesChange={props.onLanguagesChange} languageNotice={props.languageNotice} languageRef={props.languageRef}
+        perspective={props.perspective} onPerspectiveChange={props.onPerspectiveChange} options={options} error={error} retry={retry} busy={props.busy} />
+    </ProfileEditorSection>
     <View testID="professional-practice-preview" style={{width: '100%', minWidth: 0, borderRadius: 20, borderWidth: 1, borderColor: theme.borderLight, backgroundColor: theme.bgCard, overflow: 'hidden'}}>
       <View style={{padding: 18, backgroundColor: theme.primaryAlpha12, gap: 4}}>
         <Text style={{fontFamily: theme.fontSansSemiBold, color: theme.textPrimary, fontSize: 15}}>Así te verán los pacientes</Text>

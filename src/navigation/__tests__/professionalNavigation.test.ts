@@ -4,6 +4,14 @@ import { navigateProfessionalSection } from '../professionalNavigation';
 const names = ['ProfessionalHome', 'ProfessionalClients', 'ProfessionalSessions', 'ClientProfile'];
 const options = { routeNames: names, routeParamList: {}, routeGetIdList: {} };
 
+it('opens the profile index from the menu and preserves a targeted profile shortcut', () => {
+  const dispatch = jest.fn();
+  navigateProfessionalSection({dispatch}, 'ProfessionalProfile');
+  expect(dispatch.mock.lastCall?.[0].payload.params).toEqual({screen: 'ProfileSections', pop: true});
+  navigateProfessionalSection({dispatch}, 'ProfessionalProfile', {initialTab: 'google'});
+  expect(dispatch.mock.lastCall?.[0].payload.params).toEqual({initialTab: 'google'});
+});
+
 it('bounds the stack after ten Home / Patients / Agenda navigation cycles', () => {
   const router = StackRouter({ initialRouteName: 'ProfessionalHome' });
   let state = router.getInitialState(options);
