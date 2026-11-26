@@ -32,6 +32,8 @@ import {
 } from './utils/availabilityExceptionTypes';
 import { ExceptionPeriodsCard } from './components/availability/ExceptionPeriodsCard';
 import { ExceptionRangeModal } from './components/availability/ExceptionRangeModal';
+import { BookingConfirmationError, BookingConfirmationSwitch } from './components/agenda/BookingConfirmationSwitch';
+import { useBookingConfirmation } from './components/agenda/useBookingConfirmation';
 import { useExceptionRangeDraft } from './components/availability/useExceptionRangeDraft';
 
 type Props = ScreenProps<'ProfessionalAvailability'>;
@@ -290,6 +292,7 @@ const calculateWeeklySummary = (weeklySlots: WeeklySlots) => {
 };
 
 export function ProfessionalAvailabilityScreen({ navigation }: Props) {
+  const confirmation = useBookingConfirmation();
   const appAlert = useAppAlert();
   const { isVisible: isAppAlertVisible } = useAppAlertState();
   const gridRef = useRef<ScrollView>(null);
@@ -800,13 +803,17 @@ export function ProfessionalAvailabilityScreen({ navigation }: Props) {
             </View>
           ) : null}
         </View>
-        <TourTarget id="professional.availability.save">
-          <Button variant="primary" size={isMobile ? "medium" : "small"} onPress={handleSave} disabled={!hasChanges || saving} loading={saving} icon={<Ionicons name="checkmark" size={18} color={theme.textOnPrimary} />}>
-            Guardar
-          </Button>
-        </TourTarget>
+        <View style={styles.headerActions}>
+          {!isMobile && <BookingConfirmationSwitch confirmation={confirmation} />}
+          <TourTarget id="professional.availability.save">
+            <Button variant="primary" size={isMobile ? "medium" : "small"} onPress={handleSave} disabled={!hasChanges || saving} loading={saving} icon={<Ionicons name="checkmark" size={18} color={theme.textOnPrimary} />}>
+              Guardar
+            </Button>
+          </TourTarget>
+        </View>
       </View>
 
+      <BookingConfirmationError confirmation={confirmation} />
       <ScrollView
         ref={availabilityTourScroll.scrollRef}
         style={styles.mainScroll}
@@ -820,6 +827,7 @@ export function ProfessionalAvailabilityScreen({ navigation }: Props) {
         <View style={styles.mainContent}>
           <View style={[styles.leftColumn, useTwoColumns && styles.leftColumnDesktop]}>
             <View style={styles.leftColumnContent}>
+              {isMobile && <View style={{ alignSelf: 'flex-start' }}><BookingConfirmationSwitch confirmation={confirmation} /></View>}
               <TourTarget id="professional.availability.presets" fill style={styles.fullWidthTourTarget}>
                 <Card variant="default" padding="large" style={styles.controlsCard}>
                   <AnimatedPressable
@@ -1183,6 +1191,7 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
       borderBottomColor: theme.border,
       ...shadows.sm,
     },
+    headerActions: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: spacing.sm },
     headerTitleRow: {
       flex: 1,
       flexDirection: isMobile ? 'column' : 'row',

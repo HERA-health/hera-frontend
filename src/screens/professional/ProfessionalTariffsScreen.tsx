@@ -1,6 +1,7 @@
 import { PackageCatalog } from '../../components/packages/PackageCatalog';
 import { CatalogStatusFilter } from '../../components/common/CatalogStatusFilter';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { BookingConfirmationSwitch, BookingConfirmationError } from './components/agenda/BookingConfirmationSwitch';
 import { ActivityIndicator, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { usePreventRemove } from '@react-navigation/native';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -13,6 +14,7 @@ import { loadPrivateCatalog, archivePrivateService, savePrivateCatalogSettings, 
 import { formatPrivatePrice } from '../../utils/privateTariff';
 import { principalPrivateOption } from '../../utils/privateServiceDraft';
 import { PrivateServiceEditor } from './PrivateServiceEditor';
+import { useBookingConfirmation } from './components/agenda/useBookingConfirmation';
 
 const modalities = [{ type: 'VIDEO_CALL', label: 'Videollamada' }, { type: 'IN_PERSON', label: 'Presencial' }, { type: 'PHONE_CALL', label: 'Teléfono' }] as const;
 export function ProfessionalTariffsScreen({ navigation, route }: ScreenProps<'ProfessionalTariffs'>) {
@@ -21,6 +23,7 @@ export function ProfessionalTariffsScreen({ navigation, route }: ScreenProps<'Pr
   const alert = useAppAlert();
   const [catalogTab, setCatalogTab] = useState<'services' | 'packages'>('services');
   const [width, setWidth] = useState(0);
+  const confirmation = useBookingConfirmation();
   const [catalog, setCatalog] = useState<PrivateServiceCatalog | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -31,26 +34,27 @@ export function ProfessionalTariffsScreen({ navigation, route }: ScreenProps<'Pr
   const [editorSaving, setEditorSaving] = useState(false);
   const [editorRevision, setEditorRevision] = useState(0);
   const [editorDirty, setEditorDirty] = useState(false);
-  const [free, setFree] = useState(false);
-  const [busy, setBusy] = useState(false);
+  const [pendingFree, setPendingFree] = useState<boolean | null>(null);
+  const [freeError, setFreeError] = useState('');
+  const freeSaveInFlight = useRef(false);
+  const [archiving, setArchiving] = useState(false);
+  const busy = archiving || pendingFree !== null;
   const trigger = useRef<HTMLElement | null>(null);
-  const dirty = editorDirty || (!!catalog && free !== catalog.firstVisitFree);
-  const apply = useCallback((next: PrivateServiceCatalog) => { setCatalog(next); setFree(next.firstVisitFree); }, []);
   const load = useCallback(async () => {
     setLoading(true); setError('');
-    try { apply(await loadPrivateCatalog()); } catch (e) { setError(getErrorMessage(e, 'No se pudieron cargar los servicios.')); }
+    try { setCatalog(await loadPrivateCatalog()); setFreeError(''); } catch (e) { setError(getErrorMessage(e, 'No se pudieron cargar los servicios.')); }
     finally { setLoading(false); }
-  }, [apply]);
+  }, []);
   useEffect(() => { void load(); }, [load]);
-  usePreventRemove(dirty, ({ data }) => showAppAlert(alert, 'Cambios sin guardar', 'Puedes seguir editando o descartar tus cambios.', [
+  usePreventRemove(editorDirty, ({ data }) => showAppAlert(alert, 'Cambios sin guardar', 'Puedes seguir editando o descartar tus cambios.', [
     { text: 'Seguir editando', style: 'cancel' }, { text: 'Descartar y salir', style: 'destructive', onPress: () => navigation.dispatch(data.action) },
   ]));
   useEffect(() => {
-    if (Platform.OS !== 'web' || !dirty) return;
+    if (Platform.OS !== 'web' || !editorDirty) return;
     const handler = (event: BeforeUnloadEvent) => { event.preventDefault(); };
     window.addEventListener('beforeunload', handler);
     return () => window.removeEventListener('beforeunload', handler);
-  }, [dirty]);
+  }, [editorDirty]);
   const returnFocus = () => { if (Platform.OS === 'web') requestAnimationFrame(() => trigger.current?.focus()); };
   const close = () => {
     if (editorSaving) return;
@@ -69,38 +73,76 @@ export function ProfessionalTariffsScreen({ navigation, route }: ScreenProps<'Pr
   }, [route.params?.openCreateService, catalog, loading, editing, navigation, open]);
   const archive = (service: PrivateService) => showAppAlert(alert, 'Archivar servicio', 'Dejará de estar disponible para nuevas reservas. Sus citas y facturas se conservarán.', [
     { text: 'Cancelar', style: 'cancel' }, { text: 'Archivar', onPress: () => {
-      setBusy(true); setError('');
+      setArchiving(true); setError('');
       void archivePrivateService(service).then(next => { setCatalog(next); setMessage('Servicio archivado. Puedes restaurarlo desde Archivados.'); })
-        .catch(e => setError(getErrorMessage(e, 'No se pudo archivar el servicio.'))).finally(() => setBusy(false));
+        .catch(e => setError(getErrorMessage(e, 'No se pudo archivar el servicio.'))).finally(() => setArchiving(false));
     } },
   ]);
+  const changeFirstVisitFree = async (next: boolean) => {
+    if (!catalog || busy || freeError || freeSaveInFlight.current || next === catalog.firstVisitFree) return;
+    freeSaveInFlight.current = true;
+    setPendingFree(next);
+    setError('');
+    setMessage('');
+    try {
+      setCatalog(await savePrivateCatalogSettings(next, catalog.firstVisitFree));
+    } catch (cause) {
+      setFreeError(getErrorMessage(cause, 'No se pudo confirmar el cambio de la primera sesión gratuita. Actualiza el catálogo para comprobar su estado.'));
+    } finally {
+      freeSaveInFlight.current = false;
+      setPendingFree(null);
+    }
+  };
   const services = catalog?.services ?? [];
   const visible = services.filter(s => !!s.archivedAt === archived && s.name.toLocaleLowerCase('es').includes(query.trim().toLocaleLowerCase('es')));
   const wide = width >= 1120;
   const compact = width < 720;
+  const narrowHeader = width < 460;
+  const settingsInToolbar = width >= 880 && (catalogTab === 'packages' || (!!catalog && !loading));
+  const confirmationSwitch = <BookingConfirmationSwitch confirmation={confirmation} showIcon={settingsInToolbar} compact={narrowHeader} />;
   const serviceActions = (service: PrivateService) => <View style={[styles.actions, styles.row]}>
     <Button variant="secondary" style={{ borderRadius: 8, paddingHorizontal: 12, alignSelf: 'flex-start' }} size="small" disabled={busy} onPress={() => open(service)}>{archived ? 'Restaurar' : 'Editar'}</Button>
     {!archived && service.key !== 'base' && <Button variant="ghost" size="small" accessibilityLabel={`Más acciones de ${service.name}`} disabled={busy} onPress={() => archive(service)}>···</Button>}
   </View>;
   return <View style={styles.root} onLayout={event => setWidth(event.nativeEvent.layout.width)}>
     <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-      <View style={styles.catalogTabs}>{([{ key: 'services', label: 'Servicios' }, { key: 'packages', label: 'Bonos' }] as const).map(tab => <Pressable key={tab.key} accessibilityRole="tab" accessibilityState={{ selected: catalogTab === tab.key }} onPress={() => setCatalogTab(tab.key)} style={({ pressed }) => [styles.catalogTab, catalogTab === tab.key && styles.selectedCatalogTab, pressed && { opacity: 0.75 }]}><Text style={[styles.catalogTabText, catalogTab === tab.key && styles.selectedCatalogTabText]}>{tab.label}</Text></Pressable>)}</View>
-      <View style={catalogTab === 'packages' ? undefined : { display: 'none' }}><PackageCatalog navigation={navigation} active={catalogTab === 'packages'} onServicesChanged={apply} /></View>
+      <View style={styles.catalogHeader}>
+        <View style={[styles.catalogTabs, narrowHeader && styles.narrowTabs]}>
+          {([{ key: 'services', label: 'Servicios' }, { key: 'packages', label: 'Bonos' }] as const).map(tab => (
+            <Pressable key={tab.key} accessibilityRole="tab" accessibilityState={{ selected: catalogTab === tab.key }}
+              onPress={() => setCatalogTab(tab.key)}
+              style={({ pressed }) => [styles.catalogTab, catalogTab === tab.key && styles.selectedCatalogTab, pressed && { opacity: 0.75 }]}>
+              <Text style={[styles.catalogTabText, catalogTab === tab.key && styles.selectedCatalogTabText]}>{tab.label}</Text>
+            </Pressable>
+          ))}
+        </View>
+        {!settingsInToolbar && confirmationSwitch}
+      </View>
+      <BookingConfirmationError confirmation={confirmation} />
+      <View style={catalogTab === 'packages' ? undefined : { display: 'none' }}>
+        <PackageCatalog navigation={navigation} active={catalogTab === 'packages'} onServicesChanged={setCatalog}
+          toolbarAction={settingsInToolbar && catalogTab === 'packages' && confirmationSwitch} />
+      </View>
       <View style={catalogTab === 'services' ? { gap: 24 } : { display: 'none' }}>
-      {!!error && <View accessibilityRole="alert" style={styles.feedback}><Text style={styles.error}>{error}</Text><Button variant="ghost" onPress={() => void load()}>Actualizar catálogo</Button></View>}
+      {!!(error || freeError) && <View accessibilityRole="alert" style={styles.feedback}><Text style={styles.error}>{error || freeError}</Text><Button variant="ghost" disabled={loading || busy} onPress={() => void load()}>Actualizar catálogo</Button></View>}
       {!!message && <Text accessibilityLiveRegion="polite" style={styles.success}>{message}</Text>}
       {loading ? <ActivityIndicator accessibilityLabel="Cargando servicios" color={theme.primary} /> : catalog && <>
         <View style={[styles.filters, compact && styles.stack]}>
           <CatalogStatusFilter archived={archived} onChange={setArchived} />
-        <View style={styles.policy}><View style={styles.policyText}><Text style={styles.policyTitle}>Primera sesión gratuita</Text><Text style={styles.small}>Una por paciente · todos tus servicios</Text></View>
-          <Switch accessibilityLabel="Ofrecer primera sesión gratuita" value={free} onValueChange={setFree} disabled={busy} trackColor={{ false: theme.textMuted, true: theme.primary }} thumbColor={theme.textOnPrimary} />
-          <Button size="small" variant="secondary" style={{ borderRadius: 8, paddingHorizontal: 12 }} accessibilityLabel="Guardar política de primera sesión gratuita" disabled={free === catalog.firstVisitFree} loading={busy} onPress={() => {
-            setBusy(true); setError('');
-            void savePrivateCatalogSettings(free, catalog.firstVisitFree).then(next => { apply(next); setMessage('Política de primera sesión guardada.'); })
-              .catch(e => setError(getErrorMessage(e, 'No se pudo guardar la política.'))).finally(() => setBusy(false));
-          }}>Guardar</Button>
-        </View>
-
+          <View style={[styles.bookingSettings, compact && styles.stack]}>
+            {settingsInToolbar && catalogTab === 'services' && confirmationSwitch}
+            <View style={styles.policy}>
+              <View style={styles.policyText}>
+                <Text style={styles.policyTitle}>Primera sesión gratuita</Text>
+                <Text style={styles.small} accessibilityLiveRegion="polite">
+                  {pendingFree !== null ? 'Guardando…' : freeError ? 'Estado sin verificar' : 'Una por paciente · todos tus servicios'}
+                </Text>
+              </View>
+              <Switch accessibilityLabel="Ofrecer primera sesión gratuita" value={pendingFree ?? catalog.firstVisitFree}
+                accessibilityState={{ busy: pendingFree !== null }} disabled={busy || !!freeError}
+                onValueChange={changeFirstVisitFree} trackColor={{ false: theme.textMuted, true: theme.primary }} thumbColor={theme.textOnPrimary} />
+            </View>
+          </View>
         </View>
           {services.length > 8 && <TextInput accessibilityLabel="Buscar servicio" placeholder="Buscar por nombre" placeholderTextColor={theme.textSecondary} value={query} onChangeText={setQuery} style={styles.search} />}
         <View style={styles.list}>
@@ -146,8 +188,12 @@ export function ProfessionalTariffsScreen({ navigation, route }: ScreenProps<'Pr
 const createStyles = (t: Theme) => StyleSheet.create({
   root: { flex: 1, backgroundColor: t.bg }, grow: { flex: 1 }, row: { flexDirection: 'row', alignItems: 'center' }, stack: { flexDirection: 'column', alignItems: 'stretch' },
   secondary: { fontFamily: t.fontSans, fontSize: 14, lineHeight: 21, color: t.textSecondary },
-  content: { padding: 24, gap: 24, width: '100%', maxWidth: 1600, alignSelf: 'center', paddingBottom: 48 }, filters: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 },
-  catalogTabs: { flexDirection: 'row', gap: 24, borderBottomWidth: 1, borderBottomColor: t.border },
+  content: { padding: 24, gap: 24, width: '100%', maxWidth: 1600, alignSelf: 'center', paddingBottom: 48 },
+  filters: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 },
+  bookingSettings: { flexDirection: 'row', alignItems: 'center', gap: 18 },
+  catalogHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8, borderBottomWidth: 1, borderBottomColor: t.border },
+  catalogTabs: { flexDirection: 'row', gap: 24 },
+  narrowTabs: { gap: 8 },
   catalogTab: { minHeight: 52, paddingHorizontal: 4, justifyContent: 'center', alignItems: 'center', borderBottomWidth: 3, borderBottomColor: 'transparent', marginBottom: -1 },
   selectedCatalogTab: { borderBottomColor: t.primary },
   catalogTabText: { fontFamily: t.fontSansSemiBold, fontSize: 17, color: t.textSecondary },
@@ -160,7 +206,8 @@ const createStyles = (t: Theme) => StyleSheet.create({
   name: { fontFamily: t.fontSansSemiBold, fontSize: 17, lineHeight: 24, color: t.textPrimary }, price: { fontFamily: t.fontSansSemiBold, fontSize: 14, color: t.textPrimary }, small: { fontFamily: t.fontSans, fontSize: 12, lineHeight: 18, color: t.textSecondary },
   serviceRow: { flexDirection: 'row', alignItems: 'flex-start' },
   optionDetail: { borderTopWidth: 1, borderTopColor: t.borderLight, paddingVertical: 8, gap: 4 },
-  actions: { width: 126, gap: 2 }, policy: { flexDirection: 'row', alignItems: 'center', gap: 12, flexWrap: 'wrap', maxWidth: '100%' }, policyText: { gap: 2 }, policyTitle: { fontFamily: t.fontSansSemiBold, fontSize: 14, color: t.textPrimary }, empty: { padding: 32, gap: 8 },
+  actions: { width: 126, gap: 2 }, policy: { flexDirection: 'row', alignItems: 'center', gap: 12, maxWidth: '100%' },
+  policyText: { flexShrink: 1, gap: 2 }, policyTitle: { fontFamily: t.fontSansSemiBold, fontSize: 14, color: t.textPrimary }, empty: { padding: 32, gap: 8 },
   feedback: { gap: 8, padding: 16, borderWidth: 1, borderColor: t.error, borderRadius: 12 }, error: { color: t.error }, success: { color: t.success, fontFamily: t.fontSans },
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.32)', alignItems: 'flex-end' }, panel: { flex: 1, width: '94%', maxWidth: 1120, backgroundColor: t.bg }, panelHeader: { padding: 20, flexDirection: 'row', alignItems: 'center', gap: 16, borderBottomWidth: 1, borderBottomColor: t.border },
 });

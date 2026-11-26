@@ -10,6 +10,7 @@ import { lightTheme } from '../../../constants/theme';
 import { useTheme } from '../../../contexts/ThemeContext';
 import * as availabilityService from '../../../services/availabilityService';
 import { billingService } from '../../../services/billingService';
+import { getAgendaPreferences } from '../../../services/professionalService';
 import { ProfessionalAvailabilityScreen } from '../ProfessionalAvailabilityScreen';
 
 jest.mock('../../../navigation/professionalNavigation', () => ({
@@ -58,6 +59,8 @@ jest.mock('../../../services/analyticsService', () => ({
   track: jest.fn(),
   trackScreen: jest.fn(),
 }));
+
+jest.mock('../../../services/professionalService', () => ({ getAgendaPreferences: jest.fn(), updateAgendaPreferences: jest.fn() }));
 
 jest.mock('../../../services/availabilityService', () => ({
   addExceptionRange: jest.fn(),
@@ -142,6 +145,10 @@ describe('ProfessionalAvailabilityScreen', () => {
     mockedAvailabilityService.removeException.mockResolvedValue(undefined);
     mockedAvailabilityService.removeExceptionRange.mockResolvedValue({ deletedCount: 1 });
     mockedAvailabilityService.getMyBufferTime.mockResolvedValue(15);
+    jest.mocked(getAgendaPreferences).mockResolvedValue({
+      autoConfirmSessionRequests: true, emailSessionRequestsEnabled: true,
+      emailSessionCancellationsEnabled: true, emailSessionReminder24hEnabled: false,
+    });
     mockedAvailabilityService.updateWeeklySchedule.mockImplementation(async (schedule) => ({
       schedule,
       scheduleRevision: 'rev-next',

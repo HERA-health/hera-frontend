@@ -83,13 +83,16 @@ export function ProfessionalAgendaToolbar(props: Props) {
           {calendarConnected ? <Ionicons name="checkmark-circle" size={17} color={theme.success} accessible={false} /> : null}
         </AnimatedPressable>
       </View>
-      <View style={[styles.row, stacked ? { width: '100%', justifyContent: 'center' } : [styles.side, { justifyContent: 'flex-end' }]]}>
+      <View style={[styles.actions, stacked && styles.stackedActions]}>
       {props.nextSessionLabel && props.summaryAvailable ? <AnimatedPressable onPress={props.onJumpToNextSession} hoverLift={false} style={{ minHeight: 38, minWidth: 32, alignItems: 'center', justifyContent: 'center' }} accessibilityLabel={`Ir a la próxima cita de este periodo, ${props.nextSessionLabel}`}>{toolbarWidth >= 1320 ? <Text style={{ color: theme.link, fontFamily: theme.fontSans, fontSize: 12 }}>Próxima · {props.nextSessionLabel}</Text> : <Ionicons name="arrow-forward-circle-outline" size={22} color={theme.link} />}</AnimatedPressable> : null}
-      <View style={styles.row}>
         <TourTarget id="professional.sessions.view-tabs"><SimpleDropdown options={VIEW_OPTIONS} value={props.viewMode} onSelect={props.onChangeView} accessibilityLabel="Vista del calendario" presentation="portal" compact optionsMinWidth={192} maxHeight={240} keyboardNavigation /></TourTarget>
         <AnimatedPressable accessibilityLabel="Filtros de agenda" accessibilityHint={filterDescription} accessibilityState={{ expanded: filtersOpen }} onPress={() => setFiltersOpen(!filtersOpen)} style={[button, filtered && { backgroundColor: theme.primaryMuted, borderColor: theme.borderStrong }]} hoverLift={false}><Ionicons name="options-outline" size={17} color={theme.textPrimary} /><Text style={text}>Filtros{filtered ? ` · ${filterCount}` : ''}</Text></AnimatedPressable>
-        <AnimatedPressable focusRef={settingsRef} accessibilityLabel="Ajustes de agenda" onPress={() => settingsRef.current?.measureInWindow((x, y, width, height) => props.onSettings({ x: x + width, y: y + height }))} style={button} hoverLift={false}><Text style={text}>Ajustes</Text><Ionicons name="chevron-down" size={14} color={theme.textPrimary} /></AnimatedPressable>
-      </View>
+        <AnimatedPressable focusRef={settingsRef} accessibilityLabel="Ajustes de reservas" accessibilityHint="Configura la confirmación automática y los avisos por email"
+          onPress={() => settingsRef.current?.measureInWindow((x, y, width, height) => props.onSettings({ x: x + width, y: y + height }))}
+          style={[styles.button, stacked && styles.compactSettings, { minHeight: 44, backgroundColor: theme.actionPrimary, borderColor: theme.actionPrimary }]} hoverLift={false}>
+          <Ionicons name="settings-outline" size={17} color={theme.actionPrimaryText} />
+          <Text style={[text, { color: theme.actionPrimaryText, flexShrink: 1 }]}>Ajustes de reservas</Text>
+        </AnimatedPressable>
       </View>
     </View>
     {filtersOpen ? <View style={[styles.filters, { borderColor: theme.borderLight }]}>
@@ -103,6 +106,9 @@ const styles = StyleSheet.create({
   toolbar: { paddingHorizontal: 20, paddingVertical: 10, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 12 },
   side: { flex: 1, flexBasis: 0, minWidth: 0 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  actions: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'flex-end', gap: 6, maxWidth: '100%' },
+  stackedActions: { width: '100%', justifyContent: 'center' },
+  compactSettings: { maxWidth: 126 },
   button: { minHeight: 38, paddingHorizontal: 10, paddingVertical: 7, borderRadius: 8, borderWidth: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
   filters: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-end', padding: 16, gap: 12, borderTopWidth: 1 },
   filter: { minWidth: 160, gap: 5, flex: 1 },

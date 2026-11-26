@@ -88,7 +88,7 @@ describe('ProfessionalAgendaToolbar', () => {
     fireEvent.press(todayButton);
     expect(onNavigateDate.mock.calls).toEqual([[-1], [1]]);
     expect(onGoToToday).toHaveBeenCalledTimes(1);
-    fireEvent.press(screen.getByLabelText('Ajustes de agenda'));
+    fireEvent.press(screen.getByRole('button', { name: 'Ajustes de reservas' }));
     expect(onSettings).toHaveBeenCalledWith({ x: 160, y: 48 });
     fireEvent.press(screen.getByLabelText('Sincronizar con Google Calendar'));
     expect(onGoogleCalendar).toHaveBeenCalledTimes(1);

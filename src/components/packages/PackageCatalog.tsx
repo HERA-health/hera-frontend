@@ -13,7 +13,7 @@ import { PackageAcquisition } from './PackageAcquisition';
 import { PackageEditor } from './PackageEditor';
 import { CatalogStatusFilter } from '../common/CatalogStatusFilter';
 
-export function PackageCatalog({ navigation, active = true, onServicesChanged }: { navigation: AppNavigationProp; active?: boolean; onServicesChanged?: (catalog: PrivateServiceCatalog) => void }) {
+export function PackageCatalog({ navigation, active = true, onServicesChanged, toolbarAction }: { navigation: AppNavigationProp; active?: boolean; onServicesChanged?: (catalog: PrivateServiceCatalog) => void; toolbarAction?: React.ReactNode }) {
   const { theme } = useTheme(); const alert = useAppAlert();
   const [offers, setOffers] = useState<PackageOffer[]>([]); const [services, setServices] = useState<PrivateServiceCatalog>();
   const [enabled, setEnabled] = useState(false); const [loading, setLoading] = useState(true); const [busy, setBusy] = useState(false);
@@ -44,7 +44,13 @@ export function PackageCatalog({ navigation, active = true, onServicesChanged }:
   };
   const text = { color: theme.textPrimary, fontFamily: theme.fontSans };
   return <View style={{ gap: 20 }}>
-    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}><CatalogStatusFilter archived={archived} onChange={setArchived} /><Button accessibilityLabel="Nuevo bono" icon={<Ionicons name="add" size={20} color={theme.actionPrimaryText} />} onPress={() => void open(null)}>Nuevo bono</Button></View>
+    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+      <CatalogStatusFilter archived={archived} onChange={setArchived} />
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 28 }}>
+        {toolbarAction}
+        <Button accessibilityLabel="Nuevo bono" icon={<Ionicons name="add" size={20} color={theme.actionPrimaryText} />} onPress={() => void open(null)}>Nuevo bono</Button>
+      </View>
+    </View>
     <Text style={{ ...text, color: theme.textSecondary }}>Crea bonos de varias sesiones y asígnalos a tus pacientes. Cada paciente tendrá su propia factura y sus sesiones pendientes.</Text>
     {!enabled && <Text style={text}>Puedes preparar tus bonos, pero por ahora no se pueden asignar a pacientes ni contratar desde la reserva online.</Text>}
     {!!error && editing === undefined && <View style={{ gap: 8 }}><Text accessibilityRole="alert" style={{ color: theme.error }}>{error}</Text><Button variant="ghost" onPress={() => void load()}>Reintentar</Button></View>}
