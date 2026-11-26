@@ -1,3 +1,4 @@
+import {OptionalFieldSuffix} from '../common/OptionalFieldSuffix';
 import {choiceKeyboardProps} from '../../utils/choiceKeyboard';
 import React, {useState} from 'react';
 import {Pressable, Switch, Text, TextInput, View} from 'react-native';
@@ -26,7 +27,7 @@ export function ProfileDiscoveryEditor({languages, onLanguagesChange, languageNo
     </View>
     <View style={{height: 1, backgroundColor: theme.borderLight}} />
     <View style={{gap: 12}}>
-      <View style={{gap: 4}}><Text style={heading}>Perspectiva espiritual o religiosa</Text><Text style={[text, {color: theme.textMuted, fontSize: 12}]}>OPCIONAL</Text></View>
+      <Text style={heading}>Perspectiva espiritual o religiosa<OptionalFieldSuffix /></Text>
       <Text style={[text, {color: theme.textSecondary}]}>Si integras la fe o la espiritualidad en tu práctica, puedes indicarlo para que los pacientes que lo buscan te encuentren.</Text>
       {perspective.needsReconfirmation ? <Text accessibilityLiveRegion="polite" style={[text, {color: theme.textSecondary}]}>Tu declaración anterior requiere revisión. Selecciona la perspectiva que aplicas a la terapia y confirma su publicación; hasta entonces no se mostrará.</Text> : null}
       {options?.religionEnabled ? <>

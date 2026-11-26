@@ -1,3 +1,4 @@
+import { OptionalFieldSuffix } from '../../components/common/OptionalFieldSuffix';
 import { ProfessionalBirthdayEditor } from '../../components/professional/ProfessionalBirthdayEditor';
 import { PHONE_CONTACT_HELP, PHONE_FORMAT_HELP } from '../../utils/registrationPhone';
 import { emptyPerspective, type PerspectiveDraft } from '../../utils/perspective';
@@ -145,7 +146,6 @@ interface Certificate extends ServiceCertificate {}
 
 interface SpecialistProfileData {
   declaredGender: 'woman' | 'man' | 'nonbinary' | null;
-  practiceContexts: string[];
   // Basic Info
   fullName: string;
   professionalTitle: string;
@@ -412,7 +412,6 @@ const mapServiceProfileToFormData = (profile: ServiceProfileData): SpecialistPro
   specialties: profile.specialties || [],
   therapeuticApproaches: profile.therapeuticApproaches || [],
   declaredGender: profile.declaredGender ?? null,
-  practiceContexts: profile.practiceContexts ?? [],
   languages: profile.languages || ['spanish'],
   education: (profile.education as Education[]) || [],
   experience: (profile.experience as Experience[]) || [],
@@ -655,7 +654,7 @@ export function SpecialistProfileScreen() {
     customSpecialties: [], customTherapeuticApproaches: [], matchingNeedsReview: false, perspective: emptyPerspective(),
     specialties: [],
     therapeuticApproaches: [],
-    declaredGender: null, practiceContexts: [],
+    declaredGender: null,
     languages: ['spanish'],
     education: [],
     experience: [],
@@ -1085,7 +1084,6 @@ export function SpecialistProfileScreen() {
       }
 
       assignIfChanged('declaredGender', 'declaredGender', profileData.declaredGender);
-      assignIfChanged('practiceContexts', 'practiceContexts', profileData.practiceContexts);
       assignIfChanged('languages', 'languages', profileData.languages);
       assignIfChanged('education', 'education', profileData.education);
       assignIfChanged('experience', 'experience', profileData.experience);
@@ -1712,6 +1710,7 @@ export function SpecialistProfileScreen() {
       keyboardType?: 'default' | 'numeric' | 'email-address' | 'phone-pad';
       helperText?: string;
       required?: boolean;
+      optional?: boolean;
       recommended?: boolean;
       verified?: boolean;
       maxLength?: number;
@@ -1742,6 +1741,7 @@ export function SpecialistProfileScreen() {
         <View style={[styles.labelRow, alignVerificationLabel && styles.alignedVerificationLabel]}>
           <Text style={styles.fieldLabel}>
             {label}
+            {options?.optional && <OptionalFieldSuffix />}
             {required && <Text style={styles.required}> *</Text>}
           </Text>
           {recommended && <Text style={[styles.verifiedText, styles.verifiedTextPending]}>Recomendado</Text>}
@@ -1768,7 +1768,7 @@ export function SpecialistProfileScreen() {
           ]}
           autoFocus={options?.autoFocus}
           value={value}
-          accessibilityLabel={label}
+          accessibilityLabel={options?.optional ? label + ' (opcional)' : label}
           accessibilityState={{ disabled }}
           onFocus={() => setFocusedField(label)}
           onBlur={() => setFocusedField(null)}
@@ -2016,8 +2016,8 @@ export function SpecialistProfileScreen() {
           )}
         </View>
         <View style={{ flex: 1, minWidth: 86 }}>
-          <Text style={styles.fieldLabel}>Foto de perfil</Text>
-          <Text style={styles.helperText}>Opcional · Imagen cuadrada</Text>
+          <Text style={styles.fieldLabel}>Foto de perfil<OptionalFieldSuffix /></Text>
+          <Text style={styles.helperText}>Imagen cuadrada</Text>
         </View>
         <View style={styles.photoActions}>
           <Button
@@ -2074,8 +2074,8 @@ export function SpecialistProfileScreen() {
               (text) => updateField('professionalTitle', text),
               {
                 placeholder: 'Ej: Psicóloga infantojuvenil',
-                required: false,
-                helperText: 'Opcional. Puedes indicar tu área de trabajo.',
+                optional: true,
+                helperText: 'Puedes indicar tu área de trabajo.',
               }
             )}
           </View>
@@ -2102,10 +2102,11 @@ export function SpecialistProfileScreen() {
           </View>
           <View style={styles.identityField}>
             {renderFormField(
-              'Años de experiencia (opcional)',
+              'Años de experiencia',
               profileData.yearsInPractice,
               (text) => updateField('yearsInPractice', text),
               {
+                optional: true,
                 placeholder: 'Ej: 3',
                 keyboardType: 'numeric',
                 alignVerificationLabel: true,
@@ -2344,12 +2345,7 @@ export function SpecialistProfileScreen() {
             <Text style={styles.bodyText}>He revisado mis especialidades y enfoques</Text>
           </Pressable>}
           declaredGender={profileData.declaredGender}
-          practiceContexts={profileData.practiceContexts}
           onGenderChange={value => updateField('declaredGender', value)}
-          onContextsChange={values => updateField('practiceContexts', values)}
-          name={profileData.fullName}
-          title={profileData.professionalTitle}
-          avatar={profileData.avatar}
           customSpecialties={profileData.customSpecialties}
           customApproaches={profileData.customTherapeuticApproaches}
           onCustomSpecialtiesChange={values => updateField('customSpecialties', values)}
@@ -2358,11 +2354,9 @@ export function SpecialistProfileScreen() {
           perspective={profileData.perspective}
           onPerspectiveChange={value => updateField('perspective', value)}
           busy={isSaving}
-          hasChanges={hasChanges}
           specialties={profileData.specialties}
           approaches={profileData.therapeuticApproaches}
           languages={profileData.languages}
-          profileVisible={originalData.profileVisible}
           onToggle={toggleMultiSelect}
           onLanguagesChange={values => { updateField('languages', values); updateField('languagesSpoken', values); }}
         />
@@ -3043,12 +3037,12 @@ export function SpecialistProfileScreen() {
               </View>
 
               <View style={styles.formField}>
-                <Text style={styles.fieldLabel}>Válido hasta</Text>
+                <Text style={styles.fieldLabel}>Válido hasta<OptionalFieldSuffix /></Text>
                 <TextInput
                   accessibilityLabel="Válido hasta"
                   value={certificateDraft.validUntil}
                   onChangeText={(text) => setCertificateDraft(prev => ({ ...prev, validUntil: text }))}
-                  placeholder="YYYY-MM-DD (opcional)"
+                  placeholder="YYYY-MM-DD"
                   placeholderTextColor={palette.textMuted}
                   style={[styles.fieldInput, focusedField === 'certificate-validUntil' && styles.fieldInputFocused]}
                   onFocus={() => setFocusedField('certificate-validUntil')}

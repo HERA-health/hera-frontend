@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { OptionalFieldSuffix } from '../common/OptionalFieldSuffix';
 import { useTheme } from '../../contexts/ThemeContext';
 import { ProfileDatePickerModal } from '../../screens/profile/components/ProfileDatePickerModal';
 import { borderRadius, spacing } from '../../constants/colors';
@@ -31,7 +32,7 @@ export const ProfessionalBirthdayEditor: React.FC<Props> = ({ birthDate, showAge
 
   return (
     <View>
-      <Text style={[text, styles.label, { fontFamily: theme.fontSansSemiBold }]}>Fecha de nacimiento (opcional)</Text>
+      <Text style={[text, styles.label, { fontFamily: theme.fontSansSemiBold }]}>Fecha de nacimiento<OptionalFieldSuffix /></Text>
       <Pressable accessibilityRole="button" accessibilityLabel="Elegir fecha de nacimiento" onPress={() => setOpen(true)}
         style={[styles.date, { borderColor: theme.border, backgroundColor: theme.bgCard }]}>
         <Text style={[text, { flex: 1 }]}>{birthDate ? birthDate.split('-').reverse().join('/') : 'Seleccionar fecha'}</Text>

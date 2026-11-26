@@ -5,21 +5,17 @@ import { SearchableProfileSelect } from '../common/SearchableProfileSelect';
 import {choiceKeyboardProps} from '../../utils/choiceKeyboard';
 import {useDiscoveryRevalidation} from '../../hooks/useDiscoveryRevalidation';
 import React, {useState, useEffect, useCallback} from 'react';
-import {Image, Pressable, Text, TextInput, View} from 'react-native';
+import {Pressable, Text, TextInput, View} from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import {useTheme} from '../../contexts/ThemeContext';
 import {useProfileOptions} from '../../hooks/useProfileOptions';
 import {PROFESSIONAL_SPECIALTY_OPTIONS, PROFESSIONAL_THERAPEUTIC_APPROACH_OPTIONS, customChoiceError, customChoiceGroupErrors, type ProfessionalMatchingOption} from '../../constants/professionalMatchingOptions';
 import type {PerspectiveDraft} from '../../services/profileDiscoveryService';
 import {ProfileDiscoveryEditor} from './ProfileDiscoveryEditor';
-import {PracticeTags} from '../common/PracticeTags';
-import {optionLabel} from '../../utils/profileOptions';
-import {renderLanguageIcon} from '../common/LanguageIcon';
 
 interface Props {
-  declaredGender?: 'woman' | 'man' | 'nonbinary' | null; practiceContexts?: string[];
-  onGenderChange?: (value: 'woman' | 'man' | 'nonbinary' | null) => void; onContextsChange?: (values: string[]) => void;
-  hasChanges?: boolean;
+  declaredGender?: 'woman' | 'man' | 'nonbinary' | null;
+  onGenderChange?: (value: 'woman' | 'man' | 'nonbinary' | null) => void;
   wide?: boolean;
   highlighted?: boolean;
   notice?: React.ReactNode;
@@ -27,9 +23,8 @@ interface Props {
   languageRef?: React.Ref<View>;
   languageHighlighted?: boolean;
   reviewAction?: React.ReactNode;
-  name: string; title: string; avatar: string | null;
   specialties: string[]; approaches: string[]; customSpecialties: string[]; customApproaches: string[];
-  languages: string[]; profileVisible: boolean; matchingNeedsReview: boolean; busy?: boolean;
+  languages: string[]; matchingNeedsReview: boolean; busy?: boolean;
   perspective: PerspectiveDraft; onPerspectiveChange: (value: PerspectiveDraft) => void;
   onToggle: (field: 'specialties' | 'therapeuticApproaches', value: string) => void;
   onCustomSpecialtiesChange: (values: string[]) => void; onCustomApproachesChange: (values: string[]) => void;
@@ -114,7 +109,6 @@ export function ProfessionalMatchingEditor(props: Props) {
       props.onPerspectiveChange({...props.perspective, publish: false, noticeVersion: null});
     }
   }, [options?.religionNoticeVersion, props.perspective, props.onPerspectiveChange]);
-  const perspectiveLabel = props.perspective.religionCode === 'other' ? props.perspective.religionOtherText : optionLabel(options?.religions ?? [], props.perspective.religionCode);
   return <View testID="professional-practice-editor" style={{gap: 12}}>
     <ProfileEditorSection wide={Boolean(props.wide)} icon="layers-outline" title="Especialidades y enfoques"
       description="Las áreas que atiendes y los enfoques que utilizas." notice={props.notice} highlighted={props.highlighted}>
@@ -127,33 +121,14 @@ export function ProfessionalMatchingEditor(props: Props) {
     </ProfileEditorSection>
     <ProfileEditorSection wide={Boolean(props.wide)} icon="options-outline" title="Información complementaria" highlighted={props.languageHighlighted}
       description="Idiomas de las sesiones y datos opcionales de tu práctica.">
-      {props.onGenderChange && props.onContextsChange ? <View style={{gap: 12}}>
-        <Text style={{fontFamily: theme.fontSans, color: theme.textSecondary}}>Datos voluntarios para orientar las recomendaciones. Declara solo experiencia de tu práctica; compartir una identidad no acredita experiencia clínica. Puedes retirar estas declaraciones al guardar el perfil.</Text>
-        <SearchableProfileSelect label="Género declarado · opcional" values={props.declaredGender ? [props.declaredGender] : []} options={[
+      {props.onGenderChange ? <View style={{gap: 12}}>
+        <Text style={{fontFamily: theme.fontSans, color: theme.textSecondary}}>Si indicas tu género, podremos tenerlo en cuenta cuando un paciente exprese una preferencia. Puedes quitarlo y guardar el cambio cuando quieras.</Text>
+        <SearchableProfileSelect label="Género declarado" optional values={props.declaredGender ? [props.declaredGender] : []} options={[
           {value:'woman',label:'Mujer',aliases:[]}, {value:'man',label:'Hombre',aliases:[]}, {value:'nonbinary',label:'No binario',aliases:[]},
         ]} onChange={values => { const value = values[0]; props.onGenderChange?.(value === 'woman' || value === 'man' || value === 'nonbinary' ? value : null); }} disabled={props.busy} />
-        <SearchableProfileSelect label="Experiencia en contextos personales · opcional" multiple max={5} values={props.practiceContexts ?? []} options={[
-          {value:'culture',label:'Identidad cultural y procedencia',aliases:[]}, {value:'lgbtq',label:'Diversidad sexual y de género',aliases:[]}, {value:'relationships',label:'Relaciones no convencionales',aliases:[]}, {value:'migration',label:'Experiencias migratorias e interculturales',aliases:[]}, {value:'discrimination',label:'Discriminación',aliases:[]},
-        ]} onChange={props.onContextsChange} disabled={props.busy} />
       </View> : null}
       <ProfileDiscoveryEditor languages={props.languages} onLanguagesChange={props.onLanguagesChange} languageNotice={props.languageNotice} languageRef={props.languageRef}
         perspective={props.perspective} onPerspectiveChange={props.onPerspectiveChange} options={options} error={error} retry={retry} busy={props.busy} />
     </ProfileEditorSection>
-    <View testID="professional-practice-preview" style={{width: '100%', minWidth: 0, borderRadius: 20, borderWidth: 1, borderColor: theme.borderLight, backgroundColor: theme.bgCard, overflow: 'hidden'}}>
-      <View style={{padding: 18, backgroundColor: theme.primaryAlpha12, gap: 4}}>
-        <Text style={{fontFamily: theme.fontSansSemiBold, color: theme.textPrimary, fontSize: 15}}>Así te verán los pacientes</Text>
-        <Text style={{fontFamily: theme.fontSans, color: theme.textSecondary, fontSize: 12}}>{props.hasChanges ? 'Borrador · cambios sin guardar' : 'Vista previa de los datos guardados'}</Text>
-      </View>
-      <View style={{padding: 20, gap: 20}}>
-        <View style={{flexDirection: 'row', alignItems: 'center', gap: 12}}>
-          {props.avatar ? <Image source={{uri: props.avatar}} accessibilityLabel={'Foto de ' + props.name} style={{width: 48, height: 48, borderRadius: 24}} /> : <View style={{width: 48, height: 48, borderRadius: 24, backgroundColor: theme.primaryAlpha12, alignItems: 'center', justifyContent: 'center'}}><Ionicons name="person-outline" size={24} color={theme.primary} /></View>}
-          <View style={{flex: 1, gap: 4}}><Text style={{fontFamily: theme.fontSansSemiBold, color: theme.textPrimary, fontSize: 17}}>{props.name || 'Tu nombre'}</Text><Text style={{fontFamily: theme.fontSans, color: theme.textSecondary, fontSize: 13}}>{props.title || 'Profesional de HERA'}</Text></View>
-        </View>
-        <PracticeTags title="Especialidades" kind="specialties" values={[...props.specialties, ...props.customSpecialties]} />
-        <PracticeTags title="Enfoques terapéuticos" kind="approaches" values={[...props.approaches, ...props.customApproaches]} />
-        {props.languages.length ? <View style={{gap: 8}}><Text style={{fontFamily: theme.fontSansSemiBold, color: theme.textSecondary, fontSize: 12}}>Idiomas</Text><View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 10}}>{props.languages.map(value => <View key={value} style={{flexDirection: 'row', alignItems: 'center', gap: 5}}>{renderLanguageIcon(value)}<Text style={{fontFamily: theme.fontSans, color: theme.textPrimary, fontSize: 13}}>{optionLabel(options?.languages ?? [], value)}</Text></View>)}</View></View> : null}
-        {options?.religionEnabled && props.perspective.publish && perspectiveLabel ? <PracticeTags title="Perspectiva espiritual o religiosa" values={[perspectiveLabel]} /> : null}
-      </View>
-    </View>
   </View>;
 }

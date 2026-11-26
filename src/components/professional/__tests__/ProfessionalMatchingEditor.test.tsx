@@ -11,8 +11,16 @@ function Harness({initial = [], initialCustomApproaches = []}: {initial?: string
   const [approaches,setApproaches] = useState<string[]>([]);
   const [customApproaches,setCustomApproaches] = useState(initialCustomApproaches);
   const [perspective,setPerspective] = useState<PerspectiveDraft>({religionCode:'',religionOtherText:'',publish:false,noticeVersion:null,hasDeclaration:false,needsReconfirmation:false});
-  return <ProfessionalMatchingEditor name="Ana" title="Psicóloga" avatar={null} specialties={specialties} approaches={approaches} customSpecialties={custom} customApproaches={customApproaches} languages={[]} profileVisible matchingNeedsReview={false} perspective={perspective} onPerspectiveChange={setPerspective} onLanguagesChange={jest.fn()} onCustomSpecialtiesChange={setCustom} onCustomApproachesChange={setCustomApproaches} onToggle={(field,value) => {const update = (values: string[]) => values.includes(value) ? values.filter(item => item !== value) : [...values,value]; if(field === 'specialties') setSpecialties(update); else setApproaches(update);}} />;
+  return <ProfessionalMatchingEditor onGenderChange={jest.fn()} specialties={specialties} approaches={approaches} customSpecialties={custom} customApproaches={customApproaches} languages={[]} matchingNeedsReview={false} perspective={perspective} onPerspectiveChange={setPerspective} onLanguagesChange={jest.fn()} onCustomSpecialtiesChange={setCustom} onCustomApproachesChange={setCustomApproaches} onToggle={(field,value) => {const update = (values: string[]) => values.includes(value) ? values.filter(item => item !== value) : [...values,value]; if(field === 'specialties') setSpecialties(update); else setApproaches(update);}} />;
 }
+test('shows the remaining optional declarations without a duplicate preview or personal contexts', () => {
+  render(<Harness />);
+  expect(screen.getByRole('button', {name: 'Género declarado (opcional): Seleccionar'})).toBeTruthy();
+  expect(screen.getByText('Perspectiva espiritual o religiosa (opcional)')).toBeTruthy();
+  expect(screen.queryByText(/Experiencia en contextos personales/)).toBeNull();
+  expect(screen.queryByText('Así te verán los pacientes')).toBeNull();
+});
+
 test('a sixth specialty and a custom seventh can be selected and removed', () => {
   render(<Harness initial={['anxiety','depression','sleep','trauma','grief']} />);
   fireEvent.press(screen.getByRole('button', {name: 'Editar especialidades'}));

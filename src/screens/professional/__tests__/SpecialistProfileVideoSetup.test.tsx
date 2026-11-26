@@ -107,15 +107,15 @@ test('mobile opens the seven-section index and keeps edits across the index and 
   for (const name of ['Información profesional', 'Mi Espacio', 'Credenciales', 'Facturación', 'Privacidad', 'Google', 'Cuenta']) {
     expect(screen.getByRole('button', {name})).toBeTruthy();
   }
-  expect(screen.queryByLabelText('Título profesional')).toBeNull();
+  expect(screen.queryByLabelText('Título profesional (opcional)')).toBeNull();
   fireEvent.press(screen.getByRole('button', {name: 'Información profesional'}));
-  fireEvent.changeText(screen.getByLabelText('Título profesional'), 'Título ficticio');
+  fireEvent.changeText(screen.getByLabelText('Título profesional (opcional)'), 'Título ficticio');
   fireEvent.press(screen.getByText('Volver a secciones'));
   fireEvent.press(screen.getByRole('button', {name: 'Google'}));
   await screen.findByText('Google Calendar');
   fireEvent.press(screen.getByText('Volver a secciones'));
   fireEvent.press(screen.getByRole('button', {name: 'Información profesional'}));
-  expect(screen.getByLabelText('Título profesional').props.value).toBe('Título ficticio');
+  expect(screen.getByLabelText('Título profesional (opcional)').props.value).toBe('Título ficticio');
   expect(professionalService.updateComprehensiveProfile).not.toHaveBeenCalled();
 });
 
@@ -321,7 +321,7 @@ test('a migrated profile can acknowledge its review without changing valid selec
   jest.mocked(professionalService.getComprehensiveProfile).mockResolvedValue({...profile, matchingNeedsReview: true});
   jest.mocked(professionalService.updateComprehensiveProfile).mockResolvedValue({...profile, matchingNeedsReview: false});
   render(<SpecialistProfileScreen />);
-  await screen.findByLabelText('Título profesional');
+  await screen.findByLabelText('Título profesional (opcional)');
   expect(screen.queryByText('Guardar')).toBeNull();
   fireEvent.press(screen.getByRole('checkbox', {name: 'He revisado mis especialidades y enfoques'}));
   await act(async () => fireEvent.press(screen.getByText('Guardar')));
@@ -338,7 +338,7 @@ test('saving an unrelated change locks the review checkbox and keeps the acknowl
   let complete: (saved: professionalService.SpecialistProfileData) => void = () => { throw new Error('Save did not start'); };
   jest.mocked(professionalService.updateComprehensiveProfile).mockImplementationOnce(() => new Promise(resolve => { complete = resolve; }));
   render(<SpecialistProfileScreen />);
-  fireEvent.changeText(await screen.findByLabelText('Título profesional'), 'Título de prueba');
+  fireEvent.changeText(await screen.findByLabelText('Título profesional (opcional)'), 'Título de prueba');
   fireEvent.press(screen.getByText('Guardar'));
   const checkbox = () => screen.getByRole('checkbox', {name: 'He revisado mis especialidades y enfoques'});
   expect(checkbox()).toBeDisabled();
@@ -382,7 +382,7 @@ test('a private PDF upload preserves the consultation draft and permits a partia
   jest.mocked(professionalService.uploadInsuranceDocument).mockResolvedValue(pending);
   jest.mocked(professionalService.updateComprehensiveProfile).mockImplementation(async changes => ({ ...pending, ...changes }));
   render(<SpecialistProfileScreen />);
-  fireEvent.changeText(await screen.findByLabelText('Título profesional'), 'Edición de prueba');
+  fireEvent.changeText(await screen.findByLabelText('Título profesional (opcional)'), 'Edición de prueba');
   fireEvent.press(screen.getByText('Sesiones presenciales'));
   fireEvent.changeText(screen.getByLabelText('Ciudad'), 'Ciudad ficticia');
   fireEvent.press(screen.getByText('Guardar'));
@@ -409,7 +409,7 @@ test('rejected insurance keeps the reason and only confirmed deletion disables t
     insuranceUploaded: false, offersInPerson: false, insuranceReviewStatus: 'NOT_UPLOADED',
   });
   render(<SpecialistProfileScreen />);
-  fireEvent.changeText(await screen.findByLabelText('Título profesional'), 'Otro título');
+  fireEvent.changeText(await screen.findByLabelText('Título profesional (opcional)'), 'Otro título');
   expect(screen.getByText(/Documento de prueba caducado/)).toBeTruthy();
   fireEvent.press(screen.getByText('Revisar póliza en Credenciales'));
   fireEvent.press(screen.getByText('Eliminar póliza'));
@@ -420,7 +420,7 @@ test('rejected insurance keeps the reason and only confirmed deletion disables t
   fireEvent.press(screen.getByText('Volver a Consulta'));
   expect(screen.getByRole('checkbox', { name: /Sesiones presenciales/ }).props.accessibilityState.checked).toBe(false);
   expect(screen.getByRole('checkbox', { name: /Sesiones online/ }).props.accessibilityState.checked).toBe(true);
-  expect(screen.getByLabelText('Título profesional').props.value).toBe('Otro título');
+  expect(screen.getByLabelText('Título profesional (opcional)').props.value).toBe('Otro título');
 });
 
 test('clipboard denial shows the saved URL and does not announce a successful copy', async () => {

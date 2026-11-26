@@ -1,4 +1,5 @@
 import { choiceKeyboardProps } from '../../utils/choiceKeyboard';
+import { OptionalFieldSuffix } from './OptionalFieldSuffix';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
   Modal,
@@ -82,7 +83,7 @@ export function SearchableProfileSelect({
   const fieldLabel = (
     <Text style={[text, { flexShrink: 1, fontFamily: theme.fontSansSemiBold, fontSize: compact ? 18 : 15 }]}>
       {label}
-      {optional ? <Text style={{ color: theme.textSecondary, fontFamily: theme.fontSans, fontSize: 14 }}> (opcional)</Text> : null}
+      {optional ? <OptionalFieldSuffix /> : null}
     </Text>
   );
   return (

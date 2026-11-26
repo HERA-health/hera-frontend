@@ -635,7 +635,6 @@ export interface PublicDirectoryStatus {
 
 export interface SpecialistProfileData {
   declaredGender?: 'woman' | 'man' | 'nonbinary' | null;
-  practiceContexts?: string[];
   birthDate?: string | null;
   showAge?: boolean;
   age?: number | null;
@@ -960,7 +959,6 @@ export const updateComprehensiveProfile = async (
     if (data.perspectiveOperation !== undefined) apiData.perspective = data.perspectiveOperation;
     if (data.specialties !== undefined) apiData.specialties = data.specialties;
     if (data.declaredGender !== undefined) apiData.declaredGender = data.declaredGender;
-    if (data.practiceContexts !== undefined) apiData.practiceContexts = data.practiceContexts;
     if (data.therapeuticApproaches !== undefined) apiData.therapeuticApproaches = data.therapeuticApproaches;
     if (data.languages !== undefined) apiData.languages = data.languages;
     if (data.education !== undefined) apiData.education = data.education;
