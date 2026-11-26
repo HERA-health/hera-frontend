@@ -2533,7 +2533,7 @@ export function SpecialistProfileScreen() {
                     styles.certificateAssociationChipText,
                     selected && styles.certificateAssociationChipTextSelected,
                   ]}
-                  numberOfLines={1}
+                  numberOfLines={isMobile ? undefined : 1}
                 >
                   {option.label}
                 </Text>
@@ -2658,50 +2658,54 @@ export function SpecialistProfileScreen() {
 
               return (
                 <View key={cert.id} style={styles.documentCard}>
-                  <View style={styles.documentIcon}>
-                    <Ionicons name="ribbon" size={24} color={palette.primary} />
-                  </View>
                   <View style={styles.documentContent}>
-                    <View style={styles.certificateHeaderRow}>
-                      <Text style={styles.documentTitle}>{cert.name}</Text>
-                      <View
-                        style={[
-                          styles.certificateVisibilityBadge,
-                          cert.publicVisible
-                            ? styles.certificateVisibilityBadgeActive
-                            : styles.certificateVisibilityBadgePrivate,
-                        ]}
-                      >
-                        <Ionicons
-                          name={cert.publicVisible ? 'eye-outline' : 'lock-closed-outline'}
-                          size={13}
-                          color={cert.publicVisible ? palette.success : palette.textSecondary}
-                        />
-                        <Text
+                    <View style={styles.documentHeading}>
+                      <View style={styles.documentIcon}>
+                        <Ionicons name="ribbon" size={24} color={palette.primary} />
+                      </View>
+                      <View style={styles.certificateHeaderRow}>
+                        <Text style={styles.documentTitle}>{cert.name}</Text>
+                        <View
                           style={[
-                            styles.certificateVisibilityBadgeText,
-                            cert.publicVisible && styles.certificateVisibilityBadgeTextActive,
+                            styles.certificateVisibilityBadge,
+                            cert.publicVisible
+                              ? styles.certificateVisibilityBadgeActive
+                              : styles.certificateVisibilityBadgePrivate,
                           ]}
                         >
-                          {cert.publicVisible ? 'Visible en perfil' : 'Privado'}
-                        </Text>
+                          <Ionicons
+                            name={cert.publicVisible ? 'eye-outline' : 'lock-closed-outline'}
+                            size={13}
+                            color={cert.publicVisible ? palette.success : palette.textSecondary}
+                          />
+                          <Text
+                            style={[
+                              styles.certificateVisibilityBadgeText,
+                              cert.publicVisible && styles.certificateVisibilityBadgeTextActive,
+                            ]}
+                          >
+                            {cert.publicVisible ? 'Visible en perfil' : 'Privado'}
+                          </Text>
+                        </View>
                       </View>
                     </View>
-                    <Text style={styles.documentMeta}>{cert.issuer}</Text>
-                    {cert.validUntil && (
-                      <Text style={styles.documentMeta}>Válido hasta: {cert.validUntil}</Text>
-                    )}
-                    {formatDocumentDate(cert.documentUploadedAt) && (
-                      <Text style={styles.documentMeta}>
-                        Documento subido el {formatDocumentDate(cert.documentUploadedAt)}
-                      </Text>
-                    )}
-                    {linkedEducation ? (
-                      <Text style={styles.certificateAssociationText}>
-                        Asociado a {getEducationOptionLabel(linkedEducation)}
-                      </Text>
-                    ) : null}
-                    {renderCertificateEducationPicker(cert)}
+                    <View style={styles.documentDetails}>
+                      <Text style={styles.documentMeta}>{cert.issuer}</Text>
+                      {cert.validUntil && (
+                        <Text style={styles.documentMeta}>Válido hasta: {cert.validUntil}</Text>
+                      )}
+                      {formatDocumentDate(cert.documentUploadedAt) && (
+                        <Text style={styles.documentMeta}>
+                          Documento subido el {formatDocumentDate(cert.documentUploadedAt)}
+                        </Text>
+                      )}
+                      {linkedEducation ? (
+                        <Text style={styles.certificateAssociationText}>
+                          Asociado a {getEducationOptionLabel(linkedEducation)}
+                        </Text>
+                      ) : null}
+                      {renderCertificateEducationPicker(cert)}
+                    </View>
                   </View>
                   <View style={styles.documentActions}>
                     <TouchableOpacity
@@ -3574,26 +3578,38 @@ function createStyles(
 
   // ===== DOCUMENT CARD =====
   documentCard: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
+    flexDirection: isMobile ? 'column' : 'row',
+    alignItems: isMobile ? 'stretch' : 'flex-start',
     gap: spacing.md,
-    padding: spacing.md,
+    padding: isMobile ? spacing.sm : spacing.md,
     backgroundColor: palette.background,
     borderRadius: borderRadius.md,
   },
+  documentHeading: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: isMobile ? spacing.sm : spacing.md,
+  },
   documentIcon: {
-    width: 44,
-    height: 44,
+    width: isMobile ? 36 : 44,
+    height: isMobile ? 36 : 44,
     borderRadius: 22,
     backgroundColor: palette.primaryMuted,
     alignItems: 'center',
     justifyContent: 'center',
   },
   documentContent: {
-    flex: 1,
+    flex: isMobile ? undefined : 1,
     minWidth: 0,
   },
+  documentDetails: {
+    paddingLeft: isMobile ? 0 : 44 + spacing.md,
+    marginTop: spacing.xs,
+    gap: spacing.xs,
+  },
   documentTitle: {
+    maxWidth: '100%',
+    flexShrink: 1,
     fontSize: 15,
     fontWeight: '600',
     fontFamily: palette.fontSansSemiBold,
@@ -3645,17 +3661,23 @@ function createStyles(
     flexDirection: 'row',
     alignItems: 'center',
     flexWrap: 'wrap',
-    justifyContent: 'flex-end',
+    justifyContent: isMobile ? 'flex-start' : 'flex-end',
     gap: spacing.sm,
   },
   documentAction: {
     padding: spacing.sm,
+    minHeight: isMobile ? 44 : undefined,
+    minWidth: isMobile ? 44 : undefined,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   certificateHeaderRow: {
-    flexDirection: 'row',
+    flex: 1,
+    minWidth: 0,
+    flexDirection: isMobile ? 'column' : 'row',
     alignItems: 'flex-start',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
+    flexWrap: isMobile ? 'nowrap' : 'wrap',
+    gap: isMobile ? spacing.xs : spacing.sm,
     marginBottom: 3,
   },
   certificateVisibilityBadge: {
@@ -3729,7 +3751,8 @@ function createStyles(
     backgroundColor: palette.primary,
   },
   certificateAssociationChipText: {
-    maxWidth: 220,
+    flexShrink: 1,
+    maxWidth: isMobile ? undefined : 220,
     fontSize: 12,
     fontWeight: '600',
     fontFamily: palette.fontSansSemiBold,
@@ -3739,7 +3762,7 @@ function createStyles(
     color: palette.textOnCard,
   },
   certificateVisibilityAction: {
-    minHeight: 36,
+    minHeight: isMobile ? 44 : 36,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
