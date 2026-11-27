@@ -48,7 +48,7 @@ const styles = StyleSheet.create({
   horizontal: { flexDirection: 'row', alignItems: 'flex-start', padding: 20, gap: 24 },
   leadGroup: { gap: 14 },
   lead: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
-  column: { width: '24%', maxWidth: 268 },
+  column: { width: '24%', maxWidth: 268, alignSelf: 'stretch' },
   icon: { width: 34, height: 34, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
   copy: { flex: 1, gap: 4 },
   titleLine: { flexDirection: 'row', alignItems: 'center', minHeight: 34 },

@@ -1993,57 +1993,54 @@ export function SpecialistProfileScreen() {
 
   const renderProfilePhoto = () => (
     <View style={styles.photoPanel}>
-
-      <View style={styles.photoSection}>
-        <View style={styles.avatarContainer}>
-          {showProfileAvatar ? (
-            <Image
-              source={{ uri: profileData.avatar ?? '' }}
-              style={styles.avatarLarge}
-              onError={() => setAvatarLoadFailed(true)}
-            />
-          ) : (
-            <View style={[styles.avatarLarge, { backgroundColor: palette.primary }]}>
-              <Text style={styles.avatarLargeText}>
-                {profileData.fullName.trim().split(/\s+/).filter(Boolean).slice(0, 2).map(word => word[0].toUpperCase()).join('') || 'P'}
-              </Text>
-            </View>
-          )}
-          {isUploadingAvatar && (
-            <View style={styles.avatarUploadOverlay}>
-              <ActivityIndicator size="large" color={palette.textOnCard} />
-            </View>
-          )}
-        </View>
-        <View style={{ flex: 1, minWidth: 86 }}>
-          <Text style={styles.fieldLabel}>Foto de perfil<OptionalFieldSuffix /></Text>
-          <Text style={styles.helperText}>Imagen cuadrada</Text>
-        </View>
-        <View style={styles.photoActions}>
+      <View style={styles.avatarContainer}>
+        {showProfileAvatar ? (
+          <Image
+            source={{ uri: profileData.avatar ?? '' }}
+            style={styles.avatarLarge}
+            resizeMode="cover"
+            onError={() => setAvatarLoadFailed(true)}
+          />
+        ) : (
+          <View style={[styles.avatarLarge, { backgroundColor: palette.primary }]}>
+            <Text style={styles.avatarLargeText}>
+              {profileData.fullName.trim().split(/\s+/).filter(Boolean).slice(0, 2).map(word => word[0].toUpperCase()).join('') || 'P'}
+            </Text>
+          </View>
+        )}
+        {isUploadingAvatar && (
+          <View style={styles.avatarUploadOverlay}>
+            <ActivityIndicator size="large" color={palette.textOnCard} />
+          </View>
+        )}
+      </View>
+      <View style={styles.photoCaption}>
+        <Text style={styles.fieldLabel}>Foto de perfil<OptionalFieldSuffix /></Text>
+        <Text style={styles.helperText}>Imagen cuadrada</Text>
+      </View>
+      <View style={styles.photoActions}>
+        <Button
+          variant="outline"
+          size="small"
+          onPress={handleImagePick}
+          disabled={isUploadingAvatar}
+          style={styles.photoButton}
+          textStyle={styles.photoButtonText}
+        >
+          {isUploadingAvatar ? 'Subiendo...' : 'Cambiar foto'}
+        </Button>
+        {profileData.avatar && (
           <Button
-            variant="outline"
+            variant="ghost"
             size="small"
-            onPress={handleImagePick}
-            disabled={isUploadingAvatar}
-
-            style={{ ...styles.photoButton }}
-            textStyle={{ ...styles.photoButtonText }}
+            onPress={() => updateField('avatar', null)}
+            icon={<Ionicons name="trash-outline" size={18} color={palette.warning} />}
+            style={{ ...styles.photoButton, ...styles.photoButtonDanger }}
+            textStyle={{ ...styles.photoButtonText, ...styles.photoButtonTextDanger }}
           >
-            {isUploadingAvatar ? 'Subiendo...' : 'Cambiar foto'}
+            Eliminar
           </Button>
-          {profileData.avatar && (
-            <Button
-              variant="ghost"
-              size="small"
-              onPress={() => updateField('avatar', null)}
-              icon={<Ionicons name="trash-outline" size={18} color={palette.warning} />}
-              style={{ ...styles.photoButton, ...styles.photoButtonDanger }}
-              textStyle={{ ...styles.photoButtonText, ...styles.photoButtonTextDanger }}
-            >
-              Eliminar
-            </Button>
-          )}
-        </View>
+        )}
       </View>
     </View>
   );
@@ -2975,7 +2972,7 @@ export function SpecialistProfileScreen() {
           </View>}
           {loadError && <View style={styles.statusNote}><Text accessibilityRole="alert" style={styles.bodyText}>No se pudo cargar el perfil.</Text>
             <Button size="small" variant="outline" onPress={loadProfile}>Volver a cargar</Button></View>}
-          {saveError && hasChanges && <Text accessibilityRole="alert" style={[styles.statusNote, styles.bodyText]}>
+          {Boolean(saveError) && hasChanges && <Text accessibilityRole="alert" style={[styles.statusNote, styles.bodyText]}>
             No se han guardado los cambios. {saveError}
           </Text>}
           {saved && !hasChanges && <Text accessibilityLiveRegion="polite" style={styles.bodyText}>Cambios guardados</Text>}
@@ -3345,7 +3342,6 @@ function createStyles(
   informationCard: { padding: 0 },
   identityGrid: { flexDirection: 'row', flexWrap: 'wrap', columnGap: 14, rowGap: 6 },
   identityField: { flexGrow: 1, flexBasis: isDesktop ? '30%' : isMobile ? '100%' : '46%', minWidth: 0 },
-  photoPanel: { padding: 10, borderRadius: 9, backgroundColor: palette.backgroundMuted },
   identityFields: { minWidth: 0, width: '100%' },
   descriptionSection: { width: '100%' },
   modalitySection: { width: '100%' },
@@ -3488,10 +3484,21 @@ function createStyles(
   },
 
   // ===== PHOTO SECTION =====
-  photoSection: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 10 },
-  avatarContainer: { width: isMobile ? 40 : 50, height: isMobile ? 40 : 50 },
-  avatarLarge: { width: '100%', height: '100%', borderRadius: 30, alignItems: 'center', justifyContent: 'center' },
-  avatarLargeText: { fontFamily: palette.fontSansBold, color: palette.textOnPrimary, fontSize: isMobile ? 17 : 21 },
+  photoPanel: {
+    backgroundColor: palette.backgroundMuted,
+    borderRadius: 9,
+    padding: 10,
+    gap: 10,
+    alignItems: 'center',
+    flexDirection: isDesktop ? 'column' : 'row',
+    flexWrap: isDesktop ? 'nowrap' : 'wrap',
+    flexGrow: isDesktop ? 1 : 0,
+    justifyContent: isDesktop ? 'space-evenly' : 'flex-start',
+  },
+  photoCaption: isDesktop ? { alignItems: 'center' } : { flex: 1, minWidth: 86 },
+  avatarContainer: { width: isDesktop ? 144 : isMobile ? 64 : 80, aspectRatio: 1, borderRadius: 999, overflow: 'hidden' },
+  avatarLarge: { width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' },
+  avatarLargeText: { fontFamily: palette.fontSansBold, color: palette.textOnPrimary, fontSize: isDesktop ? 48 : 26 },
   avatarUploadOverlay: {
     position: 'absolute',
     top: 0,
@@ -3501,9 +3508,8 @@ function createStyles(
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: palette.overlay,
-    borderRadius: isDesktop ? 48 : 60,
   },
-  photoActions: { maxWidth: '100%', flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 4, flexShrink: 1 },
+  photoActions: { maxWidth: '100%', flexDirection: 'row', justifyContent: isDesktop ? 'center' : 'flex-start', alignItems: 'center', flexWrap: 'wrap', gap: 4, flexShrink: 1 },
   photoButton: { minHeight: 42 },
   photoButtonDanger: {
     borderWidth: 0,
