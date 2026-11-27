@@ -1,10 +1,12 @@
 import React, {useState} from 'react';
+import {Linking} from 'react-native';
 import {fireEvent, render, screen} from '@testing-library/react-native';
 import {ProfileDiscoveryEditor} from '../ProfileDiscoveryEditor';
 import {SearchableProfileSelect} from '../../common/SearchableProfileSelect';
 import type {PerspectiveDraft, ProfileOptions} from '../../../services/profileDiscoveryService';
 jest.mock('../../../contexts/ThemeContext', () => ({useTheme: () => ({theme: require('../../../constants/theme').lightTheme})}));
 const options: ProfileOptions = {languages: [{value:'spanish',label:'Español',aliases:[]}], religions: [{value:'catholic',label:'Católica',aliases:[]},{value:'other',label:'Otra',aliases:[]}], religionEnabled:true, religionNotice:'Autorización pública y voluntaria.', religionNoticeVersion:'v1'};
+const publicationLabel = 'Mostrar mi perspectiva en mi perfil público y usarla en los filtros del directorio y en las recomendaciones del cuestionario';
 const empty: PerspectiveDraft = {religionCode:'',religionOtherText:'',publish:false,noticeVersion:null,hasDeclaration:false,needsReconfirmation:false};
 function Harness({initial = empty, enabled = true}: {initial?: PerspectiveDraft; enabled?: boolean}) {
   const [perspective,onPerspectiveChange] = useState(initial);
@@ -13,24 +15,35 @@ function Harness({initial = empty, enabled = true}: {initial?: PerspectiveDraft;
 test('selecting a perspective requires explicitly enabling publication', () => {
   render(<Harness />);
   fireEvent.press(screen.getByLabelText('Católica'));
-  expect(screen.getByLabelText('Mostrar en mi perfil y en el directorio').props.value).toBe(false);
-  fireEvent(screen.getByLabelText('Mostrar en mi perfil y en el directorio'),'valueChange',true);
-  expect(screen.getByLabelText('Mostrar en mi perfil y en el directorio').props.value).toBe(true);
+  expect(screen.getByLabelText(publicationLabel).props.value).toBe(false);
+  fireEvent(screen.getByLabelText(publicationLabel),'valueChange',true);
+  expect(screen.getByLabelText(publicationLabel).props.value).toBe(true);
   fireEvent.press(screen.getByLabelText('Otra'));
-  expect(screen.getByLabelText('Mostrar en mi perfil y en el directorio').props.value).toBe(false);
-  expect(screen.getByLabelText('Mostrar en mi perfil y en el directorio').props.disabled).toBe(true);
+  expect(screen.getByLabelText(publicationLabel).props.value).toBe(false);
+  expect(screen.getByLabelText(publicationLabel).props.disabled).toBe(true);
   fireEvent.changeText(screen.getByLabelText('Otra perspectiva espiritual o religiosa'),'Perspectiva propia');
-  expect(screen.getByLabelText('Mostrar en mi perfil y en el directorio').props.disabled).toBe(false);
+  expect(screen.getByLabelText(publicationLabel).props.disabled).toBe(false);
+});
+test('legal links open the relevant documents without enabling publication', () => {
+  const open = jest.spyOn(Linking, 'openURL').mockResolvedValue(undefined);
+  try {
+    render(<Harness initial={{...empty,religionCode:'catholic'}} />);
+    fireEvent.press(screen.getByRole('link', {name: 'Política de privacidad'}));
+    expect(open).toHaveBeenCalledWith(expect.stringMatching(/\/legal\/privacidad#perspectiva-espiritual$/));
+    fireEvent.press(screen.getByRole('link', {name: 'Términos y condiciones'}));
+    expect(open).toHaveBeenCalledWith(expect.stringMatching(/\/legal\/terminos-especialistas$/));
+    expect(screen.getByLabelText(publicationLabel).props.value).toBe(false);
+  } finally { open.mockRestore(); }
 });
 test('removal stays available while publication is disabled', () => {
   render(<Harness enabled={false} initial={{...empty,religionCode:'catholic',hasDeclaration:true}} />);
   fireEvent.press(screen.getByText('Quitar esta información de mi perfil'));
-  expect(screen.queryByLabelText('Mostrar en mi perfil y en el directorio')).toBeNull();
+  expect(screen.queryByLabelText(publicationLabel)).toBeNull();
 });
 test('legacy declaration is never preconsented', () => {
   render(<Harness initial={{...empty,religionCode:'catholic',hasDeclaration:true,needsReconfirmation:true}} />);
   expect(screen.getByText(/Tu declaración anterior requiere revisión/)).toBeTruthy();
-  expect(screen.getByLabelText('Mostrar en mi perfil y en el directorio').props.value).toBe(false);
+  expect(screen.getByLabelText(publicationLabel).props.value).toBe(false);
 });
 test('language search ignores accents and legacy values remain removable', () => {
   const change = jest.fn();
@@ -45,16 +58,16 @@ test('language search ignores accents and legacy values remain removable', () =>
 
 test('removed legacy categories cannot be republished without choosing a supported perspective', () => {
  render(<Harness initial={{...empty,religionCode:'legacy-removed',hasDeclaration:true,needsReconfirmation:true}} />);
- expect(screen.getByLabelText('Mostrar en mi perfil y en el directorio').props.disabled).toBe(true);
+ expect(screen.getByLabelText(publicationLabel).props.disabled).toBe(true);
  fireEvent.press(screen.getByLabelText('Católica'));
- expect(screen.getByLabelText('Mostrar en mi perfil y en el directorio').props.disabled).toBe(false);
- expect(screen.getByLabelText('Mostrar en mi perfil y en el directorio').props.value).toBe(false);
+ expect(screen.getByLabelText(publicationLabel).props.disabled).toBe(false);
+ expect(screen.getByLabelText(publicationLabel).props.value).toBe(false);
 });
 
 test('publication uses only the switch and explains removal on save', () => {
  render(<Harness initial={{...empty,religionCode:'catholic',publish:true,hasDeclaration:true,noticeVersion:'v1'}} />);
  expect(screen.queryByText('Quitar esta información de mi perfil')).toBeNull();
- fireEvent(screen.getByLabelText('Mostrar en mi perfil y en el directorio'),'valueChange',false);
- expect(screen.getByLabelText('Mostrar en mi perfil y en el directorio').props.value).toBe(false);
+ fireEvent(screen.getByLabelText(publicationLabel),'valueChange',false);
+ expect(screen.getByLabelText(publicationLabel).props.value).toBe(false);
  expect(screen.getByText('Al guardar los cambios, se borrará tu perspectiva anterior y dejará de aparecer en tu perfil.')).toBeTruthy();
 });
