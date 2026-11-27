@@ -44,7 +44,7 @@ export function PublicBookingSummary({ specialist, option, selectedSlot, canBook
     </View>
     {specialist.firstVisitFree ? <View style={[styles.free, { backgroundColor: theme.secondaryMuted }]}>
       <Ionicons name="gift-outline" size={18} color={theme.primary} />
-      <Text style={[styles.small, strong]}>Primera sesión gratuita</Text>
+      <Text style={[styles.small, strong]}>Primera sesión gratuita{specialist.firstVisitDurationMinutes != null ? ` · ${specialist.firstVisitDurationMinutes} min` : ''}</Text>
     </View> : null}
     <View style={styles.actions} onLayout={event => onCtaLayout?.(event.nativeEvent.layout.y, event.nativeEvent.layout.height)}>
       <View style={{ flex: 1, minWidth: 0 }}>

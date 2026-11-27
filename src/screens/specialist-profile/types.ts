@@ -53,6 +53,7 @@ export interface Specialist {
   therapeuticApproaches?: string[];
   verificationStatus?: string;
   firstVisitFree?: boolean;
+  firstVisitDurationMinutes?: number | null;
 }
 
 export interface Address {

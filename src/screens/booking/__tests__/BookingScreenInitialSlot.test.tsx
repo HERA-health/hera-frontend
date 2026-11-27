@@ -333,7 +333,7 @@ describe('BookingScreen initial slot preselection', () => {
     await screen.findByText('slots:10:00:1');
     expect(within(screen.getByTestId('booking-service-description')).getByText('Acerca de «Terapia»')).toBeTruthy();
     fireEvent.press(screen.getByRole('radio', { name: /Llamada breve/ }));
-    await waitFor(() => expect(mockedSessionsService.getAvailableSlots).toHaveBeenLastCalledWith('specialist-1', route.params.initialDate, 'phone', undefined));
+    await waitFor(() => expect(mockedSessionsService.getAvailableSlots).toHaveBeenLastCalledWith('specialist-1', route.params.initialDate, 'phone', undefined, false));
     expect(screen.getByText('modality-options:PHONE_CALL')).toBeTruthy();
     const description = within(screen.getByTestId('booking-service-description'));
     expect(description.getByText('Acerca de «Llamada breve»')).toBeTruthy();
@@ -363,7 +363,7 @@ describe('BookingScreen initial slot preselection', () => {
     expect(screen.getByRole('button', { name: 'Confirmar cita' })).toBeDisabled();
     expect(mockedSessionsService.getAvailableSlots).not.toHaveBeenCalled();
     fireEvent.press(screen.getByText('choose-modality:IN_PERSON'));
-    await waitFor(() => expect(mockedSessionsService.getAvailableSlots).toHaveBeenLastCalledWith('specialist-1', route.params.initialDate, 'office', undefined));
+    await waitFor(() => expect(mockedSessionsService.getAvailableSlots).toHaveBeenLastCalledWith('specialist-1', route.params.initialDate, 'office', undefined, false));
     expect(screen.queryByText('calendar-disabled')).toBeNull();
     expect(mockedSessionsService.getBookingQuote).toHaveBeenLastCalledWith('specialist-1', 'IN_PERSON', 45, 'office', undefined);
   });
@@ -388,12 +388,12 @@ describe('BookingScreen initial slot preselection', () => {
     await screen.findByText('5 sesiones disponibles');
     expect(packageService.loadPatientPackages).toHaveBeenCalledTimes(2);
     expect(packageService.acquirePackage).toHaveBeenCalledWith(expect.objectContaining({bookingIntentToken:'single-use-intent'}), undefined);
-    await waitFor(() => expect(mockedSessionsService.getAvailableSlots).toHaveBeenLastCalledWith('specialist-1','2026-06-25','VIDEO_CALL','acquired'));
+    await waitFor(() => expect(mockedSessionsService.getAvailableSlots).toHaveBeenLastCalledWith('specialist-1','2026-06-25','VIDEO_CALL','acquired',false));
     await screen.findByText('slots:10:00:1');
     fireEvent.press(screen.getByText('Sesión individual'));
-    await waitFor(() => expect(mockedSessionsService.getAvailableSlots).toHaveBeenLastCalledWith('specialist-1','2026-06-25','VIDEO_CALL',undefined));
+    await waitFor(() => expect(mockedSessionsService.getAvailableSlots).toHaveBeenLastCalledWith('specialist-1','2026-06-25','VIDEO_CALL',undefined,false));
     fireEvent.press(screen.getByRole('button', { name: /Bono nuevo/ }));
-    await waitFor(() => expect(mockedSessionsService.getAvailableSlots).toHaveBeenLastCalledWith('specialist-1','2026-06-25','VIDEO_CALL','acquired'));
+    await waitFor(() => expect(mockedSessionsService.getAvailableSlots).toHaveBeenLastCalledWith('specialist-1','2026-06-25','VIDEO_CALL','acquired',false));
     await screen.findByText('slots:10:00:1');
     fireEvent.press(await screen.findByText('Confirmar cita'));
     await waitFor(() => expect(mockedSessionsService.createSession).toHaveBeenCalledWith(expect.objectContaining({patientPackageId:'acquired',duration:90,intentToken:undefined})));
@@ -476,13 +476,62 @@ describe('BookingScreen initial slot preselection', () => {
     expect(mockedSessionsService.getAvailableSlots).toHaveBeenCalledWith(
       'specialist-1',
       '2026-06-25',
-      'VIDEO_CALL', undefined
+      'VIDEO_CALL', undefined, false
     );
     expect(mockedShowAppAlert).not.toHaveBeenCalledWith(
       expect.anything(),
       'Horario no disponible',
       expect.any(String)
     );
+  });
+
+  it('revalidates an initial service slot using the free visit duration', async () => {
+    const base = await mockedSessionsService.getBookingQuote('specialist-1', 'VIDEO_CALL', 60);
+    mockedSessionsService.getBookingQuote.mockResolvedValue({ ...base, optionId: 'VIDEO_CALL', firstVisitFreeApplied: true, duration: 30, price: 0 });
+    mockedSessionsService.getAvailableSlots.mockResolvedValue([{ startTime: '10:00', endTime: '10:30', available: true }]);
+    render(<BookingScreen route={route} navigation={navigation} />);
+    await screen.findByText('slots:10:00:1');
+    expect(mockedSessionsService.getAvailableSlots).toHaveBeenLastCalledWith('specialist-1', route.params.initialDate, 'VIDEO_CALL', undefined, true);
+    expect(mockedShowAppAlert).not.toHaveBeenCalled();
+  });
+
+  it('revalidates a first-visit preview for a returning patient at the same start time', async () => {
+    mockedSessionsService.getAvailableSlots.mockResolvedValue([{ startTime: '10:00', endTime: '11:00', available: true }]);
+    render(<BookingScreen route={{ params: { ...route.params, initialVisitSchedule: 'first', initialSlotEndTime: '10:30' } }} navigation={navigation} />);
+    await screen.findByText('slots:10:00:1');
+    expect(mockedSessionsService.getAvailableSlots).toHaveBeenLastCalledWith('specialist-1', route.params.initialDate, 'VIDEO_CALL', undefined, false);
+  });
+
+  it('keeps the regular schedule when a guest opens the full calendar without a selected hour', async () => {
+    mockedUseAuth.mockReturnValue({ isAuthenticated: false, user: null } as ReturnType<typeof useAuth>);
+    const quote = await mockedSessionsService.getPublicBookingQuote({ specialistId: 'specialist-1', type: 'VIDEO_CALL', duration: 60 });
+    mockedSessionsService.getPublicBookingQuote.mockResolvedValue({ ...quote, firstVisitDurationMinutes: 30 });
+    mockedSessionsService.getAvailableSlots.mockResolvedValue([]);
+    render(<BookingScreen route={{ params: { ...routeWithoutInitialSlot.params, initialVisitSchedule: 'regular' } }} navigation={navigation} />);
+    fireEvent.press(await screen.findByText('select-second-date'));
+    await waitFor(() => expect(mockedSessionsService.getAvailableSlots).toHaveBeenLastCalledWith('specialist-1', '2026-06-26', 'VIDEO_CALL', undefined, false));
+  });
+
+  it('preserves a full-length slot ending at midnight when an older link has no schedule hint', async () => {
+    mockedUseAuth.mockReturnValue({ isAuthenticated: false, user: null } as ReturnType<typeof useAuth>);
+    const quote = await mockedSessionsService.getPublicBookingQuote({ specialistId: 'specialist-1', type: 'VIDEO_CALL', duration: 60 });
+    mockedSessionsService.getPublicBookingQuote.mockResolvedValue({ ...quote, firstVisitDurationMinutes: 30 });
+    mockedSessionsService.getAvailableSlots.mockResolvedValue([{ startTime: '23:00', endTime: '24:00', available: true }]);
+    render(<BookingScreen route={{ params: { ...route.params, initialSlotStartTime: '23:00', initialSlotEndTime: '24:00' } }} navigation={navigation} />);
+    await screen.findByText('slots:23:00:1');
+    expect(mockedSessionsService.getAvailableSlots).toHaveBeenLastCalledWith('specialist-1', route.params.initialDate, 'VIDEO_CALL', undefined, false);
+  });
+
+  it('loads the newly selected date if the quote arrives after a date change', async () => {
+    const quote = await mockedSessionsService.getBookingQuote('specialist-1', 'VIDEO_CALL', 60);
+    let release!: (value: typeof quote) => void;
+    mockedSessionsService.getBookingQuote.mockReturnValueOnce(new Promise(resolve => { release = resolve; }));
+    mockedSessionsService.getAvailableSlots.mockResolvedValue([{ startTime: '10:00', endTime: '11:00', available: true }]);
+    render(<BookingScreen route={route} navigation={navigation} />);
+    fireEvent.press(await screen.findByText('select-second-date'));
+    release(quote);
+    await screen.findByText('slots:none:1');
+    expect(mockedSessionsService.getAvailableSlots).toHaveBeenLastCalledWith('specialist-1', '2026-06-26', 'VIDEO_CALL', undefined, false);
   });
 
   it('requires patient fiscal data for an external full invoice and submits it with the booking', async () => {
@@ -731,7 +780,13 @@ describe('BookingScreen initial slot preselection', () => {
       { startTime: '10:00', endTime: '11:00', available: true },
     ]);
     mockedSessionsService.requestPublicBooking.mockResolvedValue({ requestId: 'request-fixture', expiresAt: '2026-06-26T11:00:00Z' });
-    mockedSessionsService.verifyPublicBookingQuote.mockRejectedValueOnce(new Error('Código incorrecto'));
+    const estimate = await mockedSessionsService.getPublicBookingQuote({ specialistId: 'specialist-1', duration: 60, type: 'VIDEO_CALL' });
+    mockedSessionsService.getPublicBookingQuote.mockResolvedValue({ ...estimate, firstVisitDurationMinutes: 30 });
+    mockedSessionsService.getAvailableSlots.mockImplementation(async (_id, _date, _option, _package, firstVisit) => [
+      { startTime: '10:00', endTime: firstVisit ? '10:30' : '11:00', available: true },
+    ]);
+    mockedSessionsService.verifyPublicBookingQuote.mockRejectedValueOnce(new Error('Código incorrecto'))
+      .mockResolvedValueOnce({ ...estimate, price: 0, duration: 30, firstVisitFreeApplied: true });
     mockedSessionsService.verifyPublicBooking.mockResolvedValue({ id: 'session-fixture', status: 'PENDING' });
 
     render(
@@ -764,6 +819,7 @@ describe('BookingScreen initial slot preselection', () => {
     fireEvent.press(screen.getByText('Verificar y revisar precio'));
     await screen.findByText('Confirmar cita');
     expect(mockedSessionsService.verifyPublicBooking).not.toHaveBeenCalled();
+    await waitFor(() => expect(mockedSessionsService.getAvailableSlots).toHaveBeenLastCalledWith('specialist-1', route.params.initialDate, 'VIDEO_CALL', undefined, true));
     fireEvent.press(screen.getByText('Confirmar cita'));
 
     expect(await screen.findByText('Solicitud enviada')).toBeTruthy();

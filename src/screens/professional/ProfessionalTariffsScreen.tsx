@@ -1,8 +1,9 @@
+import { FirstVisitPolicy } from './components/FirstVisitPolicy';
 import { PackageCatalog } from '../../components/packages/PackageCatalog';
 import { CatalogStatusFilter } from '../../components/common/CatalogStatusFilter';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BookingConfirmationSwitch, BookingConfirmationError } from './components/agenda/BookingConfirmationSwitch';
-import { ActivityIndicator, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { usePreventRemove } from '@react-navigation/native';
 import { useTheme } from '../../contexts/ThemeContext';
 import type { Theme } from '../../constants/theme';
@@ -78,14 +79,16 @@ export function ProfessionalTariffsScreen({ navigation, route }: ScreenProps<'Pr
         .catch(e => setError(getErrorMessage(e, 'No se pudo archivar el servicio.'))).finally(() => setArchiving(false));
     } },
   ]);
-  const changeFirstVisitFree = async (next: boolean) => {
-    if (!catalog || busy || freeError || freeSaveInFlight.current || next === catalog.firstVisitFree) return;
+  const changeFirstVisitFree = async (next: boolean, minutes: number | null) => {
+    if (!catalog || busy || freeError || freeSaveInFlight.current) return;
+    const previous = catalog.firstVisitDurationMinutes ?? null;
+    if (next === catalog.firstVisitFree && minutes === previous) return;
     freeSaveInFlight.current = true;
     setPendingFree(next);
     setError('');
     setMessage('');
     try {
-      setCatalog(await savePrivateCatalogSettings(next, catalog.firstVisitFree));
+      setCatalog(await savePrivateCatalogSettings(next, catalog.firstVisitFree, { minutes, previous }));
     } catch (cause) {
       setFreeError(getErrorMessage(cause, 'No se pudo confirmar el cambio de la primera sesión gratuita. Actualiza el catálogo para comprobar su estado.'));
     } finally {
@@ -116,7 +119,7 @@ export function ProfessionalTariffsScreen({ navigation, route }: ScreenProps<'Pr
             </Pressable>
           ))}
         </View>
-        {!settingsInToolbar && confirmationSwitch}
+        {!settingsInToolbar && catalogTab === 'packages' && confirmationSwitch}
       </View>
       <BookingConfirmationError confirmation={confirmation} />
       <View style={catalogTab === 'packages' ? undefined : { display: 'none' }}>
@@ -127,22 +130,11 @@ export function ProfessionalTariffsScreen({ navigation, route }: ScreenProps<'Pr
       {!!(error || freeError) && <View accessibilityRole="alert" style={styles.feedback}><Text style={styles.error}>{error || freeError}</Text><Button variant="ghost" disabled={loading || busy} onPress={() => void load()}>Actualizar catálogo</Button></View>}
       {!!message && <Text accessibilityLiveRegion="polite" style={styles.success}>{message}</Text>}
       {loading ? <ActivityIndicator accessibilityLabel="Cargando servicios" color={theme.primary} /> : catalog && <>
-        <View style={[styles.filters, compact && styles.stack]}>
+        <FirstVisitPolicy enabled={pendingFree ?? catalog.firstVisitFree} minutes={catalog.firstVisitDurationMinutes ?? null}
+          compact={compact} saving={pendingFree !== null} error={!!freeError} disabled={busy || !!freeError} onChange={changeFirstVisitFree} />
+        <View style={[styles.filters, narrowHeader && styles.stack]}>
           <CatalogStatusFilter archived={archived} onChange={setArchived} />
-          <View style={[styles.bookingSettings, compact && styles.stack]}>
-            {settingsInToolbar && catalogTab === 'services' && confirmationSwitch}
-            <View style={styles.policy}>
-              <View style={styles.policyText}>
-                <Text style={styles.policyTitle}>Primera sesión gratuita</Text>
-                <Text style={styles.small} accessibilityLiveRegion="polite">
-                  {pendingFree !== null ? 'Guardando…' : freeError ? 'Estado sin verificar' : 'Una por paciente · todos tus servicios'}
-                </Text>
-              </View>
-              <Switch accessibilityLabel="Ofrecer primera sesión gratuita" value={pendingFree ?? catalog.firstVisitFree}
-                accessibilityState={{ busy: pendingFree !== null }} disabled={busy || !!freeError}
-                onValueChange={changeFirstVisitFree} trackColor={{ false: theme.textMuted, true: theme.primary }} thumbColor={theme.textOnPrimary} />
-            </View>
-          </View>
+          {catalogTab === 'services' && confirmationSwitch}
         </View>
           {services.length > 8 && <TextInput accessibilityLabel="Buscar servicio" placeholder="Buscar por nombre" placeholderTextColor={theme.textSecondary} value={query} onChangeText={setQuery} style={styles.search} />}
         <View style={styles.list}>
@@ -190,7 +182,6 @@ const createStyles = (t: Theme) => StyleSheet.create({
   secondary: { fontFamily: t.fontSans, fontSize: 14, lineHeight: 21, color: t.textSecondary },
   content: { padding: 24, gap: 24, width: '100%', maxWidth: 1600, alignSelf: 'center', paddingBottom: 48 },
   filters: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 },
-  bookingSettings: { flexDirection: 'row', alignItems: 'center', gap: 18 },
   catalogHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8, borderBottomWidth: 1, borderBottomColor: t.border },
   catalogTabs: { flexDirection: 'row', gap: 24 },
   narrowTabs: { gap: 8 },
@@ -206,8 +197,8 @@ const createStyles = (t: Theme) => StyleSheet.create({
   name: { fontFamily: t.fontSansSemiBold, fontSize: 17, lineHeight: 24, color: t.textPrimary }, price: { fontFamily: t.fontSansSemiBold, fontSize: 14, color: t.textPrimary }, small: { fontFamily: t.fontSans, fontSize: 12, lineHeight: 18, color: t.textSecondary },
   serviceRow: { flexDirection: 'row', alignItems: 'flex-start' },
   optionDetail: { borderTopWidth: 1, borderTopColor: t.borderLight, paddingVertical: 8, gap: 4 },
-  actions: { width: 126, gap: 2 }, policy: { flexDirection: 'row', alignItems: 'center', gap: 12, maxWidth: '100%' },
-  policyText: { flexShrink: 1, gap: 2 }, policyTitle: { fontFamily: t.fontSansSemiBold, fontSize: 14, color: t.textPrimary }, empty: { padding: 32, gap: 8 },
+  actions: { width: 126, gap: 2 },
+  empty: { padding: 32, gap: 8 },
   feedback: { gap: 8, padding: 16, borderWidth: 1, borderColor: t.error, borderRadius: 12 }, error: { color: t.error }, success: { color: t.success, fontFamily: t.fontSans },
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.32)', alignItems: 'flex-end' }, panel: { flex: 1, width: '94%', maxWidth: 1120, backgroundColor: t.bg }, panelHeader: { padding: 20, flexDirection: 'row', alignItems: 'center', gap: 16, borderBottomWidth: 1, borderBottomColor: t.border },
 });

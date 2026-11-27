@@ -10,7 +10,7 @@ export interface PrivateServiceOption {
 }
 export interface PrivateServiceCatalog {
   services: PrivateService[];
-  version: number; firstVisitFree: boolean; options: PrivateServiceOption[];
+  version: number; firstVisitFree: boolean; firstVisitDurationMinutes?: number | null; options: PrivateServiceOption[];
   restrictions: Partial<Record<SessionType, string>>;
 }
 export interface PrivateService {
@@ -30,8 +30,9 @@ export const savePrivateService = async (id: string | undefined, input: PrivateS
     : api.post<{ data: PrivateServiceCatalog }>('/billing/service-catalog/services', input))).data.data;
 export const archivePrivateService = async (service: PrivateService): Promise<PrivateServiceCatalog> =>
   (await api.post<{ data: PrivateServiceCatalog }>(`/billing/service-catalog/services/${encodeURIComponent(service.id)}/archive`, { version: service.version })).data.data;
-export const savePrivateCatalogSettings = async (firstVisitFree: boolean, previousFirstVisitFree: boolean): Promise<PrivateServiceCatalog> =>
-  (await api.patch<{ data: PrivateServiceCatalog }>('/billing/service-catalog/settings', { firstVisitFree, previousFirstVisitFree })).data.data;
+export const savePrivateCatalogSettings = async (firstVisitFree: boolean, previousFirstVisitFree: boolean,
+  duration?: { minutes: number | null; previous: number | null }): Promise<PrivateServiceCatalog> =>
+  (await api.patch<{ data: PrivateServiceCatalog }>('/billing/service-catalog/settings', { firstVisitFree, previousFirstVisitFree, duration })).data.data;
 export interface CatalogOptionInput {
   id?: string; modality: SessionType; durationMinutes: number; priceCents: number;
   isActive: boolean; isPublic: boolean; isPreferred: boolean;

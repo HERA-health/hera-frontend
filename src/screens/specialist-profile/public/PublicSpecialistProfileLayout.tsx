@@ -3,7 +3,9 @@ import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } fr
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useTheme } from '../../../contexts/ThemeContext';
+import type { RootStackParamList } from '../../../constants/types';
 import { layout, spacing } from '../../../constants/colors';
+import { FirstVisitScheduleSelect } from '../../../components/scheduling/FirstVisitScheduleSelect';
 import { Button } from '../../../components/common/Button';
 import { useSpecialistProfileActions } from '../useSpecialistProfileActions';
 import type { CertificateItem, Review, SelectedProfileSlot, Specialist } from '../types';
@@ -36,7 +38,7 @@ interface Props {
   notice?: React.ReactNode;
   header?: React.ReactNode;
   onBrowseSpecialists: () => void;
-  onBookSession: (slot?: SelectedProfileSlot, optionId?: string) => void;
+  onBookSession: (slot?: SelectedProfileSlot, optionId?: string, schedule?: RootStackParamList['Booking']['initialVisitSchedule']) => void;
   onOpenCertificate: (certificate: CertificateItem) => void;
   onReviewSubmitted: () => void;
   onScrollChange?: (scrolled: boolean) => void;
@@ -63,6 +65,10 @@ function ProfileContent({ specialist, reviews, reviewsVisible, canBook, isAuthen
   const [optionId, setOptionId] = useState(initialOptionId);
   const option = specialist.publicOptions?.find(item => item.optionId === optionId) ?? specialist.publicOptions?.[0];
   const resolvedOptionId = option?.optionId;
+  const [previewFirstVisit, setPreviewFirstVisit] = useState(true);
+  const firstMinutes = specialist.firstVisitFree ? specialist.firstVisitDurationMinutes : null;
+  const regularMinutes = option?.durationMinutes ?? specialist.slotDuration;
+  const hasVisitChoice = firstMinutes != null && regularMinutes != null && firstMinutes !== regularMinutes;
   const [slotState, setSlotState] = useState<{ optionId?: string; slot: SelectedProfileSlot } | null>(null);
   const selectedSlot = !assistedStart && slotState?.optionId === resolvedOptionId ? slotState?.slot ?? null : null;
   const [validatedOptionId, setValidatedOptionId] = useState<string | null>(null);
@@ -88,11 +94,12 @@ function ProfileContent({ specialist, reviews, reviewsVisible, canBook, isAuthen
     setSlotState(slot ? { optionId: resolvedOptionId, slot } : null);
   }, [resolvedOptionId]);
   const handleOptionChange = useCallback((id: string) => {
+    if (id === resolvedOptionId) return;
     setOptionId(id);
     setSlotState(null);
     setValidatedOptionId(null);
     setAvailabilityNotice('');
-  }, []);
+  }, [resolvedOptionId]);
   const handleValidationChange = useCallback((validated: boolean) => {
     setValidatedOptionId(validated ? resolvedOptionId ?? 'default' : null);
   }, [resolvedOptionId]);
@@ -103,7 +110,8 @@ function ProfileContent({ specialist, reviews, reviewsVisible, canBook, isAuthen
   useEffect(() => { setSlotState(current => current?.optionId === resolvedOptionId ? current : null); }, [resolvedOptionId]);
   const continueBooking = (slot?: SelectedProfileSlot) => {
     if (!canBook || (slot && !selectionValidated)) return;
-    onBookSession(slot, resolvedOptionId);
+    if (hasVisitChoice && !assistedStart) onBookSession(slot, resolvedOptionId, previewFirstVisit ? 'first' : 'regular');
+    else onBookSession(slot, resolvedOptionId);
   };
   const ctaTop = contentTop + columnsY + summaryY + cta.y - scrollY;
   const ctaVisible = cta.height > 0 && ctaTop >= headerOcclusion && ctaTop + cta.height <= viewportHeight;
@@ -124,8 +132,16 @@ function ProfileContent({ specialist, reviews, reviewsVisible, canBook, isAuthen
   const bookingDetails = <>
     {canBook && !assistedStart ? <View style={[styles.panel, { backgroundColor: theme.bgCard, borderColor: theme.borderLight }]}>
       {availabilityNotice ? <Text accessibilityRole="alert" style={{ color: theme.textPrimary, fontFamily: theme.fontSansSemiBold, fontSize: 13, lineHeight: 20 }}>{availabilityNotice}</Text> : null}
-      <SelectableAvailabilityPreview key={resolvedOptionId ?? 'default'} compact revalidateOnFocus specialistId={specialist.id}
-        optionId={resolvedOptionId} nextAvailable={specialist.nextAvailable} selectedSlot={selectedSlot}
+      {hasVisitChoice && <FirstVisitScheduleSelect firstMinutes={firstMinutes} regularMinutes={regularMinutes}
+        firstVisit={previewFirstVisit} onChange={value => {
+          if (value === previewFirstVisit) return;
+          setPreviewFirstVisit(value);
+          setSlotState(null);
+          setValidatedOptionId(null);
+          setAvailabilityNotice('');
+        }} />}
+      <SelectableAvailabilityPreview firstVisit={hasVisitChoice && previewFirstVisit} key={resolvedOptionId ?? 'default'} compact revalidateOnFocus specialistId={specialist.id}
+        optionId={resolvedOptionId} nextAvailable={hasVisitChoice && previewFirstVisit ? null : specialist.nextAvailable} selectedSlot={selectedSlot}
         onSlotChange={handleSlotChange} onSelectionInvalidated={handleInvalidated} onValidationChange={handleValidationChange}
         timeZoneLabel="Hora peninsular española" onOpenFullCalendar={() => continueBooking()} />
     </View> : null}

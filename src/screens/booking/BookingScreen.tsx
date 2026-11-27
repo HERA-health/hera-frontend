@@ -9,6 +9,8 @@ import { formatPrivatePrice } from '../../utils/privateTariff';
 import { loadPublicBookingOptions, type PrivateServiceOption } from '../../services/privateCatalogService';
 import { initialPrivateOption, privateOptionForModality } from '../../utils/privateServiceSelection';
 import { BookingServiceSection } from './components/BookingServiceSection';
+import { FirstVisitScheduleSelect } from '../../components/scheduling/FirstVisitScheduleSelect';
+import { parseSchedulerTimeToMinutes } from '../../utils/schedulerDateTime';
 import { SimpleDropdown } from '../../components/common/SimpleDropdown';
 import { durableCommandKey } from '../../services/heraCommissionService';
 import { showAppAlert, useAppAlert } from '../../components/common/alert';
@@ -299,7 +301,7 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
   const [pendingServiceId, setPendingServiceId] = useState<string>();
   const selectedServiceId = selectedOption?.serviceId ?? pendingServiceId;
   const serviceOptions = useMemo(() => bookingOptions.filter(option => option.isActive && option.serviceId === selectedServiceId), [bookingOptions, selectedServiceId]);
-  const slotDuration = selectedOption?.durationMinutes ?? specialist.sessionDuration ?? 60;
+  const serviceDuration = selectedOption?.durationMinutes ?? specialist.sessionDuration ?? 60;
   const offersOnline = specialist.offersOnline;
   const offersInPerson = specialist.offersInPerson;
   const officeLocation = specialist.officeLocation;
@@ -372,7 +374,21 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [slotsError, setSlotsError] = useState<string | null>(null);
   const [paymentAcceptance, setPaymentAcceptance] = useState<PaymentAcceptance>();
-  const [bookingQuote, setBookingQuote] = useState<BookingQuote | null>(null);
+  const [serviceQuote, setBookingQuote] = useState<BookingQuote | null>(null);
+  const [verifiedQuote, setVerifiedQuote] = useState<BookingQuote | null>(null);
+  const [preferredFirstVisit, setPreviewFirstVisit] = useState<boolean | undefined>(
+    routeParams.initialVisitSchedule ? routeParams.initialVisitSchedule === 'first' : undefined,
+  );
+  const initialStart = initialSlotSelection && parseSchedulerTimeToMinutes(initialSlotSelection.startTime);
+  const initialEnd = initialSlotSelection?.endTime === '24:00' ? 24 * 60
+    : initialSlotSelection && parseSchedulerTimeToMinutes(initialSlotSelection.endTime);
+  const previewFirstVisit = preferredFirstVisit ?? (initialStart == null || initialEnd == null || initialEnd - initialStart !== serviceDuration);
+  const identityVerified = verifiedQuote !== null;
+  const bookingQuote = verifiedQuote ?? serviceQuote;
+  const previewDuration = isAnonymousBooking ? serviceQuote?.firstVisitDurationMinutes : undefined;
+  const slotDuration = bookingQuote?.firstVisitFreeApplied
+    ? bookingQuote.duration : !identityVerified && previewFirstVisit ? previewDuration ?? serviceDuration : serviceDuration;
+  const customVisitDuration = slotDuration !== serviceDuration;
   const [patientIdentity, setPatientIdentity] = useState(() => {
     const parts = user?.name?.trim().split(/\s+/) ?? [];
     return { firstName: parts[0] ?? '', lastName: parts.slice(1).join(' ') };
@@ -400,7 +416,6 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
   } | null>(null);
   const [verification, setVerification] = useState<{ requestId: string; expiresAt: string; codeLength?: number }>();
   const [verificationCode, setVerificationCode] = useState('');
-  const [identityVerified, setIdentityVerified] = useState(false);
   const [sessionPhone, setSessionPhone] = useState('');
   useEffect(() => {
     let current = true;
@@ -430,7 +445,7 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
     }
   }, [defaultSessionType, modalityFlags, sessionType]);
 
-  useEffect(() => { setVerification(undefined); setVerificationCode(''); setIdentityVerified(false); }, [selectedDate, selectedSlot?.startTime, selectedOptionId, publicContact, sessionPhone, bookingIntentToken]);
+  useEffect(() => { setVerification(undefined); setVerificationCode(''); setVerifiedQuote(null); }, [selectedDate, selectedSlot?.startTime, selectedOptionId, publicContact, sessionPhone, bookingIntentToken]);
 
   const publicContactResult = useMemo(
     () => publicBookingContactSchema.safeParse(publicContact),
@@ -461,19 +476,20 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
     }
 
     setQuoteLoading(true);
+    setVerifiedQuote(null);
     setBookingQuote(null);
     setQuoteError(null);
 
     const quoteRequest = referralBooking
-      ? getReferralBookingQuote(referralBooking.id, referralBooking.access, { type: sessionType, duration: slotDuration, optionId: selectedOptionId })
+      ? getReferralBookingQuote(referralBooking.id, referralBooking.access, { type: sessionType, duration: serviceDuration, optionId: selectedOptionId })
       : isAnonymousBooking
       ? sessionsService.getPublicBookingQuote({
           specialistId,
           type: sessionType,
-          duration: slotDuration,
+          duration: serviceDuration,
           optionId: selectedOptionId, patientPackageId,
         })
-      : sessionsService.getBookingQuote(specialistId, sessionType, slotDuration, selectedOptionId, patientPackageId);
+      : sessionsService.getBookingQuote(specialistId, sessionType, serviceDuration, selectedOptionId, patientPackageId);
 
     quoteRequest
       .then((quote) => {
@@ -518,7 +534,7 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
     isAnonymousBooking,
     modalityFlags,
     sessionType,
-    slotDuration,
+    serviceDuration,
     specialistId,
   ]);
 
@@ -527,7 +543,7 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
     const remaining = Date.parse(bookingQuote.expiresAt) - Date.now();
     const timer = setTimeout(() => {
       // The automatic refresh is an estimate for guests, so review their personal price again.
-      setIdentityVerified(false);
+      setVerifiedQuote(null);
       setBookingQuote(null);
       setQuoteRetry(v => v + 1);
     }, Math.max(0, remaining));
@@ -608,14 +624,13 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
       setLoadingSlots(true);
       setSlotsError(null);
       setAvailableSlots([]);
-      setSelectedSlot(null);
       if (!options.keepInitialSlot && !options.keepTime) {
         initialSlotRef.current = null;
         setSelectedSlot(null);
       }
 
       try {
-        const slots = await sessionsService.getAvailableSlots(specialistId, date, selectedOptionId, patientPackageId);
+        const slots = await sessionsService.getAvailableSlots(specialistId, date, selectedOptionId, patientPackageId, customVisitDuration);
         if (!isLatestRequest()) {
           return;
         }
@@ -633,7 +648,7 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
           const matchingSlot = slots.find((slot) => (
             slot.available !== false
             && slot.startTime === initialSlot.startTime
-            && slot.endTime === initialSlot.endTime
+            && (customVisitDuration || routeParams.initialVisitSchedule === 'first' || slot.endTime === initialSlot.endTime)
           ));
 
           if (matchingSlot) {
@@ -652,6 +667,7 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
           return;
         }
 
+        setSelectedSlot(null);
         if (['PACKAGE_PAYMENT_REQUIRED', 'PACKAGE_PAYMENT_REVIEW'].includes(getErrorCode(error) ?? '')) {
           setPackagePaymentError(getErrorMessage(error, 'Consulta el pago de tu bono antes de reservar.'));
           setSlotsError(null); setAvailableSlots([]); return;
@@ -671,7 +687,7 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
         }
       }
     },
-    [appAlert, specialistId, selectedOptionId, slotDuration, patientPackageId],
+    [appAlert, specialistId, selectedOptionId, slotDuration, patientPackageId, customVisitDuration, routeParams.initialVisitSchedule],
   );
 
   useEffect(() => {
@@ -683,17 +699,19 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
       setLoadingSlots(false);
       return;
     }
+    if (!serviceQuote || (serviceQuote.optionId && serviceQuote.optionId !== selectedOptionId)) return;
     const selectionKey = JSON.stringify([specialistId, selectedDate, selectedOptionId, sessionType, slotDuration, patientPackageId, packageRevision]);
     if (loadedSelectionRef.current === selectionKey) return;
     loadedSelectionRef.current = selectionKey;
     const initialDateToLoad = initialDateLoadRef.current;
-    if (initialDateToLoad) {
-      initialDateLoadRef.current = null;
+    initialDateLoadRef.current = null;
+    if (initialDateToLoad && initialDateToLoad === selectedDate) {
       void loadAvailableSlots(initialDateToLoad, { keepInitialSlot: true });
     } else if (selectedDate) {
+      initialSlotRef.current = null;
       void loadAvailableSlots(selectedDate, { keepTime: selectedSlot?.startTime });
     }
-  }, [specialistId, selectedOptionId, selectedDate, sessionType, slotDuration, patientPackageId, packageRevision, loadAvailableSlots]);
+  }, [specialistId, selectedOptionId, selectedDate, sessionType, slotDuration, patientPackageId, packageRevision, loadAvailableSlots, serviceQuote]);
 
   const handleDateSelect = useCallback(
     (date: string) => {
@@ -714,6 +732,7 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
       }
 
       setSelectedSlot(slot);
+      setOptionsError('');
       analyticsService.track('booking_slot_selected');
     },
     [loading],
@@ -832,7 +851,7 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
       const dateTime = madridDateTime.iso;
 
       if (referralBooking) {
-        const payload = { patientIdentity, paymentAcceptance, ...(needsExternalBilling ? { billing: sessionBilling } : {}), date: dateTime, duration: slotDuration, type: sessionType, optionId: selectedOptionId, quoteReference: bookingQuote.quoteReference, sessionPhone };
+        const payload = { patientIdentity, paymentAcceptance, ...(needsExternalBilling ? { billing: sessionBilling } : {}), date: dateTime, duration: serviceDuration, type: sessionType, optionId: selectedOptionId, quoteReference: bookingQuote.quoteReference, sessionPhone };
         const { commandKey } = await durableCommandKey('referral-booking', payload);
         const createdSession = await bookGuestReferral(referralBooking.id, referralBooking.access, { ...payload, commandKey });
         if (createdSession.kind === 'payment') {
@@ -853,7 +872,7 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
         const request = await sessionsService.requestPublicBooking({
           specialistId,
           date: dateTime,
-          duration: slotDuration,
+          duration: serviceDuration,
           type: sessionType,
           optionId: selectedOptionId, patientPackageId,
           sessionPhone,
@@ -868,7 +887,8 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
         }
         if (!identityVerified) {
           const quote = await sessionsService.verifyPublicBookingQuote(verification.requestId, verificationCode);
-          setBookingQuote(quote); setIdentityVerified(true);
+          setPreviewFirstVisit(quote.firstVisitFreeApplied);
+          setVerifiedQuote(quote);
           return;
         }
         const createdSession = await sessionsService.verifyPublicBooking(verification.requestId, verificationCode, bookingQuote.quoteReference, paymentAcceptance, needsExternalBilling ? sessionBilling : undefined);
@@ -900,7 +920,7 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
         sessionPhone,
         intentToken: bookingIntentToken,
         date: dateTime,
-        duration: slotDuration,
+        duration: serviceDuration,
         type: sessionType,
       });
 
@@ -948,7 +968,7 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
         error instanceof Error
           ? error.message
           : 'No se pudo crear la cita. Intenta de nuevo.';
-      setIdentityVerified(false); setQuoteRetry(v => v + 1);
+      setVerifiedQuote(null); setQuoteRetry(v => v + 1);
       showBookingMessage(appAlert, 'Error', message);
     } finally {
       submissionInFlightRef.current = false;
@@ -965,7 +985,7 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
     isAnonymousBooking,
     specialistId,
     specialistName,
-    slotDuration,
+    serviceDuration,
     sessionType,
     bookingQuote,
     canConfirmBooking,
@@ -1368,6 +1388,10 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
       </View>
       <View style={styles.mainSurface}>
         {renderSectionHeading(3, 'Fecha y hora')}
+        {previewDuration != null && previewDuration !== serviceDuration && !identityVerified && (
+          <FirstVisitScheduleSelect firstMinutes={previewDuration} regularMinutes={serviceDuration}
+            firstVisit={previewFirstVisit} disabled={loading} onChange={setPreviewFirstVisit} />
+        )}
         <CompactCalendarColumn layoutWidth={embedded ? width : undefined} selectedDate={selectedDate} onDateSelect={handleDateSelect} disabled={loading || !selectedOption} busy={loading} />
         <TimeSlotsColumn availabilityKey={`${specialistId}:${selectedOptionId}:${sessionType}`}
           layoutWidth={embedded ? width : undefined}

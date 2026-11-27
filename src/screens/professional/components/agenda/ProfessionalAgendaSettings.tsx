@@ -6,7 +6,7 @@ import { getErrorMessage } from '../../../../constants/errors';
 import { getAgendaPreferences, updateAgendaPreferences, type AgendaPreferences } from '../../../../services/professionalService';
 
 const FIELDS: { key: keyof AgendaPreferences; label: string; description: string }[] = [
-  { key: 'autoConfirmSessionRequests', label: 'Confirmación automática', description: 'Confirma al momento las reservas en horarios disponibles. Si la desactivas, podrás aprobarlas antes de confirmarlas.' },
+  { key: 'autoConfirmSessionRequests', label: 'Confirmación automática de citas', description: 'Confirma al momento las reservas en horarios disponibles. Si la desactivas, podrás aprobarlas antes de confirmarlas.' },
   { key: 'emailSessionRequestsEnabled', label: 'Nueva reserva', description: 'Recibe un email cuando un paciente reserve o solicite una cita.' },
   { key: 'emailSessionCancellationsEnabled', label: 'Cancelación de cita', description: 'Recibe un email si un paciente cancela una cita.' },
   { key: 'emailSessionReminder24hEnabled', label: 'Recordatorio 24 h antes', description: 'Recibe un email por cada cita confirmada, 24 horas antes.' },

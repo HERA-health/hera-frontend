@@ -219,9 +219,10 @@ export function ManagedSessionSchedulerModal({
   const originalOptionId = initialValues?.optionId ?? catalogOptions.find(o =>
     o.serviceKey === 'base' && o.modality === initialType && o.durationMinutes === initialDuration)?.id;
   const dateOnlyChange = isEditing && patientPackageId === initialValues?.patientPackageId && selectedOptionId === originalOptionId
-    && Number(durationValue) === initialDuration && type === initialType;
+    && type === initialType && (originalOptionId != null || Number(durationValue) === initialDuration);
   const selectedOption = catalogOptions.find(o => o.id === selectedOptionId && o.modality === type);
-  const durationOptions = [...new Set([...catalogOptions.filter(o => o.modality === type && o.serviceId === selectedOption?.serviceId).map(o => o.durationMinutes), ...(dateOnlyChange && initialDuration ? [initialDuration] : [])])].sort((a,b) => a-b);
+  const customVisitDuration = !dateOnlyChange && quote?.firstVisitFreeApplied && quote.duration !== selectedOption?.durationMinutes ? quote.duration : null;
+  const durationOptions = customVisitDuration != null ? [customVisitDuration] : [...new Set([...catalogOptions.filter(o => o.modality === type && o.serviceId === selectedOption?.serviceId).map(o => o.durationMinutes), ...(dateOnlyChange && initialDuration ? [initialDuration] : [])])].sort((a,b) => a-b);
   useEffect(() => {
     if (!visible) return;
     let current = true;
@@ -369,7 +370,7 @@ export function ManagedSessionSchedulerModal({
       : theme.warning;
   const todayDateKey = getMadridDateKey(new Date(Date.now()));
   const selectedDateLabel = dateValue ? formatDateLabel(dateValue) : 'Selecciona fecha';
-  const selectedDurationNumber = Number(durationValue);
+  const selectedDurationNumber = dateOnlyChange && initialDuration != null ? initialDuration : customVisitDuration ?? Number(durationValue);
   const selectedDurationIsAllowed = durationOptions.includes(selectedDurationNumber);
   const selectedTimeIsAllowed = isManagedSessionTimeOption(timeValue);
   const schedulerSlots = useMemo(
@@ -490,7 +491,7 @@ export function ManagedSessionSchedulerModal({
       clientId,
       date: dateValue,
       time: timeValue,
-      duration: Number(durationValue),
+      duration: selectedDurationNumber,
       type,
     }, new Date(), durationOptions);
 
@@ -508,7 +509,8 @@ export function ManagedSessionSchedulerModal({
 
     if (!dateOnlyChange && (!selectedOption || !quote?.quoteReference || (quote.expiresAt && Date.parse(quote.expiresAt) <= Date.now()))) { setQuoteRetry(v => v + 1); setErrors({ form: quoteError || 'Selecciona un servicio y revisa el precio actualizado.' }); return; }
     if (type === 'PHONE_CALL' && !sessionPhone.trim() && !dateOnlyChange) { setErrors({ form: 'Indica el teléfono de destino para esta cita.' }); return; }
-    const input = { ...validation.input, patientPackageId: initialValues?.paidOnline ? undefined : patientPackageId ?? (isEditing ? null : undefined), ...(!dateOnlyChange ? { optionId: selectedOption?.id, quoteReference: quote?.quoteReference } : {}), ...(sessionPhone.trim() ? { sessionPhone } : {}) };
+    // The option is identified by its catalog duration. The server schedules the accepted quote's minutes.
+    const input = { ...validation.input, duration: dateOnlyChange ? validation.input.duration : selectedOption?.durationMinutes ?? validation.input.duration, patientPackageId: initialValues?.paidOnline ? undefined : patientPackageId ?? (isEditing ? null : undefined), ...(!dateOnlyChange ? { optionId: selectedOption?.id, quoteReference: quote?.quoteReference } : {}), ...(sessionPhone.trim() ? { sessionPhone } : {}) };
     setErrors({});
     try {
       await onSubmit(input);
@@ -897,7 +899,7 @@ export function ManagedSessionSchedulerModal({
             )}
 
             <View style={{ padding: 16, gap: 8, backgroundColor: theme.bgAlt, borderRadius: 12 }}>
-              <Text style={{ color: theme.textPrimary, fontWeight: '600' }}>{dateOnlyChange ? 'Se conserva el precio acordado de esta cita' : quote ? (quote.firstVisitFreeApplied ? 'Primera sesión gratuita · 0 €' : quote.patientPackageId ? 'Incluida en tu bono · Sin importe adicional' : quote.price.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' }) + ' · Precio final') : quoteError || 'Selecciona paciente, modalidad y duración para consultar el precio'}</Text>
+              <Text style={{ color: theme.textPrimary, fontWeight: '600' }}>{dateOnlyChange ? 'Se conserva el precio acordado de esta cita' : quote ? (quote.firstVisitFreeApplied ? `Primera sesión gratuita · ${quote.duration} min · 0 €` : quote.patientPackageId ? 'Incluida en tu bono · Sin importe adicional' : quote.price.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' }) + ' · Precio final') : quoteError || 'Selecciona paciente, modalidad y duración para consultar el precio'}</Text>
               {type === 'PHONE_CALL' && <><Text style={{ color: theme.textSecondary }}>Llamarás al número indicado a la hora de la cita.</Text><TextInput accessibilityLabel="Teléfono para esta cita" value={sessionPhone} onChangeText={setSessionPhone} placeholder={dateOnlyChange ? 'Conservar teléfono de la cita' : '+34 600 000 000'} placeholderTextColor={theme.textSecondary} keyboardType="phone-pad" style={{ color: theme.textPrimary, borderWidth: 1, borderColor: theme.border, borderRadius: 8, padding: 12, minHeight: 44 }} /></>}
             </View>
             {errors.form && (

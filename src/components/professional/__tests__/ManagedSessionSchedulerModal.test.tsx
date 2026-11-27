@@ -1007,6 +1007,18 @@ describe('ManagedSessionSchedulerModal buffer override UX', () => {
       expect(mockGetManagedSessionSlotOptions).toHaveBeenCalled();
     });
   });
+  it('checks the agenda with the first visit duration while keeping its service option', async () => {
+    jest.mocked(getManagedBookingQuote).mockResolvedValueOnce({
+      specialistId: 'owner', optionId: 'VIDEO_CALL:60', duration: 30, firstVisitFreeApplied: true,
+      price: 0, basePrice: 60, currency: 'EUR', tariffId: null, tariffName: null, baseTariffName: null, quoteReference: 'intro-quote',
+    });
+    render(<ManagedSessionSchedulerModal visible clients={[client]} initialClientId={client.id} onClose={jest.fn()} onSubmit={jest.fn(async () => {})} />);
+    await screen.findByText('Primera sesión gratuita · 30 min · 0 €');
+    expect(screen.getByTestId('managed-session-duration-option-30')).toBeTruthy();
+    expect(getManagedBookingQuote).toHaveBeenLastCalledWith(expect.objectContaining({ optionId: 'VIDEO_CALL:60', duration: 60 }));
+    await waitFor(() => expect(mockGetManagedSessionSlotOptions).toHaveBeenLastCalledWith(expect.objectContaining({ duration: 30 })));
+  });
+
   it('updates duration, slots and quote when changing to a modality with a different duration', async () => {
     const video: PrivateServiceOption = { id: 'video-50', serviceId: 'base', serviceKey: 'base', serviceName: 'General', name: 'General',
       modality: 'VIDEO_CALL', durationMinutes: 50, priceCents: 5000, currency: 'EUR', isActive: true, isPublic: true,

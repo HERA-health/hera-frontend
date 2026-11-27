@@ -123,6 +123,7 @@ export interface PublicCreatedSession {
 }
 
 export interface BookingQuote {
+  firstVisitDurationMinutes?: number;
   patientIdentity?: { firstName: string; lastName: string };
   billingReadiness?: import('./billingReadiness').BillingReadiness;
   billingDataComplete?: boolean;
@@ -149,11 +150,12 @@ export const getAvailableSlots = async (
   specialistId: string,
   date: string, // YYYY-MM-DD format
   optionId?: string,
-  patientPackageId?: string
+  patientPackageId?: string,
+  firstVisit?: boolean
 ): Promise<TimeSlot[]> => {
   try {
     const url = patientPackageId ? `/patient-packages/${encodeURIComponent(patientPackageId)}/available-slots?date=${date}` : `/specialists/${specialistId}/available-slots?date=${date}`;
-    const response = await api.get(url, { params: { optionId } });
+    const response = await api.get(url, { params: { optionId, firstVisit: firstVisit || undefined } });
     const data = response.data.data as AvailableSlotsResponse | undefined;
     return data?.slotOptions ?? data?.slots ?? [];
   } catch (error: unknown) {

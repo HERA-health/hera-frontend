@@ -120,7 +120,7 @@ it('shows availability immediately and blocks a selected time while revalidating
   render(<PublicSpecialistProfileLayout {...props} initialOptionId="phone" />);
   expect(summary().getByText('General · Teléfono')).toBeTruthy();
   fireEvent.press(await screen.findByText('11:05'));
-  expect(sessions.getAvailableSlots).toHaveBeenLastCalledWith('one', '2099-07-29', 'phone');
+  expect(sessions.getAvailableSlots).toHaveBeenLastCalledWith('one', '2099-07-29', 'phone', undefined, false);
   expect(jest.mocked(useDiscoveryRevalidation).mock.calls.at(-1)?.[1]).toBe(true);
   let resolveSlots: (slots: sessions.TimeSlot[]) => void = () => { throw new Error('Request not started'); };
   jest.mocked(sessions.getAvailableSlots).mockImplementationOnce(() => new Promise(resolve => { resolveSlots = resolve; }));
@@ -147,6 +147,22 @@ it('reserves directly without a time, or carries the selected option, date and t
   await act(async () => {});
 });
 
+it('carries the displayed schedule to the calendar and reserves after switching back to cached hours', async () => {
+  const firstSlot = { ...slot, endTime: '11:30' };
+  jest.mocked(sessions.getAvailableSlots).mockImplementation(async (_id, _date, _option, _package, first) => [first ? firstSlot : slot]);
+  render(<PublicSpecialistProfileLayout {...props} specialist={{ ...specialist, nextAvailable: null, firstVisitFree: true, firstVisitDurationMinutes: 25 }} />);
+  await screen.findByText('11:05');
+  fireEvent.press(screen.getByText('Consulta habitual · 50 min'));
+  await screen.findByText('11:05');
+  fireEvent.press(screen.getByText('Ver calendario completo →'));
+  expect(props.onBookSession).toHaveBeenLastCalledWith(undefined, 'video', 'regular');
+  fireEvent.press(screen.getByText('Primera visita · 25 min'));
+  fireEvent.press(await screen.findByText('11:05'));
+  fireEvent.press(screen.getByText('Primera visita · 25 min'));
+  reserve();
+  expect(props.onBookSession).toHaveBeenLastCalledWith({ date: expect.any(String), slot: firstSlot }, 'video', 'first');
+});
+
 it('clears the time when changing option and falls back to the first public option', async () => {
   render(<PublicSpecialistProfileLayout {...props} initialOptionId="withdrawn" />);
   expect(summary().getByText('General · Videollamada')).toBeTruthy();
@@ -154,7 +170,7 @@ it('clears the time when changing option and falls back to the first public opti
   fireEvent.press(screen.getByRole('radio', { name: /General · Teléfono · 30 min/ }));
   expect(screen.getByRole('radio', { name: /General · Teléfono · 30 min/ }).props.accessibilityState.checked).toBe(true);
   expect(screen.getByRole('radio', { name: /General · Videollamada · 50 min/ }).props.accessibilityState.checked).toBe(false);
-  await waitFor(() => expect(sessions.getAvailableSlots).toHaveBeenLastCalledWith('one', '2099-07-29', 'phone'));
+  await waitFor(() => expect(sessions.getAvailableSlots).toHaveBeenLastCalledWith('one', '2099-07-29', 'phone', undefined, false));
   expect(screen.getByText('Ver calendario completo →')).toBeTruthy();
   fireEvent.press(screen.getByText('Ver calendario completo →'));
   expect(props.onBookSession).toHaveBeenCalledWith(undefined, 'phone');
@@ -266,7 +282,7 @@ it('exposes alternate services inline and updates the summary and availability',
   render(<PublicSpecialistProfileLayout {...props} specialist={{ ...specialist, publicOptions: alternatives }} />);
   expect(screen.getByText('Servicios')).toBeTruthy();
   fireEvent.press(screen.getByText('Pareja y familia'));
-  await waitFor(() => expect(sessions.getAvailableSlots).toHaveBeenLastCalledWith('one', '2099-07-29', 'couples'));
+  await waitFor(() => expect(sessions.getAvailableSlots).toHaveBeenLastCalledWith('one', '2099-07-29', 'couples', undefined, false));
   expect(summary().getByText('Pareja y familia · Videollamada')).toBeTruthy();
   await act(async () => {});
 });

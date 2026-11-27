@@ -14,6 +14,7 @@ import type { SelectedProfileSlot } from '../types';
 interface SelectableAvailabilityPreviewProps {
   specialistId: string;
   optionId?: string;
+  firstVisit?: boolean;
   nextAvailable?: string | null;
   canBook?: boolean;
   selectedSlot?: SelectedProfileSlot | null;
@@ -62,6 +63,7 @@ const getDayNumberLabel = (dateKey: string): string =>
 export const SelectableAvailabilityPreview: React.FC<SelectableAvailabilityPreviewProps> = ({
   specialistId,
   optionId,
+  firstVisit = false,
   nextAvailable,
   canBook = true,
   selectedSlot,
@@ -114,7 +116,7 @@ export const SelectableAvailabilityPreview: React.FC<SelectableAvailabilityPrevi
     onSlotChange(null);
   }, [dates, onSlotChange, specialistId, startDate, optionId]);
 
-  const cacheKey = `${specialistId}:${optionId ?? 'default'}:${selectedDate}`;
+  const cacheKey = `${specialistId}:${optionId ?? 'default'}:${firstVisit}:${selectedDate}`;
   useDiscoveryRevalidation(useCallback(() => {
     if (!canBook || activeSlotRequest.current?.cacheKey === cacheKey) return;
     responseHandlers.current.onValidationChange?.(false);
@@ -128,14 +130,20 @@ export const SelectableAvailabilityPreview: React.FC<SelectableAvailabilityPrevi
   useEffect(() => {
     let active = true;
     const loadSlots = async () => {
-      if (!canBook || slotCache[cacheKey]) return;
+      if (!canBook) return;
+      if (slotCache[cacheKey]) {
+        setLoadingDate(null);
+        setErrorDate(null);
+        responseHandlers.current.onValidationChange?.(true);
+        return;
+      }
       const request = { cacheKey };
       activeSlotRequest.current = request;
       setLoadingDate(selectedDate);
       setErrorDate(null);
       responseHandlers.current.onValidationChange?.(false);
       try {
-        const slots = await sessionsService.getAvailableSlots(specialistId, selectedDate, optionId);
+        const slots = await sessionsService.getAvailableSlots(specialistId, selectedDate, optionId, undefined, firstVisit);
         if (!active) return;
         const availableSlots = slots.filter((slot) => slot.available !== false);
         const { selectedSlot, onSlotChange, onSelectionInvalidated, onValidationChange } = responseHandlers.current;
@@ -162,7 +170,7 @@ export const SelectableAvailabilityPreview: React.FC<SelectableAvailabilityPrevi
     };
     void loadSlots();
     return () => { active = false; };
-  }, [canBook, cacheKey, selectedDate, slotCache, specialistId, optionId]);
+  }, [canBook, cacheKey, selectedDate, slotCache, specialistId, optionId, firstVisit]);
 
   if (!canBook) return null;
 
@@ -195,7 +203,7 @@ export const SelectableAvailabilityPreview: React.FC<SelectableAvailabilityPrevi
   const handleDateSelect = (date: string) => {
     if (date === selectedDate) return;
     setSelectedDate(date);
-    onValidationChange?.(Boolean(slotCache[`${specialistId}:${optionId ?? 'default'}:${date}`]));
+    onValidationChange?.(false);
     if (selectedSlot && selectedSlot.date !== date) onSlotChange(null);
   };
 

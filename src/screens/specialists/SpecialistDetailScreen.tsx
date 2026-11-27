@@ -103,7 +103,7 @@ export const SpecialistProfileContent: React.FC<SpecialistDetailScreenProps & { 
     return () => { requestSequence.current += 1; };
   }, [loadSpecialistDetails]));
 
-  const handleBookSession = useCallback((selectedSlot?: SelectedProfileSlot, optionId?: string) => {
+  const handleBookSession = useCallback((selectedSlot?: SelectedProfileSlot, optionId?: string, initialVisitSchedule?: RootStackParamList['Booking']['initialVisitSchedule']) => {
     if (!specialist) return;
     if (!canBook) {
       showAppAlert(
@@ -119,6 +119,7 @@ export const SpecialistProfileContent: React.FC<SpecialistDetailScreenProps & { 
     navigation.navigate('Booking', {
       specialistId: specialist.id,
       optionId,
+      initialVisitSchedule,
       intentToken: route.params?.intentToken,
       ...(selectedSlot ? {
         initialDate: selectedSlot.date,

@@ -86,7 +86,7 @@ describe('SelectableAvailabilityPreview', () => {
     expect(screen.queryByText('09:00')).toBeNull();
     fireEvent.press(screen.getByText('12:05'));
     expect(onSlotChange).toHaveBeenLastCalledWith({ date: '2099-07-29', slot: newSlot });
-    expect(mockedSessionsService.getAvailableSlots).toHaveBeenCalledWith('specialist-1', '2099-07-29', 'new');
+    expect(mockedSessionsService.getAvailableSlots).toHaveBeenCalledWith('specialist-1', '2099-07-29', 'new', undefined, false);
   });
 
   it('selects a slot without navigating and deselects it on a second press', async () => {
@@ -168,7 +168,7 @@ describe('SelectableAvailabilityPreview', () => {
       expect(mockedSessionsService.getAvailableSlots).toHaveBeenCalledWith(
         'specialist-1',
         '2099-07-30',
-        undefined,
+        undefined, undefined, false,
       );
     });
   });
@@ -201,7 +201,7 @@ describe('SelectableAvailabilityPreview', () => {
       expect(mockedSessionsService.getAvailableSlots).toHaveBeenCalledWith(
         'specialist-2',
         '2099-07-29',
-        undefined,
+        undefined, undefined, false,
       );
       expect(screen.getByText('16:00')).toBeTruthy();
     });

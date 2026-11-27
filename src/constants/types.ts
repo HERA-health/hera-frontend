@@ -178,6 +178,7 @@ export type RootStackParamList = {
     initialDate?: string;
     initialSlotStartTime?: string;
     initialSlotEndTime?: string;
+    initialVisitSchedule?: 'first' | 'regular';
   };
   Questionnaire: undefined;
   QuestionnaireResults: { adviceId?: string } | undefined;

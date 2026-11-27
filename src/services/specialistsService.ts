@@ -40,6 +40,7 @@ export interface SpecialistData {
   rating: number;
   reviewCount: number;
   firstVisitFree: boolean;
+  firstVisitDurationMinutes?: number | null;
   avatar: string | null;
   user: {
     name: string;
@@ -113,6 +114,7 @@ export interface PublicSpecialistProfileData {
   rating: number | null;
   reviewCount: number | null;
   firstVisitFree: boolean;
+  firstVisitDurationMinutes?: number | null;
   matchingProfile: Record<string, unknown>;
   avatar: string | null;
   user: {
@@ -453,6 +455,7 @@ export function mapSpecialistToProfile(data: Omit<SpecialistData, 'userId'>): Sp
     religionOtherText: data.religionOtherText ?? null,
     verificationStatus: data.verificationStatus || undefined,
     firstVisitFree: data.firstVisitFree || false,
+    firstVisitDurationMinutes: data.firstVisitDurationMinutes,
     collegiateNumber: data.collegiateNumber || undefined,
   };
 }

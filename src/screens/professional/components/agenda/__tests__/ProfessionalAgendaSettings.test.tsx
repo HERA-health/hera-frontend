@@ -25,7 +25,7 @@ it('does not invent defaults on load failure and allows retry', async () => {
   await waitFor(() => expect(screen.getByText('Sin conexión')).toBeTruthy());
   expect(screen.queryByRole('switch')).toBeNull();
   fireEvent.press(screen.getByText('Reintentar'));
-  await waitFor(() => expect(screen.getByLabelText('Confirmación automática')).toBeTruthy());
+  await waitFor(() => expect(screen.getByLabelText('Confirmación automática de citas')).toBeTruthy());
   expect(updateAgendaPreferences).not.toHaveBeenCalled();
 });
 
@@ -34,13 +34,13 @@ it('keeps the draft after failed save and blocks dismissing while saving', async
   let rejectSave: (error: Error) => void = () => {};
   jest.mocked(updateAgendaPreferences).mockReturnValue(new Promise((_resolve, reject) => { rejectSave = reject; }));
   const screen = render(<ProfessionalAgendaSettings {...callbacks} />);
-  await waitFor(() => expect(screen.getByLabelText('Confirmación automática')).toBeTruthy());
-  fireEvent(screen.getByLabelText('Confirmación automática'), 'valueChange', false);
+  await waitFor(() => expect(screen.getByLabelText('Confirmación automática de citas')).toBeTruthy());
+  fireEvent(screen.getByLabelText('Confirmación automática de citas'), 'valueChange', false);
   fireEvent.press(screen.getByText('Guardar'));
   fireEvent.press(screen.getByLabelText('Cerrar ajustes'));
   expect(callbacks.onClose).not.toHaveBeenCalled();
   await act(async () => rejectSave(new Error('Error al guardar')));
-  expect(screen.getByLabelText('Confirmación automática').props.value).toBe(false);
+  expect(screen.getByLabelText('Confirmación automática de citas').props.value).toBe(false);
   expect(screen.getByText('Error al guardar')).toBeTruthy();
   fireEvent.press(screen.getByText('Cancelar'));
   expect(callbacks.onClose).toHaveBeenCalledTimes(1);

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import {
   Modal,
+  ScrollView,
   View,
   Text,
   StyleSheet,
@@ -23,6 +24,9 @@ export interface DropdownOption<T> {
   label: string;
   value: T;
   subtitle?: string;
+  icon?: keyof typeof Ionicons.glyphMap;
+  /** Consecutive tiles share a row in pairs. Other options use the full width. */
+  tile?: boolean;
 }
 
 export interface SimpleDropdownProps<T> {
@@ -42,6 +46,8 @@ export interface SimpleDropdownProps<T> {
   highlightSelection?: boolean;
   presentation?: 'inline' | 'portal';
   triggerLabel?: string;
+  triggerIcon?: keyof typeof Ionicons.glyphMap;
+  triggerFocusRef?: React.RefObject<AnimatedPressableHandle | null>;
   keyboardNavigation?: boolean;
   /** Nested dialogs can activate their focus/escape handling without waiting for a fade. */
   portalAnimation?: 'none' | 'fade';
@@ -73,6 +79,8 @@ export function SimpleDropdown<T extends string | number>({
   highlightSelection = true,
   presentation = 'inline',
   triggerLabel,
+  triggerIcon,
+  triggerFocusRef,
   keyboardNavigation = false,
   portalAnimation = 'fade',
   focusOptionOnShow = false,
@@ -87,7 +95,18 @@ export function SimpleDropdown<T extends string | number>({
     wasOpen.current = open;
   }, [open, onOpen]);
   const [anchor, setAnchor] = useState<DropdownAnchor | null>(null);
-  const triggerRef = React.useRef<AnimatedPressableHandle>(null);
+  const internalTriggerRef = React.useRef<AnimatedPressableHandle>(null);
+  const triggerRef = triggerFocusRef ?? internalTriggerRef;
+  const tileRows = React.useMemo(() => {
+    if (!options.some(option => option.tile)) return null;
+    const rows: number[][] = [];
+    options.forEach((option, index) => {
+      const previous = rows[rows.length - 1];
+      if (option.tile && previous?.length === 1 && options[previous[0]].tile) previous.push(index);
+      else rows.push([index]);
+    });
+    return rows;
+  }, [options]);
   const optionRefs = React.useRef<Array<AnimatedPressableHandle | null>>([]);
   const selected = options.find((o) => o.value === value);
   const selectionHighlighted = Boolean(selected && highlightSelection);
@@ -98,7 +117,7 @@ export function SimpleDropdown<T extends string | number>({
     if (restoreFocus && Platform.OS === 'web') {
       setTimeout(() => triggerRef.current?.focus(), 0);
     }
-  }, []);
+  }, [triggerRef]);
 
   React.useEffect(() => {
     if (disabled && open) closeDropdown();
@@ -113,7 +132,7 @@ export function SimpleDropdown<T extends string | number>({
     trigger.measureInWindow((x, y, triggerWidth, triggerHeight) => {
       setAnchor({ x, y, width: triggerWidth, height: triggerHeight });
     });
-  }, [compact]);
+  }, [compact, triggerRef]);
 
   React.useEffect(() => {
     if (!open || presentation !== 'portal') return;
@@ -145,7 +164,8 @@ export function SimpleDropdown<T extends string | number>({
       viewportMargin,
       Math.min(preferredLeft, viewportWidth - width - viewportMargin),
     );
-    const estimatedHeight = Math.min(maxHeight, Math.max(56, options.length * 48 + 12));
+    const contentHeight = tileRows ? tileRows.length * 44 + (tileRows.length - 1) * 4 + 18 : options.length * 48 + 12;
+    const estimatedHeight = Math.min(maxHeight, Math.max(56, contentHeight));
     const belowTop = anchor.y + anchor.height + spacing.xs;
     const availableBelow = Math.max(0, viewportHeight - belowTop - viewportMargin);
     const availableAbove = Math.max(0, anchor.y - viewportMargin - spacing.xs);
@@ -158,7 +178,7 @@ export function SimpleDropdown<T extends string | number>({
       ? Math.max(viewportMargin, anchor.y - resolvedHeight - spacing.xs)
       : belowTop;
     return { left, top, width, maxHeight: resolvedMaxHeight };
-  }, [anchor, maxHeight, options.length, optionsAlign, optionsMinWidth, presentation, viewportHeight, viewportWidth]);
+  }, [anchor, maxHeight, options.length, tileRows, optionsAlign, optionsMinWidth, presentation, viewportHeight, viewportWidth]);
 
   React.useEffect(() => {
     if (!open || !keyboardNavigation || Platform.OS !== 'web' || (presentation === 'portal' && !portalLayout)) return;
@@ -169,6 +189,98 @@ export function SimpleDropdown<T extends string | number>({
     return () => clearTimeout(timer);
   }, [open, keyboardNavigation, portalLayout, presentation, options, value]);
 
+  const renderOption = (opt: DropdownOption<T>, index: number): React.ReactElement => {
+    const active = opt.value === value;
+    const indicatorRole = selectionIndicator === 'none' ? 'button' : selectionIndicator;
+    return (
+      <AnimatedPressable
+        key={String(opt.value)}
+        focusRef={ref => { optionRefs.current[index] = ref; }}
+        onKeyDown={event => {
+          if (!keyboardNavigation) return;
+          if (tileRows && event.key.startsWith('Arrow')) {
+            event.preventDefault();
+            const rowIndex = tileRows.findIndex(row => row.includes(index));
+            const row = tileRows[rowIndex];
+            const column = row.indexOf(index);
+            if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+              const next = column + (event.key === 'ArrowLeft' ? -1 : 1);
+              optionRefs.current[row[Math.max(0, Math.min(next, row.length - 1))]]?.focus();
+            } else {
+              const next = rowIndex + (event.key === 'ArrowUp' ? -1 : 1);
+              const target = tileRows[(next + tileRows.length) % tileRows.length];
+              optionRefs.current[target[Math.min(column, target.length - 1)]]?.focus();
+            }
+            return;
+          }
+          if (!['ArrowDown', 'ArrowUp', 'Home', 'End', 'Tab'].includes(event.key)) return;
+          event.preventDefault();
+          const direction = event.key === 'ArrowUp' || (event.key === 'Tab' && event.shiftKey) ? -1 : 1;
+          const next = event.key === 'Home' ? 0 : event.key === 'End' ? options.length - 1
+            : (index + direction + options.length) % options.length;
+          optionRefs.current[next]?.focus();
+        }}
+        disabled={disabled}
+        style={[dropdownStyles.option, tileRows && dropdownStyles.gridOption, opt.tile && dropdownStyles.tile,
+          active && dropdownStyles.optionActive, active && opt.tile && dropdownStyles.selectedTile]}
+        onPress={() => {
+          if (active && onClear) {
+            onClear();
+          } else {
+            onSelect(opt.value);
+          }
+          closeDropdown();
+        }}
+        hoverLift={false}
+        pressScale={0.98}
+        accessibilityRole={indicatorRole}
+        accessibilityLabel={opt.label}
+        accessibilityState={selectionIndicator === 'none'
+          ? { selected: active }
+          : { checked: active, selected: active }}
+      >
+        <View style={[dropdownStyles.optionRow, opt.tile && dropdownStyles.tileContent]}>
+          {opt.icon && <Ionicons name={opt.icon} size={18} color={active ? theme.primary : theme.textSecondary} />}
+          {selectionIndicator !== 'none' ? (
+            <View
+              style={[
+                dropdownStyles.selectionIndicator,
+                selectionIndicator === 'radio' && dropdownStyles.radioIndicator,
+                {
+                  backgroundColor: active && selectionIndicator === 'checkbox' ? theme.primary : 'transparent',
+                  borderColor: active ? theme.primary : theme.border,
+                },
+              ]}
+            >
+              {active && selectionIndicator === 'checkbox' ? (
+                <Ionicons name="checkmark" size={13} color={theme.actionPrimaryText} />
+              ) : null}
+              {active && selectionIndicator === 'radio' ? (
+                <View style={[dropdownStyles.radioDot, { backgroundColor: theme.primary }]} />
+              ) : null}
+            </View>
+          ) : null}
+          <View style={!opt.tile && dropdownStyles.optionCopy}>
+            <Text
+              style={[dropdownStyles.optionText, active && dropdownStyles.optionTextActive, active && opt.tile && { color: theme.actionPrimaryText }]}
+            >
+              {opt.label}
+            </Text>
+            {opt.subtitle ? (
+              <Text style={dropdownStyles.optionSubtitle} numberOfLines={1}>
+                {opt.subtitle}
+              </Text>
+            ) : null}
+          </View>
+          {selectionIndicator === 'none' && active && (
+            <Ionicons name="checkmark" size={opt.tile ? 15 : 18} color={opt.tile ? theme.actionPrimaryText : theme.primary} />
+          )}
+        </View>
+      </AnimatedPressable>
+    );
+  };
+
+  const OptionsScrollView = tileRows ? ScrollView : VisibleScrollView;
   const renderOptions = (portal: boolean): React.ReactElement => (
     <View
       testID={accessibilityLabel ? `${accessibilityLabel}-options` : undefined}
@@ -180,83 +292,13 @@ export function SimpleDropdown<T extends string | number>({
         !portal && optionsAlign === 'right' ? dropdownStyles.optionsListRight : null,
       ]}
     >
-      <VisibleScrollView nestedScrollEnabled bounces={false} contentContainerStyle={dropdownStyles.optionsContent}>
-        {options.map((opt, index) => {
-          const active = opt.value === value;
-          const indicatorRole = selectionIndicator === 'checkbox'
-            ? 'checkbox'
-            : selectionIndicator === 'radio'
-              ? 'radio'
-              : 'button';
-
-          return (
-            <AnimatedPressable
-              key={String(opt.value)}
-              focusRef={ref => { optionRefs.current[index] = ref; }}
-              onKeyDown={event => {
-                if (!keyboardNavigation || !['ArrowDown', 'ArrowUp', 'Home', 'End', 'Tab'].includes(event.key)) return;
-                event.preventDefault();
-                const direction = event.key === 'ArrowUp' || (event.key === 'Tab' && event.shiftKey) ? -1 : 1;
-                const next = event.key === 'Home' ? 0 : event.key === 'End' ? options.length - 1
-                  : (index + direction + options.length) % options.length;
-                optionRefs.current[next]?.focus();
-              }}
-              disabled={disabled}
-              style={active ? [dropdownStyles.option, dropdownStyles.optionActive] : dropdownStyles.option}
-              onPress={() => {
-                if (active && onClear) {
-                  onClear();
-                } else {
-                  onSelect(opt.value);
-                }
-                closeDropdown();
-              }}
-              hoverLift={false}
-              pressScale={0.98}
-              accessibilityRole={indicatorRole}
-              accessibilityLabel={opt.label}
-              accessibilityState={selectionIndicator === 'none'
-                ? { selected: active }
-                : { checked: active, selected: active }}
-            >
-              <View style={dropdownStyles.optionRow}>
-                {selectionIndicator !== 'none' ? (
-                  <View
-                    style={[
-                      dropdownStyles.selectionIndicator,
-                      selectionIndicator === 'radio' && dropdownStyles.radioIndicator,
-                      {
-                        backgroundColor: active && selectionIndicator === 'checkbox' ? theme.primary : 'transparent',
-                        borderColor: active ? theme.primary : theme.border,
-                      },
-                    ]}
-                  >
-                    {active && selectionIndicator === 'checkbox' ? (
-                      <Ionicons name="checkmark" size={13} color={theme.actionPrimaryText} />
-                    ) : null}
-                    {active && selectionIndicator === 'radio' ? (
-                      <View style={[dropdownStyles.radioDot, { backgroundColor: theme.primary }]} />
-                    ) : null}
-                  </View>
-                ) : null}
-                <View style={dropdownStyles.optionCopy}>
-                  <Text
-                    style={active ? [dropdownStyles.optionText, dropdownStyles.optionTextActive] : dropdownStyles.optionText}
-                  >
-                    {opt.label}
-                  </Text>
-                  {opt.subtitle ? (
-                    <Text style={dropdownStyles.optionSubtitle} numberOfLines={1}>
-                      {opt.subtitle}
-                    </Text>
-                  ) : null}
-                </View>
-                {selectionIndicator === 'none' && active ? <Ionicons name="checkmark" size={18} color={theme.primary} /> : null}
-              </View>
-            </AnimatedPressable>
-          );
-        })}
-      </VisibleScrollView>
+      <OptionsScrollView nestedScrollEnabled bounces={false} contentContainerStyle={[dropdownStyles.optionsContent, tileRows && dropdownStyles.tileMenu]}>
+        {tileRows ? tileRows.map(row => (
+          <View key={String(options[row[0]].value)} style={dropdownStyles.tileRow}>
+            {row.map(index => renderOption(options[index], index))}
+          </View>
+        )) : options.map(renderOption)}
+      </OptionsScrollView>
     </View>
   );
 
@@ -286,6 +328,7 @@ export function SimpleDropdown<T extends string | number>({
           hoverLift={false}
           pressScale={0.98}
         >
+          {triggerIcon && <Ionicons name={triggerIcon} size={17} color={theme.textSecondary} />}
           <View style={{ flex: 1, minWidth: 0 }}>
             <Text
               style={[
@@ -456,6 +499,12 @@ function createStyles(theme: Theme) {
       alignItems: 'center',
       gap: 10,
     },
+    tileRow: { flexDirection: 'row', gap: 6 },
+    tileMenu: { padding: 8, gap: 4 },
+    gridOption: { flex: 1, minHeight: 44, paddingVertical: 8, paddingHorizontal: 10 },
+    tile: { backgroundColor: theme.bgMuted },
+    selectedTile: { backgroundColor: theme.actionPrimary },
+    tileContent: { justifyContent: 'center' },
     optionCopy: {
       flex: 1,
       minWidth: 0,

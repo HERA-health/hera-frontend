@@ -26,13 +26,13 @@ export function BookingConfirmationSwitch({ confirmation, showIcon = true, compa
       <Ionicons name="calendar-outline" size={18} color={theme.link} />
     </View>}
     <View style={{ flexShrink: 1, gap: 2 }}>
-      <Text style={{ fontFamily: theme.fontSansSemiBold, fontSize: 14, color: theme.textPrimary }}>Confirmación automática</Text>
+      <Text style={{ fontFamily: theme.fontSansSemiBold, fontSize: 14, color: theme.textPrimary }}>Confirmación automática de citas</Text>
       {!compact && <Text accessibilityLiveRegion="polite" style={{ fontFamily: theme.fontSans, fontSize: 12, lineHeight: 18, color: theme.textSecondary }}>
         {statusText(confirmation)}
       </Text>}
     </View>
     {confirmation.value !== null
-      ? <Switch accessibilityLabel="Confirmación automática" value={confirmation.value}
+      ? <Switch accessibilityLabel="Confirmación automática de citas" value={confirmation.value}
           accessibilityState={{ busy: confirmation.saving }} disabled={confirmation.saving || !!confirmation.error}
           onValueChange={confirmation.change} trackColor={{ false: theme.textMuted, true: theme.primary }} thumbColor={theme.textOnPrimary} />
       : !confirmation.error && <ActivityIndicator size="small" accessibilityLabel="Cargando confirmación automática" color={theme.primary} />}
