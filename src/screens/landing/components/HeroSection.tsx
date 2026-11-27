@@ -44,7 +44,7 @@ export function HeroSection({
       description: 'Compara perfiles, modalidades y precios antes de reservar.',
       benefits: ['Perfiles verificados', 'Sesiones online y presenciales', 'Modalidades y tarifas visibles'],
       compactBenefits: 'Perfiles verificados · Online y presencial',
-      label: 'Buscar psicólogo/a', onPress: onFindSpecialist,
+      label: 'Ver psicólogos/as', onPress: onFindSpecialist,
       background: theme.secondaryMuted, accent: theme.actionPrimary,
     },
     {
@@ -120,8 +120,8 @@ export function HeroSection({
                   <Ionicons name="arrow-forward" size={18} color={index === 0 ? theme.actionPrimaryText : theme.primary} />
                 </AnimatedPressable>
                 {index === 0 && onQuestionnaire ? (
-                  <AnimatedPressable onPress={onQuestionnaire} href="/cuestionario" accessibilityRole="link" accessibilityLabel="Ayúdame a elegir: hacer el cuestionario" hoverLift={false} pressScale={1} style={[styles.action, { minHeight: 44, marginTop: 6, paddingVertical: 8, borderWidth: 1, borderColor: theme.borderStrong }]}>
-                    <Text style={[styles.actionText, { color: theme.textPrimary, fontFamily: theme.fontSansSemiBold }]}>Ayúdame a elegir</Text>
+                  <AnimatedPressable onPress={onQuestionnaire} href="/cuestionario" accessibilityRole="link" accessibilityLabel="Encuentra tu psicólogo/a: hacer el cuestionario" hoverLift={false} pressScale={1} style={[styles.action, { minHeight: 44, marginTop: 6, paddingVertical: 8, borderWidth: 1, borderColor: theme.borderStrong }]}>
+                    <Text style={[styles.actionText, { color: theme.textPrimary, fontFamily: theme.fontSansSemiBold }]}>Encuentra tu psicólogo/a</Text>
                     <Ionicons name="search-outline" size={17} color={theme.textPrimary} />
                   </AnimatedPressable>
                 ) : null}

@@ -150,7 +150,7 @@ export const buildPublicDirectoryQueryParams = (
 };
 
 export const landingEditorial = {
-  headingStart: 'Encuentra al ', headingEmphasis: 'psicólogo', headingEnd: ' ideal para ti.',
+  headingStart: 'Encuentra tu ', headingEmphasis: 'psicólogo/a', headingEnd: ' online o presencial',
   introduction: 'Encuentra terapia online o presencial. Compara perfiles verificados, especialidades y precios para elegir con quién empezar.',
   profilesHeading: 'Elige psicólogo/a con información clara',
   profilesIntroduction: 'Conoce la experiencia y el enfoque de cada perfil. Consulta qué temas aborda en terapia, cómo son sus sesiones y cuánto cuestan antes de decidir.',

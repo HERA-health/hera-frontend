@@ -232,11 +232,11 @@ describe('LandingPage', () => {
     render(<LandingPage />);
 
     expect(screen.getByText('PSICOLOGÍA ONLINE Y PRESENCIAL')).toBeTruthy();
-    expect(screen.getByText('Encuentra al psicólogo ideal para ti.')).toBeTruthy();
+    expect(screen.getByText('Encuentra tu psicólogo/a online o presencial')).toBeTruthy();
     expect(screen.getByText('Busco psicólogo/a')).toBeTruthy();
     expect(screen.getByText('Soy psicólogo/a')).toBeTruthy();
     expect(screen.queryByText('Salud mental')).toBeNull();
-    expect(screen.getAllByText('Buscar psicólogo/a').length).toBeGreaterThan(0);
+    expect(screen.getByText('Ver psicólogos/as')).toBeTruthy();
     expect(screen.getByText('Conocer las herramientas')).toBeTruthy();
     expect(screen.queryByText('Encuentra tu profesional')).toBeNull();
     expect(screen.queryByText('Tu consulta, organizada')).toBeNull();
@@ -284,9 +284,9 @@ describe('LandingPage', () => {
     render(<LandingPage />);
     fireEvent.press(screen.getByRole('link', { name: 'Hacer cuestionario' }));
     expect(navigate).toHaveBeenLastCalledWith('Questionnaire');
-    fireEvent.press(screen.getByRole('link', { name: 'Ayúdame a elegir: hacer el cuestionario' }));
+    fireEvent.press(screen.getByRole('link', { name: 'Encuentra tu psicólogo/a: hacer el cuestionario' }));
     expect(navigate).toHaveBeenLastCalledWith('Questionnaire');
-    fireEvent.press(within(screen.getByTestId('landing-hero')).getByRole('link', { name: 'Buscar psicólogo/a' }));
+    fireEvent.press(within(screen.getByTestId('landing-hero')).getByRole('link', { name: 'Ver psicólogos/as' }));
     expect(navigate).toHaveBeenLastCalledWith('PublicSpecialists');
     expect(analyticsService.track).toHaveBeenCalledWith('landing_patient_cta_clicked', { placement: 'hero', audience: 'patient' });
   });
@@ -376,7 +376,7 @@ describe('LandingPage', () => {
     expect(screen.getByText('toggle-theme')).toBeTruthy();
     expect(screen.queryByLabelText('Abrir menú de navegación')).toBeNull();
     expect(screen.getByRole('link', { name: 'Ir a Cómo funciona' })).toBeTruthy();
-    expect(screen.getAllByText('Buscar psicólogo/a').length).toBeGreaterThan(0);
+    expect(screen.getByText('Ver psicólogos/as')).toBeTruthy();
     expect(screen.getByText('Conocer las herramientas')).toBeTruthy();
     expect(screen.getByText('Busco psicólogo/a')).toBeTruthy();
     expect(screen.getByText('Soy psicólogo/a')).toBeTruthy();
@@ -390,7 +390,7 @@ describe('LandingPage', () => {
   it('opens the public directory for an unauthenticated patient without login', () => {
     render(<LandingPage />);
 
-    fireEvent.press(screen.getAllByText('Buscar psicólogo/a')[0]);
+    fireEvent.press(screen.getByText('Ver psicólogos/as'));
 
     expect(navigate).toHaveBeenCalledWith('PublicSpecialists');
     expect(navigate).not.toHaveBeenCalledWith('Login', expect.anything());
